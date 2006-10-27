@@ -1,0 +1,75 @@
+<%~
+
+%% @title erlyweb_html.et
+%% @doc This file contains functions for generating common HTML elements.
+%%  You can import them into your templates or use them directly.
+%%
+%% @license for license information see LICENSE.txt
+
+-author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsadan.com").
+
+%% A helper function
+join(Args) ->
+  join(Args, []).
+
+join([], Acc) -> [];
+join([Last], Acc) ->
+  lists:reverse([Last | Acc]);
+join([First | Rest], Acc) ->
+  join(Rest, [[First, $/] | Acc]).
+
+%>
+
+<%@ a(PathElems, Text) %>
+<a href="<% join(PathElems) %>"><% Text %></a>
+
+<%@ table(Records) %>
+<% table(Records, undefined) %>
+
+<%@ table(Records, Headers) %>
+<table>
+<% headers(Headers) %>
+<% [row(R) || R <- Records] %>
+</table>
+
+<%@ headers(undefined) %>
+<%@ headers(Headers) %>
+<tr><% [header(H) || H <- Headers] %></tr>
+
+<%@ header %>
+<th><% Data %></th>
+<%@ row %>
+<tr><% [cell(C) || C <- Data] %></tr>
+<%@ cell %>
+<td><% Data %></td>
+
+<%@ form(Action, Function, Fields) %>
+<form method="post" action="<% Action %>">
+<table>
+<% [field(F) || F <- Fields] %>
+<tr>
+  <td colspan="2" align="right"><input type="submit" value="submit"></td>
+</tr>
+</table>
+</form>
+
+<%@ field({Name, Type, Modifier, Val} = Field) %>
+<tr><td valign="top"><% Name %></td><td><% input(Name, Type, Modifier, Val) %></td></tr>
+
+<%@ input(Name, text_area, _Modifier, Val) %>
+<textarea name="<% Name %>" rows="10" cols="40"><% Val %></textarea>
+
+<%@ input(Name, text_field, undefined, Val) %>
+<input name="<% Name %>" type="text" size="20" value="<%Val%>">
+
+<%@ input(Name, text_field, MaxLength, Val) %>
+<input name="<% Name %>" type="text" maxlength="<% MaxLength %>" size="20" value="<%Val%>">
+
+<%@ input(Name, select, Options, Val) %>
+<select name="<% Name %>"><% [option(O, Val) || O <- Options] %></select>
+
+<%@ option(Name, Name) %>
+<option selected><% Name %></option>
+
+<%@ option(Name, _Val) %>
+<option><% Name %></option>

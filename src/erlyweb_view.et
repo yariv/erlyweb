@@ -1,0 +1,45 @@
+<%~
+%% @title erlyweb_view.et
+%% @doc This is a generic view template for making simple CRUD
+%%   pages with ErlyWeb. It's intended for demonstration purposes,
+%%   but not for production use.
+%%
+%% @license for license information see LICENSE.txt
+
+-author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com)").
+-import(erlyweb_html, [a/2, table/1, table/2, form/3]).
+
+%% You can add component-specific headers and footers around the Data
+%% element below.
+%>
+<% Data %>
+
+<%@ list({AppRoot, Model, Fields, Records}) %>
+<% a(["", AppRoot, Model, <<"new">>], <<"create new">>) %><br><br>
+Records of '<% Model %>'<br/>
+<% table(Records, Fields) %>
+
+<%@ new({_AppRoot, Model, _Id, Action, FieldData}) %>
+Create a new <% Model %>:<br/>
+<% form(Action, <<"new">>, FieldData) %>
+
+<%@ edit({AppRoot, Model, Id, Action, FieldData}) %>
+<a href="<% AppRoot %>/<% Model %>/delete/<% Id %>">delete</a>
+<br/><br/>
+<% form(Action, <<"edit">>, FieldData) %>
+
+<%@ delete({AppRoot, Model, Id, Combined}) %>
+Are you sure you want to delete this <% Model %>?
+<% table(Combined) %>
+<table><tr>
+<td>
+<form action="<% AppRoot %>/<% Model %>/delete/<% Id %>"
+  method="post">
+<input type="submit" value="yes">
+<input type="button" onclick="location.href='<% AppRoot %>/<% Model%>'"
+  value="no">
+</td>
+<td>
+</form>
+</td>
+</tr></table>
