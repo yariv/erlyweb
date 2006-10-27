@@ -13,7 +13,7 @@
 
 -compile(export_all).
 
--include("/Users/yariv/yaws/include/yaws_api.hrl").
+-include("yaws/include/yaws_api.hrl").
 
 new() ->
     #arg{}.
