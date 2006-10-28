@@ -6,7 +6,7 @@
 %%
 %% @license for license information see LICENSE.txt
 
--author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsadan.com").
+-author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
 
 %% A helper function
 join(Args) ->
