@@ -70,7 +70,7 @@ new_or_edit(A, Model, Record) ->
 	    end,
     case yaws_arg:method(A) of
 	'GET' ->
-	    FieldData = [{erlydb_field:name_str(Field),
+	    FieldData = [{erlydb_field:name_bin(Field),
 			  erlydb_field:html_input_type(Field),
 			  erlydb_field:modifier(Field),
 			  Val} || {Field, Val} <- Combined],
