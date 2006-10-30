@@ -31,15 +31,9 @@ Create a new <% Model %>:<br/>
 <%@ delete({AppRoot, Model, Id, Combined}) %>
 Are you sure you want to delete this <% Model %>?
 <% table(Combined) %>
-<table><tr>
-<td>
 <form action="<% AppRoot %>/<% Model %>/delete/<% Id %>"
   method="post">
 <input type="submit" value="yes">
 <input type="button" onclick="location.href='<% AppRoot %>/<% Model%>'"
   value="no">
-</td>
-<td>
 </form>
-</td>
-</tr></table>
