@@ -2,10 +2,10 @@ CREATE TABLE musician (
   id integer primary key auto_increment,
   name varchar(20),
   birth_date date,
-  instrument enum("guitar", "bass",
+  instrument enum("guitar", "piano",
     "drums", "vocals"),
   bio text
-);
+) type=INNODB;
 
 
 INSERT INTO musician(name, birth_date,
