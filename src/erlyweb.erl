@@ -73,16 +73,16 @@ compile(DocRoot) ->
 %%    it should slow the your app down significantly (to turn auto_compile
 %%    off, just call erlyweb:compile without the auto_compile option).
 %%
-%%  - {pre_compile_hook, Fun}: A function to call prior to (auto)compiling
-%%    the app. Fun is a function that takes 1 parameters, which is the
+%%  - {pre_compile_hook, {Module, Function}}: A function to call prior
+%%    to (auto)compiling the app. The functiontakes 1 parameters, which is the
 %%    time of the last compilation (if the time is unknown, the value is
 %%    'undefined').
 %%    This hook is useful for extending the compilation
 %%    process in an arbitrary way, e.g. by compiling extra directories
 %%    or writing something to a log file.
 %%
-%%  - {post_compile_hook, Fun}: Similar to pre_compile_hook, but called
-%%    after the compilation of the app.
+%%  - {post_compile_hook, {Module, Function}}: Similar to pre_compile_hook,
+%%    but called after the compilation of the app.
 compile(DocRoot, Options) ->
     DocRoot1 = case lists:reverse(DocRoot) of
 		   [$/ | _] -> DocRoot;
@@ -106,7 +106,7 @@ compile(DocRoot, Options) ->
 	get_option(last_compile_time, {{1980,1,1},{0,0,0}}, Options1),
     LastCompileTime1 = case LastCompileTime of
 			   {{1980,1,1},{0,0,0}} -> undefined;
-			   Other -> Other
+			   OtherTime -> OtherTime
 		       end,
 
     case proplists:get_value(pre_compile_hook, Options) of
