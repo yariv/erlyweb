@@ -44,54 +44,88 @@ create_component(Component, Dir) ->
 %% @doc Compile all the files for an application. Files with the '.et'
 %%   extension are compiled with ErlTL.
 %%
-%%   This function returns {ok, Now}, where Now is the result of calling
-%%   calendar:local_time(). You can pass this value as a parameter to
-%%   your next call of compile/3, telling ErlyWeb to avoid recompiling
-%%   files that haven't changed.
+%%   This function returns {ok, {last_compile_time, Now}}, where Now is
+%%   the result of calendar:local_time().
+%%   You can pass the second value as an option in the next call to compile/2,
+%%   telling ErlyWeb to avoid recompiling files that haven't changed.
 compile(DocRoot) ->
     compile(DocRoot, []).
-    
+
 %% @doc Compile all the files for an application using the compilation
 %%  options as described in the 'compile' module in the Erlang
-%%  documentation. 
+%%  documentation.
+%%  There are also the following additional ErlyWeb-specific options:
+%%  - {last_compile_time, LocalTime}: Tells ErlyWeb to not compile files
+%%    that haven't changed since LocalTime.
+%%
+%%  - {erlydb_driver, Name}: Tells ErlyWeb which driver to use
+%%    when calling erlydb:code_gen on models that are placed in src/components.
+%%    If you aren't using ErlyDB, i.e., you don't have any model files in
+%%    src/components, you can omit this option.
+%%
+%%  - {auto_compile, Val}, where Val is 'true', or 'false'.
+%%    This option tells ErlyWeb whether it should turn on auto-compilation.
+%%    Auto-compilation is useful during development because it automatically
+%%    compiles files that have changed since the previous request when
+%%    a new request arrives, which spares you from having to call
+%%    erlyweb:compile yourself every time you change a file. However,
+%%    remember to turn this option off when you are in production mode because
+%%    it should slow the your app down significantly (to turn auto_compile
+%%    off, just call erlyweb:compile without the auto_compile option).
+%%
+%%  - {pre_compile_hook, Fun}: A function to call prior to (auto)compiling
+%%    the app. Fun is a function that takes 1 parameters, which is the
+%%    time of the last compilation (if the time is unknown, the value is
+%%    'undefined').
+%%    This hook is useful for extending the compilation
+%%    process in an arbitrary way, e.g. by compiling extra directories
+%%    or writing something to a log file.
+%%
+%%  - {post_compile_hook, Fun}: Similar to pre_compile_hook, but called
+%%    after the compilation of the app.
 compile(DocRoot, Options) ->
-    compile(DocRoot, Options, {{1980,1,1},{0,0,0}}).
-
-%% @doc Compile an application using the compilation options while avoiding
-%%   the recompilation of files that haven't changed since LastCompileTime.
-compile(DocRoot, Options, LastCompileTime) ->
     DocRoot1 = case lists:reverse(DocRoot) of
 		   [$/ | _] -> DocRoot;
 		   Other -> lists:reverse([$/ | Other])
 	       end,
+    
+    {Options1, OutDir} =
+	get_option(outdir, DocRoot1 ++ "ebin", Options),
 
-    {Options1, OutDir1} =
-	case lists:keysearch(outdir, 1, Options) of
-	    {value, {outdir, OutDir}} -> {Options, OutDir};
-	    false -> OutDir = DocRoot1 ++ "ebin",
-		     {[{outdir, OutDir}], OutDir}
-	end,
-    file:make_dir(OutDir1),
+    file:make_dir(OutDir),
 
     AppName = filename:basename(DocRoot),
     AppData = get_app_data_module(AppName),
     InitialAcc =
 	case catch AppData:components() of
-	    {'EXIT', {undef, _}} -> {gb_trees:empty(), 1, []};
-	    LastControllers -> {LastControllers, 0, []}
+	    {'EXIT', {undef, _}} -> {gb_trees:empty(), []};
+	    LastControllers -> {LastControllers, []}
 	end,
+
+    {Options2, LastCompileTime} =
+	get_option(last_compile_time, {{1980,1,1},{0,0,0}}, Options1),
+    LastCompileTime1 = case LastCompileTime of
+			   {{1980,1,1},{0,0,0}} -> undefined;
+			   Other -> Other
+		       end,
+
+    case proplists:get_value(pre_compile_hook, Options) of
+	undefined -> ok;
+	{Module, Fun} -> Module:Fun(LastCompileTime1)
+    end,
+
 
     LastCompileTimeInSeconds =
 	calendar:datetime_to_gregorian_seconds(LastCompileTime),
 
     
-    {ComponentTree1, TotalControllerCompiles, Models} =
+    {ComponentTree1, Models} =
 	filelib:fold_files(
 	  DocRoot1 ++ "src", "\.(erl|et)$", true,
 	  fun(FileName, Acc) ->
 		  compile_component_file(
 		    DocRoot1 ++ "src/components", FileName,
-		    LastCompileTimeInSeconds, Options1, Acc)
+		    LastCompileTimeInSeconds, Options2, Acc)
 	  end, InitialAcc),
 
     ErlyDBResult =
@@ -114,32 +148,37 @@ compile(DocRoot, Options, LastCompileTime) ->
 		AppDataAbsModule = make_app_data_module(
 				     AppData, AppName,
 				     ComponentTree1,
-				     TotalControllerCompiles > 0),
+				     Options),
 		smerl:compile(AppDataAbsModule);
 	   true -> ErlyDBResult
 	end,
 
     if Result == ok ->
+	    case proplists:get_value(post_compile_hook, Options) of
+		undefined -> ok;
+		{Module1, Fun1} -> Module1:Fun1(LastCompileTime1)
+	    end,
 	    {ok, calendar:local_time()};
        true -> Result
     end.
 
-make_app_data_module(AppData, AppName,
-		     ComponentTree, ControllersDidChange) ->
+get_option(Name, Default, Options) ->
+    case lists:keysearch(Name, 1, Options) of
+	{value, {_Name, Val}} -> {Options, Val};
+	false -> {[{Name, Default} | Options], Default}
+    end.
+
+make_app_data_module(AppData, AppName, ComponentTree, Options) ->
     M1 = smerl:new(AppData),
-    M3 = 
-	if ControllersDidChange ->
-		{ok, M2} =
-		    smerl:add_func(
-		      M1,
-		      {function,1,components,0,
-		       [{clause,1,[],[],
-			 [erl_parse:abstract(ComponentTree)]}]}),
-		M2;
-	   true -> M1
-	end,
+    {ok, M2} =
+	smerl:add_func(
+	  M1,
+	  {function,1,components,0,
+	   [{clause,1,[],[],
+	     [erl_parse:abstract(ComponentTree)]}]}),
+    M2,
     {ok, M4} = smerl:add_func(
-		 M3, "get_view() -> " ++ AppName ++ "_app_view."),
+		 M2, "get_view() -> " ++ AppName ++ "_app_view."),
     {ok, M5} = smerl:add_func(
 		 M4, "get_controller() -> " ++
 		 AppName ++ "_app_controller."),
@@ -158,12 +197,33 @@ make_app_data_module(AppData, AppName,
 		 M5, {function,1,get_views,0,
 		      [{clause,1,[],[],
 			[erl_parse:abstract(ViewsTree)]}]}),
-    M6.
+
+
+    {_Options1, AutoCompile} =
+	get_option(auto_compile, false, Options),
+
+    LastCompileTimeOpt = {last_compile_time, calendar:local_time()},
+
+    AutoCompileVal =
+	case AutoCompile of
+	    false -> false;
+	    true -> {true, [LastCompileTimeOpt | Options]};
+	    {true, Options} when is_list(Options) ->
+		Options1 = lists:keydelete(last_compile_time, 1, Options),
+		Options2 = [LastCompileTimeOpt | Options1],
+		{true, Options2}
+	end,
+
+    {ok, M7} =
+	smerl:add_func(
+	  M6, {function,1,auto_compile,0,
+	       [{clause,1,[],[],
+		 [erl_parse:abstract(AutoCompileVal)]}]}),
+    M7.
 
 
 compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
-		       Options, {ComponentTree, NumControllerCompiles,
-				 Models} = Acc) ->
+		       Options, {ComponentTree, Models} = Acc) ->
     BaseName = filename:rootname(filename:basename(FileName)),
     Extension = filename:extension(FileName),
     BaseNameTokens = string:tokens(BaseName, "_"),
@@ -195,9 +255,9 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
 	    {ActionName, _} = lists:split(length(BaseName) - 11, BaseName),
 	    {gb_trees:enter(
 	       ActionName, {list_to_atom(BaseName), Exports1}, ComponentTree),
-	     NumControllerCompiles + 1, Models};
+	     Models};
 	{{ok, _Module}, model} ->
-	    {ComponentTree, NumControllerCompiles, [FileName | Models]};
+	    {ComponentTree, [FileName | Models]};
 	{{ok, _Module}, _} -> Acc;
 	{ok, _} -> Acc;
 	{Err, _} -> exit(Err)
@@ -276,6 +336,19 @@ add_func(MetaMod, Name, Arity, Str) ->
 out(A) ->
     AppName = erlyweb_util:get_appname(A),
     AppData = get_app_data_module(AppName),
+    case AppData:auto_compile() of
+	false -> ok;
+	{true, Options} ->
+	    DocRoot = yaws_arg:docroot(A),
+	    AppRoot = case lists:last(DocRoot) of
+			  '/' -> filename:dirname(filename:dirname(DocRoot));
+			  _ -> filename:dirname(DocRoot)
+		      end,
+	    case compile(AppRoot, Options) of
+		{ok, _} -> ok;
+		Err -> exit(Err)
+	    end
+    end,
 
     case catch AppData:get_controller() of
 	{'EXIT', {undef, _}} ->
@@ -379,7 +452,7 @@ try_func(Module, FuncName, Param) ->
 get_ewc({ewc, A}, AppData) ->
     Tokens = string:tokens(yaws_arg:appmoddata(A), "/"),
     case Tokens of
-	[] -> {page, "/www/index.html"};
+	[] -> {page, "/index.html"};
 	[ComponentStr]->
 	    get_ewc(ComponentStr, "index", [A],
 		    AppData);
@@ -396,7 +469,7 @@ get_ewc(ComponentStr, FuncStr, [A | _] = Params,
 	  %% if the request doesn't match a controller's name,
 	  %% redirect it to www/[request]
 	  [_ | Url] = yaws_arg:appmoddata(A),
-	  {page, "/www/" ++ Url};
+	  {page, "/" ++ Url};
       {value, {Controller, Exports}} ->
 	  Arity = length(Params),
 	  get_ewc1(Controller, FuncStr, Arity,
