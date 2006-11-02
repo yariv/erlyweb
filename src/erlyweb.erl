@@ -106,7 +106,7 @@ compile(DocRoot, Options) ->
 	get_option(last_compile_time, {{1980,1,1},{0,0,0}}, Options1),
     LastCompileTime1 = case LastCompileTime of
 			   {{1980,1,1},{0,0,0}} -> undefined;
-			   Other -> Other
+			   OtherTime -> OtherTime
 		       end,
 
     case proplists:get_value(pre_compile_hook, Options) of
