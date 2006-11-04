@@ -65,12 +65,10 @@ compile(DocRoot) ->
 %%
 %%  - {auto_compile, Val}, where Val is 'true', or 'false'.
 %%    This option tells ErlyWeb whether it should turn on auto-compilation.
-%%    Auto-compilation is useful during development because it automatically
-%%    compiles files that have changed since the previous request when
-%%    a new request arrives, which spares you from having to call
-%%    erlyweb:compile yourself every time you change a file. However,
-%%    remember to turn this option off when you are in production mode because
-%%    it should slow the your app down significantly (to turn auto_compile
+%%    Auto-compilation is helpful during development because it spares you
+%%    from having to call erlyweb:compile every time you make a code change
+%%    to your app. Just remember to turn this option off when you are in
+%%    production mode because it will slow your app down (to turn auto_compile
 %%    off, just call erlyweb:compile without the auto_compile option).
 %%
 %%  - {pre_compile_hook, Fun}: A function to call prior to (auto)compiling
@@ -138,18 +136,18 @@ compile(DocRoot, Options) ->
 		 case lists:keysearch(erlydb_driver, 1, Options) of
 		     {value, {erlydb_driver, Driver}} ->
 			 erlydb:code_gen(Driver, lists:reverse(Models),
-					 Options);
+					 Options2);
 		     false -> {error, missing_erlydb_driver_option}
 		 end
 	end,
     
     Result = 
 	if ErlyDBResult == ok ->
-		AppDataAbsModule = make_app_data_module(
+		AppDataModule = make_app_data_module(
 				     AppData, AppName,
 				     ComponentTree1,
 				     Options),
-		smerl:compile(AppDataAbsModule);
+		smerl:compile(AppDataModule, Options2);
 	   true -> ErlyDBResult
 	end,
 
@@ -278,7 +276,7 @@ compile_file(FileName, BaseName, Extension, Type,
 			    erltl:compile(FileName, Options);
 			".erl" ->
 			    ?Debug("Compiling Erlang file ~p", [BaseName]),
-			    compile_file(FileName, BaseName, Type)
+			    compile_file(FileName, BaseName, Type, Options)
 		    end;
 	       true -> 
 		    ?Debug("Skipping compilation of ~p", [BaseName]),
@@ -288,11 +286,11 @@ compile_file(FileName, BaseName, Extension, Type,
 	    Err1
     end.
 
-compile_file(FileName, BaseName, Type) ->
+compile_file(FileName, BaseName, Type, Options) ->
     case smerl:for_file(FileName) of
 	{ok, M1} ->
 	    M2 = add_forms(Type, BaseName, M1),
-	    case smerl:compile(M2) of
+	    case smerl:compile(M2, Options) of
 		ok ->
 		    {ok, smerl:get_module(M2)};
 		Err ->
@@ -336,26 +334,29 @@ add_func(MetaMod, Name, Arity, Str) ->
 out(A) ->
     AppName = erlyweb_util:get_appname(A),
     AppData = get_app_data_module(AppName),
-    case AppData:auto_compile() of
-	false -> ok;
-	{true, Options} ->
-	    DocRoot = yaws_arg:docroot(A),
-	    AppRoot = case lists:last(DocRoot) of
-			  '/' -> filename:dirname(filename:dirname(DocRoot));
-			  _ -> filename:dirname(DocRoot)
-		      end,
-	    case compile(AppRoot, Options) of
-		{ok, _} -> ok;
-		Err -> exit(Err)
-	    end
-    end,
-
     case catch AppData:get_controller() of
 	{'EXIT', {undef, _}} ->
 	    exit({no_application_data,
-		  "Did you forget to call erlyweb:compile(DocRoot)?"});
-	 AppController ->
-	     app_controller_hook(AppController, A, AppData)
+		  "Did you forget to call erlyweb:compile(DocRoot) or "
+		  "add your previously compiled .beam files to your code "
+		  "path?"});
+	AppController ->
+	    case AppData:auto_compile() of
+		false -> ok;
+		{true, Options} ->
+		    DocRoot = yaws_arg:docroot(A),
+		    AppRoot = case lists:last(DocRoot) of
+				  '/' ->
+				      filename:dirname(
+					filename:dirname(DocRoot));
+				  _ -> filename:dirname(DocRoot)
+			      end,
+		    case compile(AppRoot, Options) of
+			{ok, _} -> ok;
+			Err -> exit(Err)
+		    end
+	    end,
+	    app_controller_hook(AppController, A, AppData)
      end.
 
 app_controller_hook(AppController, A, AppData) ->
