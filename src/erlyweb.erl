@@ -302,13 +302,14 @@ compile_file(FileName, BaseName, Type, Options) ->
 
 add_forms(controller, BaseName, MetaMod) ->
     M1 = add_func(MetaMod, private, 0, "private() -> false."),
-    case smerl:get_attribute(M1, erlyweb_magic) of
+    M2 = add_func(M1, use_app_view, 0, "use_app_view() -> true."),
+    case smerl:get_attribute(M2, erlyweb_magic) of
 	{ok, on} ->
 	    {ModelNameStr, _} = lists:split(length(BaseName) - 11, BaseName),
 	    ModelName = list_to_atom(ModelNameStr),
-	    M2 = smerl:extend(erlyweb_controller, M1, 1),
-	    smerl:embed_all(M2, [{'Model', ModelName}]);
-	_ -> M1
+	    M3 = smerl:extend(erlyweb_controller, M2, 1),
+	    smerl:embed_all(M3, [{'Model', ModelName}]);
+	_ -> M2
     end;
 add_forms(view, _BaseName, MetaMod) ->
     case smerl:get_attribute(MetaMod, erlyweb_magic) of
@@ -369,8 +370,18 @@ app_controller_hook(AppController, A, AppData) ->
 
     Ewc = get_initial_ewc(Res, AppData),
     Output = ewc(Ewc, AppData),
-    Output1 = tag_output(render(Output, AppData:get_view())),
-    Output1.
+    Output1 =
+	case Ewc of
+	    {controller, Controller, _FuncName, _params} ->
+		case Controller:use_app_view() of
+		    true -> render(Output, AppData:get_view());
+		    false -> Output
+		end;
+	    _ -> render(Output, AppData:get_view())
+	end,
+		
+    Output2 = tag_output(Output1),
+    Output2.
 
 
 get_initial_ewc({ewc, _A} = Ewc, AppData) ->
@@ -387,6 +398,8 @@ get_initial_ewc(Ewc, _AppData) -> Ewc.
 ewc(Ewc, AppData) when is_list(Ewc) ->
     [ewc(Child, AppData) || Child <- Ewc];
 
+
+ewc({data, Data}, _AppData) -> Data;
 
 ewc({ewc, A}, AppData) ->
     Ewc = get_ewc({ewc, A}, AppData),
@@ -411,7 +424,6 @@ ewc({controller, Controller, FuncName, [A | _] = Params}, AppData) ->
     {value, View} = gb_trees:lookup(Controller, Views),
 
     case apply(Controller, FuncName, Params) of
-	{data, Data} -> render(View:FuncName(Data), View);
 	{ewr, FuncName1} ->
 	    {redirect_local,
 	     {any_path,
@@ -434,7 +446,7 @@ ewc({controller, Controller, FuncName, [A | _] = Params}, AppData) ->
 	       Params2)}}; 
 	Ewc ->
 	    Output = ewc(Ewc, AppData),
-	    render(Output, View)
+	    render(View:FuncName(Output), View)
     end;
 
 ewc(Other, _AppData) -> Other.
@@ -453,7 +465,7 @@ try_func(Module, FuncName, Param) ->
 get_ewc({ewc, A}, AppData) ->
     Tokens = string:tokens(yaws_arg:appmoddata(A), "/"),
     case Tokens of
-	[] -> {page, "/index.html"};
+	[] -> {page, "/"};
 	[ComponentStr]->
 	    get_ewc(ComponentStr, "index", [A],
 		    AppData);
@@ -468,9 +480,8 @@ get_ewc(ComponentStr, FuncStr, [A | _] = Params,
   case gb_trees:lookup(ComponentStr, Controllers) of
       none ->
 	  %% if the request doesn't match a controller's name,
-	  %% redirect it to www/[request]
-	  [_ | Url] = yaws_arg:appmoddata(A),
-	  {page, "/" ++ Url};
+	  %% redirect it to /path
+	  {page, yaws_arg:appmoddata(A)};
       {value, {Controller, Exports}} ->
 	  Arity = length(Params),
 	  get_ewc1(Controller, FuncStr, Arity,
