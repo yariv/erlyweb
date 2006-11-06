@@ -83,7 +83,7 @@ view(AppName) ->
 	["<html>\n"
 	 "<head>\n"
 	 "<title>", AppName, "</title>\n"
-	 "<link rel=\"stylesheet\" href=\"/", AppName, "/style.css\""
+	 "<link rel=\"stylesheet\" href=\"/style.css\""
 	 " type=\"text/css\">\n"
 	 "</style>\n"
 	 "</head>\n"
@@ -106,7 +106,7 @@ index(AppName) ->
     Text =
 	["<html>\n"
 	 "<head>\n"
-	 "<link rel=\"stylesheet\" href=\"/" ++ AppName ++ "/style.css\">\n"
+	 "<link rel=\"stylesheet\" href=\"/style.css\">\n"
 	 "<title>", AppName, "</title>\n</head>\n",
 	 "<body>\n"
 	 "<div id=\"content\">\n"
