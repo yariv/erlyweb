@@ -302,7 +302,7 @@ compile_file(FileName, BaseName, Type, Options) ->
 
 add_forms(controller, BaseName, MetaMod) ->
     M1 = add_func(MetaMod, private, 0, "private() -> false."),
-    M2 = add_func(M1, use_app_view, 0, "use_app_view() -> true."),
+    M2 = add_func(M1, use_app_view, 1, "use_app_view(_A) -> true."),
     case smerl:get_attribute(M2, erlyweb_magic) of
 	{ok, on} ->
 	    {ModelNameStr, _} = lists:split(length(BaseName) - 11, BaseName),
@@ -373,7 +373,7 @@ app_controller_hook(AppController, A, AppData) ->
     Output1 =
 	case Ewc of
 	    {controller, Controller, _FuncName, _params} ->
-		case Controller:use_app_view() of
+		case Controller:use_app_view(A) of
 		    true -> render(Output, AppData:get_view());
 		    false -> Output
 		end;
