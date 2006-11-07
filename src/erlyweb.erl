@@ -481,7 +481,11 @@ get_ewc(ComponentStr, FuncStr, [A | _] = Params,
       none ->
 	  %% if the request doesn't match a controller's name,
 	  %% redirect it to /path
-	  {page, yaws_arg:appmoddata(A)};
+	  Path = case yaws_arg:appmoddata(A) of
+		     [$/ | _ ] = P -> P;
+		     Other -> [$/ | Other]
+		 end,
+	  {page, Path};
       {value, {Controller, Exports}} ->
 	  Arity = length(Params),
 	  get_ewc1(Controller, FuncStr, Arity,
