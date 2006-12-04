@@ -47,7 +47,7 @@ list(A, Model, Page) when is_integer(Page) ->
 			default
 		end
 	end,
-    {data, {erlyweb_util:get_appname(A),
+    {data, {erlyweb_util:get_app_root(A),
 	    atom_to_list(Model),
 	    Model:db_field_names_bin(),
 	    Model:to_iolist(Records, ToIoListFun)}}.

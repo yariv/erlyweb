@@ -15,7 +15,7 @@
 <% Data %>
 
 <%@ list({AppRoot, Model, Fields, Records}) %>
-<% a(["", AppRoot, Model, <<"new">>], <<"create new">>) %><br><br>
+<% a([AppRoot, Model, <<"new">>], <<"create new">>) %><br><br>
 Records of '<% Model %>'<br/>
 <% table(Records, Fields) %>
 
@@ -24,7 +24,7 @@ Create a new <% Model %>:<br/>
 <% form(Action, <<"new">>, FieldData) %>
 
 <%@ edit({AppRoot, Model, Id, Action, FieldData}) %>
-<a href="<% AppRoot %>/<% Model %>/delete/<% Id %>">delete</a>
+<% a([AppRoot, Model, <<"delete">>, Id], <<"delete">>) %>
 <br/><br/>
 <% form(Action, <<"edit">>, FieldData) %>
 

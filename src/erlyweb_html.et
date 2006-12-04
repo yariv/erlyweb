@@ -17,9 +17,7 @@ join([Last], Acc) ->
   lists:reverse([Last | Acc]);
 join([First | Rest], Acc) ->
   join(Rest, [[First, $/] | Acc]).
-
 %>
-
 <%@ a(PathElems, Text) %>
 <a href="<% join(PathElems) %>"><% Text %></a>
 
