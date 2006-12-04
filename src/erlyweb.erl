@@ -446,7 +446,11 @@ ewc({controller, Controller, FuncName, [A | _] = Params}, AppData) ->
 	       Params2)}}; 
 	Ewc ->
 	    Output = ewc(Ewc, AppData),
-	    render(View:FuncName(Output), View)
+	    if is_tuple(Ewc) andalso
+	       (element(1, Ewc) == ewc orelse element(1, Ewc) == data) ->
+		    render(View:FuncName(Output), View);
+	       true -> Output
+	    end
     end;
 
 ewc(Other, _AppData) -> Other.
