@@ -44,10 +44,11 @@ create_component(Component, Dir) ->
 %% @doc Compile all the files for an application. Files with the '.et'
 %%   extension are compiled with ErlTL.
 %%
-%%   This function returns {ok, {last_compile_time, Now}}, where Now is
+%%   This function returns {ok, Now}, where Now is
 %%   the result of calendar:local_time().
 %%   You can pass the second value as an option in the next call to compile/2,
-%%   telling ErlyWeb to avoid recompiling files that haven't changed.
+%%   telling ErlyWeb to avoid recompiling files that haven't changed (this is done
+%%   automatically when the auto_compile option is turned on).
 compile(DocRoot) ->
     compile(DocRoot, []).
 
@@ -71,24 +72,25 @@ compile(DocRoot) ->
 %%    production mode because it will slow your app down (to turn auto_compile
 %%    off, just call erlyweb:compile without the auto_compile option).
 %%
-%%  - {pre_compile_hook, Fun}: A function to call prior to (auto)compiling
-%%    the app. Fun is a function that takes 1 parameters, which is the
-%%    time of the last compilation (if the time is unknown, the value is
-%%    'undefined').
-%%    This hook is useful for extending the compilation
-%%    process in an arbitrary way, e.g. by compiling extra directories
-%%    or writing something to a log file.
-%%
-%%  - {post_compile_hook, Fun}: Similar to pre_compile_hook, but called
-%%    after the compilation of the app.
+%% - 'suppress_warnings' and 'suppress_errors' tell ErlyWeb to not pass the
+%%   'report_warnings' and 'report_erros' to compile:file/2.
 compile(DocRoot, Options) ->
     DocRoot1 = case lists:reverse(DocRoot) of
 		   [$/ | _] -> DocRoot;
 		   Other -> lists:reverse([$/ | Other])
 	       end,
     
-    {Options1, OutDir} =
-	get_option(outdir, DocRoot1 ++ "ebin", Options),
+    Options1 = case lists:member(suppress_warnings, Options) of
+		   true -> Options;
+		   false -> [report_warnings | Options]
+	       end,
+    Options2 = case lists:member(suppress_errors, Options1) of
+		   true -> Options1;
+		   false -> [report_errors | Options1]
+	       end,
+    
+    {Options3, OutDir} =
+	get_option(outdir, DocRoot1 ++ "ebin", Options2),
 
     file:make_dir(OutDir),
 
@@ -100,18 +102,27 @@ compile(DocRoot, Options) ->
 	    LastControllers -> {LastControllers, []}
 	end,
 
-    {Options2, LastCompileTime} =
-	get_option(last_compile_time, {{1980,1,1},{0,0,0}}, Options1),
+    {Options4, LastCompileTime} =
+	get_option(last_compile_time, {{1980,1,1},{0,0,0}}, Options3),
     LastCompileTime1 = case LastCompileTime of
 			   {{1980,1,1},{0,0,0}} -> undefined;
 			   OtherTime -> OtherTime
 		       end,
-
-    case proplists:get_value(pre_compile_hook, Options) of
-	undefined -> ok;
-	{Module, Fun} -> Module:Fun(LastCompileTime1)
+    
+    AppControllerStr = AppName ++ "_app_controller",
+    AppControllerFile = AppControllerStr ++ ".erl",
+    ?Debug("Compiling app controller: ~s", [AppControllerFile]),
+    case compile_file(DocRoot ++ "/src/" ++ AppControllerFile,
+		      AppControllerStr, undefined, Options4) of
+	{ok, _} ->
+	    ok;
+	Err -> ?Error("Error compiling app controller", []),
+	       exit(Err)
     end,
 
+    AppController = list_to_atom(AppControllerStr),
+    ?Debug("Trying to invoke ~s:before_compile/1", [AppControllerStr]),
+    try_func(AppController, before_compile, [LastCompileTime1], ok),
 
     LastCompileTimeInSeconds =
 	calendar:datetime_to_gregorian_seconds(LastCompileTime),
@@ -123,7 +134,7 @@ compile(DocRoot, Options) ->
 	  fun(FileName, Acc) ->
 		  compile_component_file(
 		    DocRoot1 ++ "src/components", FileName,
-		    LastCompileTimeInSeconds, Options2, Acc)
+		    LastCompileTimeInSeconds, Options4, Acc)
 	  end, InitialAcc),
 
     ErlyDBResult =
@@ -136,7 +147,7 @@ compile(DocRoot, Options) ->
 		 case lists:keysearch(erlydb_driver, 1, Options) of
 		     {value, {erlydb_driver, Driver}} ->
 			 erlydb:code_gen(Driver, lists:reverse(Models),
-					 Options2);
+					 Options4);
 		     false -> {error, missing_erlydb_driver_option}
 		 end
 	end,
@@ -146,16 +157,16 @@ compile(DocRoot, Options) ->
 		AppDataModule = make_app_data_module(
 				     AppData, AppName,
 				     ComponentTree1,
-				     Options),
-		smerl:compile(AppDataModule, Options2);
+				     Options4),
+		smerl:compile(AppDataModule, Options4);
 	   true -> ErlyDBResult
 	end,
 
     if Result == ok ->
-	    case proplists:get_value(post_compile_hook, Options) of
-		undefined -> ok;
-		{Module1, Fun1} -> Module1:Fun1(LastCompileTime1)
-	    end,
+	    ?Debug("Trying to invoke ~s:after_compile/1",
+		   [AppControllerStr]),
+	    try_func(AppController, after_compile, [LastCompileTime1],
+		     ok),
 	    {ok, calendar:local_time()};
        true -> Result
     end.
@@ -302,7 +313,7 @@ compile_file(FileName, BaseName, Type, Options) ->
 
 add_forms(controller, BaseName, MetaMod) ->
     M1 = add_func(MetaMod, private, 0, "private() -> false."),
-    M2 = add_func(M1, use_app_view, 1, "use_app_view(_A) -> true."),
+    M2 = add_func(M1, use_app_view, 1, "use_app_view(_A) -> default."),
     case smerl:get_attribute(M2, erlyweb_magic) of
 	{ok, on} ->
 	    {ModelNameStr, _} = lists:split(length(BaseName) - 11, BaseName),
@@ -339,7 +350,7 @@ out(A) ->
 	{'EXIT', {undef, _}} ->
 	    exit({no_application_data,
 		  "Did you forget to call erlyweb:compile(DocRoot) or "
-		  "add your previously compiled .beam files to your code "
+		  "add the app's previously compiled .beam files to the Erlang code "
 		  "path?"});
 	AppController ->
 	    case AppData:auto_compile() of
@@ -361,23 +372,21 @@ out(A) ->
      end.
 
 app_controller_hook(AppController, A, AppData) ->
-    Res = case catch AppController:hook(A) of
-	      {'EXIT', {undef, [{AppController, hook, _} | _]}} ->
-		  {ewc, A};
-	      {'EXIT', Err} -> exit(Err);
-	      Other -> Other
-	end,
-
-    Ewc = get_initial_ewc(Res, AppData),
+    HookRes = try_func(AppController, hook, [A], {ewc, A}),
+    Ewc = get_initial_ewc(HookRes, AppData),
     Output = ewc(Ewc, AppData),
     Output1 =
 	case Ewc of
-	    {controller, Controller, _FuncName, _params} ->
-		case Controller:use_app_view(A) of
-		    true -> render(Output, AppData:get_view());
-		    false -> Output
+	    {controller, Controller, _FuncName, _Params} ->
+		AppView = case Controller:use_app_view(A) of
+			      default -> AppData:get_view();
+			      Other -> Other
+			  end,
+		case AppView of
+		    undefined -> Output;
+		    _ -> render(Output, AppView)
 		end;
-	    _ -> render(Output, AppData:get_view())
+	    _ -> Output
 	end,
 		
     Output2 = tag_output(Output1),
@@ -420,9 +429,6 @@ ewc({ewc, Component, FuncName, Params}, AppData) ->
     ewc(Result, AppData);
 
 ewc({controller, Controller, FuncName, [A | _] = Params}, AppData) ->
-    Views = AppData:get_views(),
-    {value, View} = gb_trees:lookup(Controller, Views),
-
     case apply(Controller, FuncName, Params) of
 	{ewr, FuncName1} ->
 	    {redirect_local,
@@ -445,24 +451,27 @@ ewc({controller, Controller, FuncName, [A | _] = Params}, AppData) ->
 			       atom_to_list(FuncName1)]),
 	       Params2)}}; 
 	Ewc ->
-	    Output = ewc(Ewc, AppData),
-	    if (is_tuple(Ewc) andalso
-		element(1, Ewc) =/= ewc andalso element(1, Ewc) =/= data) ->
-		    Output;
-	       true ->
-		    render(View:FuncName(Output), View)
+	    Ewc1 = try_func(Controller, post_func_hook,
+			    [FuncName, Params, Ewc], Ewc),
+	    Output = ewc(Ewc1, AppData),
+	    Views = AppData:get_views(),
+	    {value, View} = gb_trees:lookup(Controller, Views),
+	    case catch View:FuncName(Output) of
+		{'EXIT', {undef, [{View, FuncName, _} | _]}} -> Output;
+		{'EXIT', Err} -> exit(Err);
+		Output1 -> render(Output1, View)
 	    end
     end;
 
 ewc(Other, _AppData) -> Other.
 
 render(Output, _View) when is_tuple(Output) -> Output;
-render(Output, View) -> try_func(View, render, Output).
+render(Output, View) -> try_func(View, render, [Output], Output).
 
 
-try_func(Module, FuncName, Param) ->
-    case catch Module:FuncName(Param) of
-	{'EXIT', {undef, [{Module, FuncName, _} | _]}} -> Param;	    
+try_func(Module, FuncName, Params, Default) ->
+    case catch apply(Module, FuncName, Params) of
+	{'EXIT', {undef, [{Module, FuncName, _} | _]}} -> Default;
 	{'EXIT', Err} -> exit(Err);
 	Val -> Val
     end.
@@ -527,4 +536,3 @@ get_app_data_module(AppName) when is_atom(AppName) ->
     get_app_data_module(atom_to_list(AppName));
 get_app_data_module(AppName) ->
     list_to_atom(AppName ++ "_erlyweb_data").
-
