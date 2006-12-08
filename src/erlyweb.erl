@@ -111,11 +111,11 @@ compile(DocRoot, Options) ->
     
     AppControllerStr = AppName ++ "_app_controller",
     AppControllerFile = AppControllerStr ++ ".erl",
-    ?Debug("Compiling app controller: ~s", [AppControllerFile]),
     case compile_file(DocRoot ++ "/src/" ++ AppControllerFile,
-		      AppControllerStr, undefined, Options4) of
-	{ok, _} ->
-	    ok;
+		      AppControllerStr, ".erl", undefined,
+		      LastCompileTime1, Options4) of
+	{ok, _} -> ok;
+	ok -> ok;
 	Err -> ?Error("Error compiling app controller", []),
 	       exit(Err)
     end,
@@ -384,7 +384,12 @@ app_controller_hook(AppController, A, AppData) ->
 			  end,
 		case AppView of
 		    undefined -> Output;
-		    _ -> render(Output, AppView)
+		    _ -> case Output of
+			     {view_data, AppViewEwc, Rendered} ->
+				 AppView:render([ewc(AppViewEwc, AppData),
+						 Rendered]);
+			     _ -> render(Output, AppView)
+			 end
 		end;
 	    _ -> Output
 	end,
@@ -451,15 +456,36 @@ ewc({controller, Controller, FuncName, [A | _] = Params}, AppData) ->
 			       atom_to_list(FuncName1)]),
 	       Params2)}}; 
 	Ewc ->
-	    Ewc1 = try_func(Controller, post_func_hook,
+	    Res = try_func(Controller, post_func_hook,
 			    [FuncName, Params, Ewc], Ewc),
-	    Output = ewc(Ewc1, AppData),
+
+	    {AppViewEwc, ComponentViewEwc, ViewFuncEwc} =
+		case Res of
+		    {view_data, Ewc1, Ewc2, Ewc3} ->
+			{Ewc1, Ewc2, Ewc3};
+		    {view_data, Ewc2, Ewc3} ->
+			{undefined, Ewc2, Ewc3};
+		    _ ->
+			{undefined, undefined, Res}
+		end,
+		    
 	    Views = AppData:get_views(),
 	    {value, View} = gb_trees:lookup(Controller, Views),
+	    Output = ewc(ViewFuncEwc, AppData),
 	    case catch View:FuncName(Output) of
 		{'EXIT', {undef, [{View, FuncName, _} | _]}} -> Output;
 		{'EXIT', Err} -> exit(Err);
-		Output1 -> render(Output1, View)
+		Output1 ->
+		    ToRender = case ComponentViewEwc of
+				   undefined -> Output1;
+				   _ -> [ewc(ComponentViewEwc, AppData),
+					 Output1]
+			       end,
+		    Output2 = render(ToRender, View),
+		    case AppViewEwc of
+			undefined -> Output2;
+			_ -> {view_data, AppViewEwc, Output2}
+		    end
 	    end
     end;
 
