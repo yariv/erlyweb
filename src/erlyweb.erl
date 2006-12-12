@@ -109,11 +109,14 @@ compile(DocRoot, Options) ->
 			   OtherTime -> OtherTime
 		       end,
     
+    LastCompileTimeInSeconds =
+	calendar:datetime_to_gregorian_seconds(LastCompileTime),
+
     AppControllerStr = AppName ++ "_app_controller",
     AppControllerFile = AppControllerStr ++ ".erl",
     case compile_file(DocRoot ++ "/src/" ++ AppControllerFile,
 		      AppControllerStr, ".erl", undefined,
-		      LastCompileTime1, Options4) of
+		      LastCompileTimeInSeconds, Options4) of
 	{ok, _} -> ok;
 	ok -> ok;
 	Err -> ?Error("Error compiling app controller", []),
@@ -123,10 +126,6 @@ compile(DocRoot, Options) ->
     AppController = list_to_atom(AppControllerStr),
     ?Debug("Trying to invoke ~s:before_compile/1", [AppControllerStr]),
     try_func(AppController, before_compile, [LastCompileTime1], ok),
-
-    LastCompileTimeInSeconds =
-	calendar:datetime_to_gregorian_seconds(LastCompileTime),
-
     
     {ComponentTree1, Models} =
 	filelib:fold_files(
@@ -206,7 +205,6 @@ make_app_data_module(AppData, AppName, ComponentTree, Options) ->
 		 M5, {function,1,get_views,0,
 		      [{clause,1,[],[],
 			[erl_parse:abstract(ViewsTree)]}]}),
-
 
     {_Options1, AutoCompile} =
 	get_option(auto_compile, false, Options),
@@ -313,7 +311,7 @@ compile_file(FileName, BaseName, Type, Options) ->
 
 add_forms(controller, BaseName, MetaMod) ->
     M1 = add_func(MetaMod, private, 0, "private() -> false."),
-    M2 = add_func(M1, use_app_view, 1, "use_app_view(_A) -> default."),
+    M2 = add_func(M1, before_return, 3, "before_return(_FuncName, _Params, Response) -> Response."),
     case smerl:get_attribute(M2, erlyweb_magic) of
 	{ok, on} ->
 	    {ModelNameStr, _} = lists:split(length(BaseName) - 11, BaseName),
@@ -350,8 +348,8 @@ out(A) ->
 	{'EXIT', {undef, _}} ->
 	    exit({no_application_data,
 		  "Did you forget to call erlyweb:compile(DocRoot) or "
-		  "add the app's previously compiled .beam files to the Erlang code "
-		  "path?"});
+		  "add the app's previously compiled .beam files to the "
+		  "Erlang code path?"});
 	AppController ->
 	    case AppData:auto_compile() of
 		false -> ok;
@@ -374,29 +372,47 @@ out(A) ->
 app_controller_hook(AppController, A, AppData) ->
     HookRes = try_func(AppController, hook, [A], {ewc, A}),
     Ewc = get_initial_ewc(HookRes, AppData),
-    Output = ewc(Ewc, AppData),
-    Output1 =
-	case Ewc of
-	    {controller, Controller, _FuncName, _Params} ->
-		AppView = case Controller:use_app_view(A) of
-			      default -> AppData:get_view();
-			      Other -> Other
-			  end,
-		case AppView of
-		    undefined -> Output;
-		    _ -> case Output of
-			     {view_data, AppViewEwc, Rendered} ->
-				 AppView:render([ewc(AppViewEwc, AppData),
-						 Rendered]);
-			     _ -> render(Output, AppView)
-			 end
-		end;
-	    _ -> Output
-	end,
-		
-    Output2 = tag_output(Output1),
-    Output2.
+    Response = ewc(Ewc, AppData),
+    process_response(Response, AppData).
 
+process_response({response, Elems}, AppData) ->
+    {_Config1, Output1} =
+	lists:foldl(
+	  fun({app_view, _Val} = Elem, {Config, Output}) ->
+		  {[Elem | Config], Output};
+	     ({app_view_param, _Val} = Elem, {Config, Output}) ->
+		  {[Elem | Config], Output};
+	     ({rendered, Rendered}, {Config, Output}) ->
+		  AppView =
+		      case proplists:lookup(app_view, Config) of
+			  none -> AppData:get_view();
+			  {app_view, undefined} -> undefined;
+			  {app_view, default} -> AppData:get_view();
+			  {app_view, Other} -> Other
+		      end,
+		  Rendered1 =
+		      case AppView of
+			  undefined -> Rendered;
+			  _ ->
+			      case proplists:get_value(app_view_param,
+						       Config) of
+				  undefined ->
+				      render(Rendered, AppView);
+				  AppViewParam ->
+				      render([ewc(AppViewParam,
+						  AppView),
+					      Rendered], AppView)
+			      end
+		      end,
+		  {Config, [tag_output(Rendered1) | Output]};
+	     (Val, {Config, Output}) when is_list(Val) ->
+		  {Config, lists:reverse(Val) ++ Output};
+	     (Val, {Config, Output}) ->
+		  {Config, [Val | Output]}
+	  end, {[], []}, Elems),
+    lists:reverse(Output1);
+process_response(Other, _AppData) ->
+    Other.
 
 get_initial_ewc({ewc, _A} = Ewc, AppData) ->
     case get_ewc(Ewc, AppData) of
@@ -455,41 +471,62 @@ ewc({controller, Controller, FuncName, [A | _] = Params}, AppData) ->
 		filename:join([AppRoot, atom_to_list(Component1),
 			       atom_to_list(FuncName1)]),
 	       Params2)}}; 
-	Ewc ->
-	    Res = try_func(Controller, post_func_hook,
-			    [FuncName, Params, Ewc], Ewc),
-
-	    {AppViewEwc, ComponentViewEwc, ViewFuncEwc} =
-		case Res of
-		    {view_data, Ewc1, Ewc2, Ewc3} ->
-			{Ewc1, Ewc2, Ewc3};
-		    {view_data, Ewc2, Ewc3} ->
-			{undefined, Ewc2, Ewc3};
-		    _ ->
-			{undefined, undefined, Res}
-		end,
-		    
+	Response ->
+	    Response1 = Controller:before_return(FuncName, Params, Response),
 	    Views = AppData:get_views(),
 	    {value, View} = gb_trees:lookup(Controller, Views),
-	    Output = ewc(ViewFuncEwc, AppData),
-	    case catch View:FuncName(Output) of
-		{'EXIT', {undef, [{View, FuncName, _} | _]}} -> Output;
-		{'EXIT', Err} -> exit(Err);
-		Output1 ->
-		    ToRender = case ComponentViewEwc of
-				   undefined -> Output1;
-				   _ -> [ewc(ComponentViewEwc, AppData),
-					 Output1]
-			       end,
-		    Output2 = render(ToRender, View),
-		    case AppViewEwc of
-			undefined -> Output2;
-			_ -> {view_data, AppViewEwc, Output2}
-		    end
-	    end
+	    render_response(Response1, View, FuncName, AppData)
     end;
 
 ewc(Other, _AppData) -> Other.
+
+render_response({response, Elems}, View, FuncName, AppData) ->
+    {_Config2, Elems2} =
+	lists:foldl(
+	  fun({view_param, _Val} = Elem, {Config1, Elems1}) ->
+		  {[Elem | Config1], Elems1};
+	     ({body, BodyEwc}, {Config1, Elems1}) ->
+		  RenderFun =
+		      fun(Output) ->
+			      case proplists:get_value(view_param, Config1) of
+				  undefined ->
+				      render(Output, View);
+				  ViewParam ->
+				      render([ewc(ViewParam, AppData),
+					      Output], View)
+			      end
+		      end,
+		  Rendered = render_ewc(BodyEwc, View, FuncName, AppData,
+				       RenderFun),
+		  {Config1, [{rendered, Rendered} | Elems1]};
+	     (Elem, {Config1, Elems1}) ->
+		  {Config1, [Elem | Elems1]}
+	  end, {[], []}, Elems),
+    {response, lists:reverse(Elems2)};
+render_response(Ewc, View, FuncName, AppData) ->
+    Output1 = render_ewc(Ewc, View, FuncName, AppData),
+    {response, [{rendered, Output1}]}.
+
+render_ewc(Ewc, View, FuncName, AppData) ->
+    render_ewc(Ewc, View, FuncName, AppData, undefined).
+
+render_ewc(Ewc, View, FuncName, AppData, RenderFun) ->
+    %% in nested components, we ignore all response elements except for
+    %% 'body' and 'view_param'
+    Output = case ewc(Ewc, AppData) of
+		 {response, Elems} ->
+		     proplists:get_value(rendered, Elems);
+		 Other -> Other
+	     end,
+    case catch View:FuncName(Output) of
+	{'EXIT', {undef, [{View, FuncName, _} | _]}} -> Output;
+	{'EXIT', Err} -> exit(Err);
+	Output1 -> case RenderFun of
+		       undefined-> render(Output1, View);
+		       _ -> RenderFun(Output1)
+		   end
+    end.
+
 
 render(Output, _View) when is_tuple(Output) -> Output;
 render(Output, View) -> try_func(View, render, [Output], Output).
