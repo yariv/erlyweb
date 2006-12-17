@@ -1,20 +1,33 @@
-%% @title yaws_arg
-%% @author Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com)
+%% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com]
+%% @copyright Yariv Sadan 2006
 %%
-%% @doc This module provides functions for getting and setting
-%%   values of the Yaws 'arg' record. You can use these functions
-%%   instead of using the record access syntax, and without
-%%   having to include yaws_api.hrl.
+%% @doc
+%% This module provides functions for getting and setting
+%% values of a Yaws 'arg' record. You can use these functions
+%% instead of using the record access syntax, and without
+%% having to include yaws_api.hrl.
 %%
-%% @license for license information see LICENSE.txt
+%% Most functions have two forms: one for getting the value of a field and
+%% one for setting it. The functions that set the value of a field take
+%% two parameters -- the record and the new value -- and return a new record
+%% with the modified value.
+%%
+%% @end
+
+%% For license information see LICENSE.txt
 
 -module(yaws_arg).
 -author("Yariv Sadan (yarivsblog@gmail.com)").
 
--compile(export_all).
-
+-export([new/0, clisock/1, clisock/2, headers/1, headers/2, req/1, req/2,
+	 method/1, clidata/1, clidata/2, server_path/1, server_path/2,
+	 querydata/1, querydata/2, appmoddata/1, appmoddata/2, docroot/1,
+	 docroot/2, fullpath/1, fullpath/2, cont/1, cont/2, state/1,
+	 state/2, pid/1, pid/2, opaque/1, opaque/2, appmod_prepath/1,
+	 appmod_prepath/2, pathinfo/1, pathinfo/2]).
 -include("yaws_api.hrl").
 
+%% @doc Create a new 'arg' record.
 new() ->
     #arg{}.
 

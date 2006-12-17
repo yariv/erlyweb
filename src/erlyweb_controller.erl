@@ -1,10 +1,10 @@
-%% @title erlyweb_controller
 %% @author Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com)
 %%
+%% @hidden
 %% @doc This file contains basic CRUD controller logic. It's intended
 %%  for demonstration purposes, but not for production use.
-%%
-%% @license For license information see LICENSE.txt
+
+%% For license information see LICENSE.txt
 
 -module(erlyweb_controller).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com)").

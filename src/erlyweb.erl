@@ -1,10 +1,338 @@
-%% @title erlyweb
-%% @author Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com)
+%% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com]
+%% @copyright Yariv Sadan 2006
 %%
-%% @doc This is the main file for ErlyWeb: The Erlang Twist on Web
-%%   Frameworks. For more information, visit http://erlyweb.com.
+%% @doc ErlyWeb: The Erlang Twist on Web Framworks.
 %%
-%% @license For license information see LICENSE.txt
+%% == Contents ==
+%% {@section Introduction}<br/>
+%% {@section Directory Structure}<br/>
+%% {@section Components}<br/>
+%% {@section Models}<br/>
+%% {@section Controllers}<br/>
+%% {@section The App Controller}<br/>
+%% {@section Views}<br/>
+%% {@section The App View}<br/>
+%% {@section Advanced Controller Topics}<br/>
+%% {@section YAWS Configuration}<br/>
+%%
+%% == Introduction ==
+%%
+%% ErlyWeb is a component-oriented web development framework that
+%% simplifies the creation of web applications in Erlang according to
+%% the tried-and-true MVC pattern. ErlyWeb's goal is to let web developers
+%% enjoy all the benefits of Erlang/OTP while
+%% creating web applications with unparalleled simplicity, productivity and
+%% fun.
+%%
+%% ErlyWeb is designed to work with YAWS, a
+%% high-performance Erlang web server. For more information on YAWS, visit
+%% [http://yaws.hyber.org].
+%%
+%%
+%% == Directory Structure ==
+%% ErlyWeb applications have the following directory structure:
+%%
+%% ```
+%% [AppName]/
+%%   src/                            contains non-component source files
+%%     [AppName]_app_controller.erl  the app controller
+%%     [AppName]_app_view.rt         the app view
+%%     components/                   contains controller, view and
+%%                                   model source files
+%%   www/                            contains static assets
+%%   ebin/                           contains compiled .beam files
+%% '''
+%%
+%% where AppName is the name of the application. The 'src', 'components'
+%% and 'www' directories may contain additional subdirectories, whose contents
+%% are of the same type as those in the parent directory.
+%%
+%% == Components ==
+%%
+%% An ErlyWeb component is made of a controller and a view. Controllers
+%% may use one or more models, but this isn't required.
+%%
+%% (Technically, a component can be implemented without a view, but
+%% most components have views.)
+%%
+%% Controllers are implemented in Erlang source files. Views are typically
+%% implemented in ErlTL files,
+%% but views can be implemented in plain Erlang as well.
+%% The controller file is named '[ComponentName]_controller.erl' and the view
+%% file is named '[ComponentName]_view.[Extension]', where [ComponentName] is
+%% the name of the component, and [Extension] is 'erl' for Erlang files and
+%% 'et' for ErlTL files.
+%%
+%% When ErlyWeb receives a request such as `http://hostname.com/foo/bar/1/2/3',
+%% ErlyWeb interprets it as follows: 'foo' is the component name, 'bar' is the
+%% function name, and `["1", "2", "3"]' are the parameters (note that
+%% parameters from browser requests are always strings).
+%%
+%% When only the component's name is present, ErlyWeb assumes the request is
+%% for the component's 'index' function and with no parameters (i.e.
+%% `http://hostname.com/foo' is equivalent to `http://hostname.com/foo/index').
+%%
+%% If the module 'foo_controller' exists and it exports the function
+%% 'bar/4', ErlyWeb invokes the function foo_controller:bar/4
+%% with the parameters `[A, "1", "2", "3"]', where A is the Arg record
+%% that YAWS passes into the appmod's out/1 function. (For more information,
+%% visit [http://yaws.hyber.org/arg].)
+%%
+%% == Models ==
+%%
+%% ErlyWeb treats all Erlang modules whose names don't end with '_controller'
+%% or '_view' and whose files exist under 'src/components' as models.
+%% If such modules exist, erlyweb:compile()
+%%  passes their names to erlydb:code_gen()
+%% in order to generate their ErlyDB database abstraction functions.
+%%
+%% If your application uses ErlyDB for database abstraction, you
+%% have to call erlydb:start() before erlyweb:compile() (otherwise,
+%% the call to erlydb_codegen() will fail).
+%% If you aren't using ErlyDB, don't keep any
+%% models in 'src/components' and then you won't have to call erlydb:start().
+%% 
+%% == Controllers ==
+%%
+%% Controllers contain most of your application's logic. They are the glue
+%% between YAWS and your applications models and views.
+%%
+%% Controller functions always accept the YAWS Arg as the first parameter, and
+%% they may return any of the values that YAWS appmods may return (please read
+%% the paragraph below concerning returning standard YAWS tuples to avoid
+%% running into trouble). In addition, they may return a few special values,
+%% which are listed below with their meanings
+%% (note: 'ewr' stands for 'ErlyWeb redirect' and 'ewc' stands for 'ErlyWeb
+%% Component.').
+%%
+%% `{ewr, ComponentName}'<br/>
+%% Redirect the browser to the component's default ('index')
+%% function
+%%
+%% `{ewr, ComponentName, FuncName}'<br/>
+%% Redirect the browser to the given component/function
+%%
+%% `{ewr, ComponentName, FuncName, Params}'<br/>
+%% Redirect the browser to
+%% the given component/function/parameters combination.
+%%
+%% `{data, Data}'<br/>
+%% Call the view function, passing into it the Data variable as a parameter.
+%%
+%% `{ewc, A}'<br/>
+%% Analyze the YAWS Arg record 'A'. If the request matches a component,
+%% render the component and send the result to the view function.
+%% Otherwise, return {page, Path}, where Path is the Arg's appmoddata field.
+%%
+%% `{ewc, ComponentName, Params}'<br/>
+%% Render the component's 'index' function with the given parameters
+%% and send the result to the view function.
+%%
+%% `{ewc, ComponentName, FuncName, Params}'<br/>
+%% Render the component's function with the given parameters, and send
+%% the result to the view function.
+%%
+%% Controller functions may also return (nested) lists of
+%% 'ewc' and 'data' tuples, telling ErlyWeb to render the items
+%% in their order of appearance and then send the list of their results to
+%% the view function.
+%% This lets you build components that are composed of a mix of
+%% dynamic data and one or more sub-components.
+%%
+%% If a component is only supposed to exist as a subcomponent, you can
+%% implement the function "`private() -> true.'" in its controller to
+%% prevent web clients from accessing the component by requesting
+%% its corresponding URL.
+%%
+%%
+%% If a controller function doesn't have a corresponding view function,
+%% ErlyWeb calls the controller function, processes the result (if necessary),
+%% and then sends the output back to YAWS. When you wish to bypass the
+%% view layer and return a standard YAWS tuple such as {html, ...} or
+%% {ehtml, ..}, you should avoid defining a view function. Otherwise,
+%% YAWS may fail to understand the response and crash the process.
+%%
+%% == The App Controller ==
+%%
+%% All ErlyWeb applications have a module called [AppName]_app_controller,
+%% whose source file is in the 'src' directory by convention. This module
+%% has a single function by default, whose implementation is
+%%
+%% `hook(A) -> {ewc, A}.'
+%%
+%% You can change this function to rewrite the Arg, add headers, implement
+%% authentication hook, and perform any other action upon receiving a 
+%% browser request at the application level.
+%%
+%% === App Controller Compilation Hooks ===
+%%
+%% App controllers may implement two additional functions that ErlyWeb
+%% uses: before_compile/1 and after_compile/1. These functions let you
+%% hook into the compilation process and extend it in arbitrary ways.
+%% Both functions take a single parameter indicating the last compilation
+%% time (as returned from calendar:local_time()), or 'undefined' if the
+%% last compilation time is unknown.
+%%
+%% == Views ==
+%% 
+%% Views are Erlang modules whose functions return iolists (nested lists
+%% of strings and/or binaries). A view function that ErlyWeb uses has
+%% the same name as its corresponding controller function,
+%% and it accepts a single parameter, which is the result of ErlyWeb's
+%% processing of the controller function's return value.
+%%
+%% Views may implement the special function render/1. If this function exists,
+%% ErlyWeb passes into it the results of other functions in the
+%% same view module and then returns the result of render/1 back to YAWS.
+%% This feature makes it easy to implement view elements,
+%% such as headers and footers, that are common to all component functions.
+%%
+%% In ErlTL files, the render/1 function is always at the top of the file,
+%% and its parameter is named 'Data'. When you implement a view
+%% as an ErlTL template, even if your view functions don't share any common
+%% elements, you must at least have the following line at the top of the file:
+%%
+%% `<% Data %>'
+%%
+%% This line tells ErlTL to not dismiss the values that ErlyWeb passes into
+%% render/1. Without this line,
+%% ErlyWeb would return an empty response back to YAWS.
+%% (The reason is that ErlTL would compile the view's render/1 function as
+%% "`render(Data) -> [].'" instead of "`render(Data) -> [Data].'".)
+%%
+%% == The App View ==
+%%
+%% ErlyWeb applications normally have a view module called
+%% [AppName]_app_view, whose source file is in the 'src' directory by
+%% convention. Before returning to YAWS a rendered iolist, ErlyWeb checks
+%% if this function exists. If it does, ErlyWeb passes it the iolist and then
+%% returns the result back to YAWS.
+%%
+%% This feature allows you to define global view elements, such as headers
+%% and footers, for your application.
+%%
+%% == Advanced Controller Topics ==
+%%
+%% Note: The contents of this section are considered experimental
+%% and are subject to future changes.
+%%
+%% === Advanced Response Values ===
+%% Sometimes, you may need to extend ErlyWeb's basic behavior
+%% and exercise a greater degree of control over how your
+%% components are rendered and what values ErlyWeb returns to Yaws after it
+%% renders certain components. This may include setting HTTP headers or
+%% choosing a different app view for specific components or
+%% component functions.
+%%
+%% Starting from ErlyWeb v0.4 (currently in svn trunk),
+%% controllers can return a tuple of the type
+%% `{response, Elems}', where Elems is a list of tuples telling ErlyWeb
+%% what special actions to take when handling the response.
+%% These are the values you can add to the Elems list:
+%%
+%% `{app_view, ModuleName}'<br/>
+%% This tells ErlyWeb to use a different app view for rendering the
+%% final output. ModuleName may have 2 special values: 'default' tells ErlyWeb
+%% to use the default app view, and 'undefined' tells ErlyWeb to not
+%% use any app view (this is often useful for AJAX responses).<br/>
+%% This tuple applies only to top-level components; ErlyWeb ignores it
+%% in subcomponents.
+%%
+%% `{app_view_param, Ewc}'<br/>
+%% Normally, the app view's render/1 function accepts as its parameter an
+%% opaque iolist. However, sometimes you may wish to pass specific values
+%% to render/1 in order to parameterize it based on the logic in
+%% controller functions. When Elems contains the `{app_view_param, Ewc}'
+%% tuple, ErlyWeb renders the Ewc value (an `{ewc,..}' or `{data,...}' tuple,
+%% or a list thereof) and then
+%% passes into the app view's render/1 function a 2 element list: the first
+%% element is the rendered Ewc, and the second element is the normal opaque
+%% iolist.<br/>
+%% This tuple applies only to top-level components; ErlyWeb ignores it
+%% in subcomponents.
+%%
+%% For example, if the following were your controller function,
+%%
+%% ```
+%% index(A) ->
+%%   {response, [{app_view_param, {data, <<"Hello">>}},
+%%              {body, {data, "from ErlyWeb"}}]}.
+%% '''
+%% view function
+%% ```
+%% <%@ index(Data) %>
+%% <% Data %>!
+%% '''
+%% and app view template,
+%% ```
+%% <%? [A, B] = Data %>
+%% <% A %> <% B %>
+%% '''
+%%
+%% then the final result would be an iolist containing the message
+%% "Hello from ErlyWeb!"
+%%
+%% `{view_param, Ewc}'<br/>
+%% Similar to app_view_param, but affects the parameter passed into the
+%% component view's render/1 function.
+%%
+%% `{body, Ewc}'<br/>
+%% Ewc is the normal value that the function would return without the
+%% 'response' tuple. ErlyWeb processes it and then sends the result to the
+%% corresponding view function (if one exists).
+%% Note: this value must appear after all of the tuples above (for performance
+%% reasons).
+%%
+%% In addition to these values, Elems may include any value that
+%% YAWS accepts, such as `{header, Header}', `{html, Html}', etc. ErlyWeb
+%% returns these values, as well as the rendered component,
+%% in their order of appearance.
+%%
+%% === The `before_return' Hook ===
+%% ErlyWeb provides a hook for changing the responses from all functions in
+%% a controller before ErlyWeb processes them. This lets you avoid
+%% repetition in your code in scenarios such as
+%% when you wish to disable the app view, add a given subcomponent, or
+%% set HTTP headers for an entire controller. To use this hook, you may
+%% implement the function
+%% before_return/3
+%% in your controllers. Its first parameter is the name of the function,
+%% its second parameter is the list of parameters passed to the function,
+%% and the third parameter is the function's original return value. It returns
+%% the modified response.
+%%
+%% For example, to disable the app view for all the functions in a controller
+%% except 'index', you could implement before_return as follows:
+%%
+%% ```
+%% before_return(index, _Params, Response) -> Response;
+%% before_return(_FuncName, _Params, {response, Elems}) ->
+%%   {response, [{app_view, undefined} | Elems]};
+%% before_return(_FuncName, _Params, Body) ->
+%%   {response, [{app_view, undefined}, {body, Body}]}.
+%% '''
+%% 
+%%
+%% == YAWS Configuration ==
+%% To use ErlyWeb, you need to configure YAWS to use the erlyweb module
+%% as an appmod (for more information, visit [http://yaws.hyber.org])
+%% for your application. You can do this by adding the the following lines
+%% to your yaws.conf file:
+%% ```
+%% docroot = /path/to/app/www
+%% appmods = <[UrlPrefix], erlyweb>
+%% <opaque>
+%%   appname = [AppName]
+%% </opaque>
+%% '''
+%% where AppName is the name of your application and 
+%% UrlPrefix is the URL prefix that YAWS uses to identify requests for this
+%% application (common values are '/[AppName]', for running multiple
+%% applications on the same server, or '/', for running a single application).
+%%
+%% Note: It is recommended to use ErlyWeb with YAWS v1.66 and above.
+
+%% For license information see LICENSE.txt
 
 -module(erlyweb).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com)").
@@ -14,7 +342,9 @@
 	 create_component/2,
 	 compile/1,
 	 compile/2,
-	 out/1
+	 out/1,
+	 get_app_name/1,
+	 get_app_root/1
 	]).
 
 -import(erlyweb_util, [log/5]).
@@ -30,36 +360,58 @@
 
 -define(L(Msg), io:format("~b ~p~n", [?LINE, Msg])).
 
-%% @doc Create a new ErlyWeb application in Dir.
-create_app(AppName, Dir) ->
-    erlyweb_util:create_app(AppName, Dir).
+%% @doc Create a new ErlyWeb application in the directory AppDir.
+%%   This function creates the standard directory structure as well as
+%%   a few basic files for a rudimantary application.
+%%
+%% @spec create_app(AppName::string(), AppDir::string()) -> ok | {error, Err}
+create_app(AppName, AppDir) ->
+    case catch erlyweb_util:create_app(AppName, AppDir) of
+	{'EXIT', Err} ->
+	    {error, Err};
+	Other -> Other
+    end.
 
-%% @doc Create all the files for a new component -- 
-%%  controller, view and model (although the model and the component
-%%  don't necessarily have to be tied to each other) -- in the
-%%  application's directory.
-create_component(Component, Dir) ->    
-    erlyweb_util:create_component(Component, Dir).
+%% @doc Create all the files (model, view and controller) for a component
+%%  that implements basic CRUD features for a database table.
+%%  'Component' is the name of the component and 'AppDir' is the application's
+%%  root directory.
+%%
+%%  To disable the build-in CRUD features, remove the '-erlyweb_magic(on).'
+%%  lines in the view and the model.
+%%
+%% @spec create_component(Component::atom(), AppDir::string()) ->
+%%   ok | {error, Err}
+create_component(Component, AppDir) ->    
+    case catch erlyweb_util:create_component(Component, AppDir) of
+	{'EXIT', Err} ->
+	    {error, Err};
+	Other -> Other
+    end.
 
 %% @doc Compile all the files for an application. Files with the '.et'
 %%   extension are compiled with ErlTL.
 %%
 %%   This function returns {ok, Now}, where Now is
 %%   the result of calendar:local_time().
-%%   You can pass the second value as an option in the next call to compile/2,
-%%   telling ErlyWeb to avoid recompiling files that haven't changed (this is done
-%%   automatically when the auto_compile option is turned on).
+%%   You can pass the second value in the options for the next call to
+%%   compile/2 to telling ErlyWeb to avoid recompiling files that haven't
+%%   changed (ErlyWeb does this automatically when the auto-compilation
+%%   is turned on).
+%%
+%% @spec compile(DocRoot::string()) -> ok | {error, Err}
 compile(DocRoot) ->
     compile(DocRoot, []).
 
 %% @doc Compile all the files for an application using the compilation
 %%  options as described in the 'compile' module in the Erlang
-%%  documentation.
-%%  There are also the following additional ErlyWeb-specific options:
+%%  documentation ([http://erlang.org]).
+%%  ErlyWeb also lets you define the following options:
+%%
 %%  - {last_compile_time, LocalTime}: Tells ErlyWeb to not compile files
 %%    that haven't changed since LocalTime.
 %%
-%%  - {erlydb_driver, Name}: Tells ErlyWeb which driver to use
+%%  - {erlydb_driver, Name}: Tells ErlyWeb which ErlyDB driver to use
 %%    when calling erlydb:code_gen on models that are placed in src/components.
 %%    If you aren't using ErlyDB, i.e., you don't have any model files in
 %%    src/components, you can omit this option.
@@ -73,10 +425,13 @@ compile(DocRoot) ->
 %%    off, just call erlyweb:compile without the auto_compile option).
 %%
 %% - 'suppress_warnings' and 'suppress_errors' tell ErlyWeb to not pass the
-%%   'report_warnings' and 'report_erros' to compile:file/2.
-compile(DocRoot, Options) ->
-    DocRoot1 = case lists:reverse(DocRoot) of
-		   [$/ | _] -> DocRoot;
+%%   'report_warnings' and 'report_errors' to compile:file/2.
+%% 
+%% @spec compile(AppDir::string(), Options::[option()]) ->
+%%  {ok, Now::datetime()} | {error, Err}
+compile(AppDir, Options) ->
+    AppDir1 = case lists:reverse(AppDir) of
+		   [$/ | _] -> AppDir;
 		   Other -> lists:reverse([$/ | Other])
 	       end,
     
@@ -90,11 +445,11 @@ compile(DocRoot, Options) ->
 	       end,
     
     {Options3, OutDir} =
-	get_option(outdir, DocRoot1 ++ "ebin", Options2),
+	get_option(outdir, AppDir1 ++ "ebin", Options2),
 
     file:make_dir(OutDir),
 
-    AppName = filename:basename(DocRoot),
+    AppName = filename:basename(AppDir),
     AppData = get_app_data_module(AppName),
     InitialAcc =
 	case catch AppData:components() of
@@ -114,7 +469,7 @@ compile(DocRoot, Options) ->
 
     AppControllerStr = AppName ++ "_app_controller",
     AppControllerFile = AppControllerStr ++ ".erl",
-    case compile_file(DocRoot ++ "/src/" ++ AppControllerFile,
+    case compile_file(AppDir ++ "/src/" ++ AppControllerFile,
 		      AppControllerStr, ".erl", undefined,
 		      LastCompileTimeInSeconds, Options4) of
 	{ok, _} -> ok;
@@ -129,10 +484,10 @@ compile(DocRoot, Options) ->
     
     {ComponentTree1, Models} =
 	filelib:fold_files(
-	  DocRoot1 ++ "src", "\.(erl|et)$", true,
+	  AppDir1 ++ "src", "\.(erl|et)$", true,
 	  fun(FileName, Acc) ->
 		  compile_component_file(
-		    DocRoot1 ++ "src/components", FileName,
+		    AppDir1 ++ "src/components", FileName,
 		    LastCompileTimeInSeconds, Options4, Acc)
 	  end, InitialAcc),
 
@@ -341,27 +696,29 @@ add_func(MetaMod, Name, Arity, Str) ->
 
 %% @doc This is the 'out' function that Yaws calls when passing
 %%  HTTP requests to the ErlyWeb appmod.
+%%
+%% @spec out(A::yaws_arg()) -> ret_val()
 out(A) ->
-    AppName = erlyweb_util:get_appname(A),
+    AppName = get_app_name(A),
     AppData = get_app_data_module(AppName),
     case catch AppData:get_controller() of
 	{'EXIT', {undef, _}} ->
 	    exit({no_application_data,
-		  "Did you forget to call erlyweb:compile(DocRoot) or "
+		  "Did you forget to call erlyweb:compile(AppDir) or "
 		  "add the app's previously compiled .beam files to the "
 		  "Erlang code path?"});
 	AppController ->
 	    case AppData:auto_compile() of
 		false -> ok;
 		{true, Options} ->
-		    DocRoot = yaws_arg:docroot(A),
-		    AppRoot = case lists:last(DocRoot) of
+		    AppDir = yaws_arg:docroot(A),
+		    AppDir1 = case lists:last(AppDir) of
 				  '/' ->
 				      filename:dirname(
-					filename:dirname(DocRoot));
-				  _ -> filename:dirname(DocRoot)
+					filename:dirname(AppDir));
+				  _ -> filename:dirname(AppDir)
 			      end,
-		    case compile(AppRoot, Options) of
+		    case compile(AppDir1, Options) of
 			{ok, _} -> ok;
 			Err -> exit(Err)
 		    end
@@ -456,19 +813,19 @@ ewc({controller, Controller, FuncName, [A | _] = Params}, AppData) ->
 	     {any_path,
 	      atom_to_list(FuncName1)}};
 	{ewr, Component1, FuncName1} ->
-	    AppRoot = erlyweb_util:get_app_root(A),
+	    AppDir = get_app_root(A),
 	    {redirect_local,
 	     {any_path,
-	      filename:join([AppRoot, atom_to_list(Component1),
+	      filename:join([AppDir, atom_to_list(Component1),
 			     atom_to_list(FuncName1)])}};
 	{ewr, Component1, FuncName1, Params1} ->
 	    Params2 = [erlydb_base:field_to_iolist(Param) ||
 			  Param <- Params1],
-	    AppRoot = erlyweb_util:get_app_root(A),
+	    AppDir = get_app_root(A),
 	    {redirect_local,
 	     {any_path,
 	      filename:join(
-		filename:join([AppRoot, atom_to_list(Component1),
+		filename:join([AppDir, atom_to_list(Component1),
 			       atom_to_list(FuncName1)]),
 	       Params2)}}; 
 	Response ->
@@ -599,3 +956,30 @@ get_app_data_module(AppName) when is_atom(AppName) ->
     get_app_data_module(atom_to_list(AppName));
 get_app_data_module(AppName) ->
     list_to_atom(AppName ++ "_erlyweb_data").
+
+
+%% @doc Get the name for the application as specified in the opaque 
+%% 'appname' field in the YAWS configuration.
+%%
+%% @spec get_app_name(A::arg()) -> AppName::string() | exit(Err)
+get_app_name(A) ->
+    case lists:keysearch("appname", 1, yaws_arg:opaque(A)) of
+	{value, {_, AppName}} ->
+	    AppName;
+	false ->
+	    exit({missing_appname,
+		  "Did you forget to add the 'appname = [name]' "
+		  "to the <opaque> directive in yaws.conf?"})
+    end.
+
+%% @doc Get the relative URL for the application's root path.
+%%
+%% @spec get_app_root(A::arg()) -> string()
+get_app_root(A) ->
+    ServerPath = yaws_arg:server_path(A),
+    {First, _Rest} =
+	lists:split(
+	  length(ServerPath) -
+	  length(yaws_arg:appmoddata(A)),
+	  ServerPath),
+    First.

@@ -1,13 +1,14 @@
-%% @title erlyweb_util
-%% @author Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com)
+%% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com)]
 %%
+%% @hidden
 %% @doc This module contains utility functions for ErlyWeb.
-%%
-%% @license For license information see LICENSE.txt
+
+%% For license information see LICENSE.txt
 
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
--compile(export_all).
+-export([log/5, create_app/2, create_component/2, get_appname/1,
+	 get_app_root/1]).
 
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
 -define(Info(Msg, Params), log(?MODULE, ?LINE, info, Msg, Params)).
@@ -17,8 +18,8 @@ log(Module, Line, Level, Msg, Params) ->
     io:format("~p:~p:~p: " ++ Msg, [Level, Module, Line] ++ Params),
     io:format("~n").
 
-
-%% Create a new ErlyWeb application in the given directory.
+%% @doc Create a new ErlyWeb application in the given directory. This
+%% function isn't meant to be used directly. Instead, use erlyweb:create_app().
 %%
 %% @spec create_app(AppName::string(), Dir::string()) -> ok | exit(Err)
 create_app(AppName, Dir) ->
@@ -32,7 +33,7 @@ create_app(AppName, Dir) ->
 			  ok ->
 			      ok;
 			  Err ->
-			      exit({Err, NewDir})
+			      exit(Err)
 		      end
 	      end, [AppName,
 		    AppName ++ "/src",
@@ -58,7 +59,8 @@ create_app(AppName, Dir) ->
 	      end, Files),
 	    ok;
 	false ->
-	    ?Error("%p isn't a directory", [Dir])
+	    ?Error("%p isn't a directory", [Dir]),
+	    exit({invalid_directory, Dir})
     end.
 
 create_file(FileName, Bin) ->
@@ -136,6 +138,12 @@ css() ->
 	"H1 {font-size: 1.5em;}",
     iolist_to_binary(Text).
 
+%% @doc Create a new ErlyWeb component exposing CRUD functions for a
+%% database table. This function isn't meant to be used directly. Instead,
+%% use erlyweb:create_component.
+%%
+%% @spec create_component(ComponentName::string(), AppDir::string()) -> ok
+%%  | exit(Err)
 create_component(ComponentName, AppDir) ->
     Files =
 	[{ComponentName ++ ".erl",
@@ -151,24 +159,11 @@ create_component(ComponentName, AppDir) ->
 	      create_file(AppDir ++ "/src/components/" ++
 			  FileName, iolist_to_binary(Text))
       end, Files).
-			 
 
+%% @deprecated Please use erlyweb:get_app_name instead.
 get_appname(A) ->
-    case lists:keysearch("appname", 1, yaws_arg:opaque(A)) of
-	{value, {_, AppName}} ->
-	    AppName;
-	false ->
-	    exit({missing_appname,
-		  "Did you forget to add the 'appname = [name]' "
-		  "to the <opaque> directive in yaws.conf?"})
-    end.
+    erlyweb:get_app_name(A).
 
-
-get_app_root(A) ->
-    ServerPath = yaws_arg:server_path(A),
-    {First, _Rest} =
-	lists:split(
-	  length(ServerPath) -
-	  length(yaws_arg:appmoddata(A)),
-	  ServerPath),
-    First.
+%% @deprecated Please use erlyweb:get_app_root instead
+get_app_root(A)->
+    erlyweb:get_app_root(A).
