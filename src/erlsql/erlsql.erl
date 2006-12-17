@@ -1,10 +1,9 @@
-%% Author: Yariv Sadan (yarivvv@gmail.com) (http://yarivsblog.com)
-%% Date: 9/16/06
+%% @author Yariv Sadan <yarivvv@gmail.com> [http://yarivsblog.com]
+%% @copyright Yariv Sadan 2006
 %%
-%% Description
-%% -----------
-%% ErlSQL (ESQL) is a domain specific embedded language for
-%% expressing SQL statements in Erlang combined with a library
+%% @doc
+%% ErlSQL is a domain specific embedded language for
+%% expressing SQL statements in Erlang as well as a library
 %% for generating the literal equivalents of esql expressions. 
 %%
 %% ErlSQL lets you describe SQL queries using a combination of Erlang
@@ -37,9 +36,7 @@
 %% For usage examples, look at the file test_erlsql.erl under the test/
 %% directory.
 %%   
-%% For more information, visit ErlSQL's home page at
-%% http://code.google.com/p/erlsql.
-%% 
+
 %% For license information see LICENSE.TXT
 
 -module(erlsql).
@@ -68,8 +65,7 @@ sql(Esql) ->
 %%   indicating if the return value should be a single binary
 %%   rather than an iolist.
 %% 
-%% @spec sql(Esql::term(), true) -> binary()
-%% @spec sql(Esql::term(), false) -> iolist()
+%% @spec sql(Esql::term(), boolean()) -> binary() | iolist()
 sql(Esql, true) ->
     iolist_to_binary(sql(Esql));
 sql(Esql, false) ->
@@ -101,14 +97,18 @@ unsafe_sql(Esql, true) ->
 unsafe_sql(Esql, false) ->
     unsafe_sql(Esql).
 
+%% @doc Calls encode(Val, true).
+%%
+%% @spec encode(Val::term()) -> binary()
+encode(Val) ->
+    encode(Val, true).
+
 %% @doc Encode a value as a string or a binary to be embedded in
 %%  a SQL statement. This function can encode numbers, atoms,
 %%  date/time/datetime values, strings and binaries
 %%  (which it escapes automatically).
 %% 
 %% @spec encode(Val::term(), AsBinary::bool()) -> string() | binary()
-encode(Val) ->
-    encode(Val, true).
 encode(Val, false) when Val == undefined; Val == null ->
     "null";
 encode(Val, true) when Val == undefined; Val == null ->

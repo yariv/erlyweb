@@ -1,9 +1,9 @@
-%% @title erlydb_field
 %% @author Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com)
-%% @doc This module has useful functions for getting the attributes
-%%   of database fields.
-%%
-%% @license For license information see license.txt
+%% @doc This module contains data structures and functions for
+%% for exposing metadata of database fields.
+
+%% For license information see license.txt
+
 -module(erlydb_field).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com)").
 
