@@ -8,7 +8,8 @@
 %% having to include yaws_api.hrl.
 %%
 %% Most functions have two forms: one for getting the value of a field and
-%% one for setting it. The functions that set the value of a field take
+%% one for setting it. Getters accept the record as a parameter and return
+%% the value of its field. The functions that set the value of a field take
 %% two parameters -- the record and the new value -- and return a new record
 %% with the modified value.
 %%
