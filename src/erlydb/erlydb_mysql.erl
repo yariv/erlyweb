@@ -1,7 +1,7 @@
-%% @title The ErlyDB MySQL driver.
-%%
+%% @author Yariv Sadan (yarivvv@gmail.com) (http://yarivsblog.com)
+%% @copyright Yariv Sadan 2006
+%% 
 %% @doc This module implements the MySQL driver for ErlyDB.
-%%
 %% Some of the functions accept a SQL statement as a parameter.
 %% This statement can be expressed as a string, an iolist, a binary or
 %% a ErlSQL expression. The preferred type is ErlSQL because it can
@@ -16,9 +16,9 @@
 %% pool_id::atom() - the connection pool id used for the module
 %% allow_unsafe_sql::bool() - whether the driver should accept string
 %%   and/or binary SQL queries.
-%% 
 %%
-%% @author Yariv Sadan (yarivvv@gmail.com) (http://yarivsblog.com)
+
+%% For license information see LICENSE.txt
 
 -module(erlydb_mysql).
 
@@ -64,40 +64,39 @@
 %%  - username: a string indicating the username.
 %%  - password: a string indicating the password.
 %%  - database: a string indicating the database name.
-%%  - num_conns (optional): an integer indicating the number of connections
-%%      to start in the connection pool.
 %%
 %% @spec start(StartOptions::proplist()) -> ok | {error, Error}
 start(Options) ->
-    [PoolId, Hostname, Port, Username, Password, Database, NumConns] =
+    [PoolId, Hostname, Port, Username, Password, Database] =
 	lists:foldl(
 	  fun(Key, Acc) ->
 		  [proplists:get_value(Key, Options) | Acc]
 	  end, [],
 	  lists:reverse([pool_id, hostname, port, username,
-			 password, database, num_conns])),
+			 password, database])),
 
     PoolId1 = if PoolId == undefined -> ?Epid; true -> PoolId end,
-    NumConns1 = if NumConns == undefined -> 1; true -> NumConns end,
-    mysql:start_link(PoolId1, Hostname, Port, Username, Password, Database),
-    add_connections(PoolId1, Hostname, Port, Username, Password,
-		    Database, NumConns1-1).
-    
-%% @doc Add more connections to the given connection pool. If PoolId is
-%%   'undefined', the default pool is used.
-%%
-%% @spec add_connections(PoolId::atom(), Hostname::string, Port::integer(),
-%%    Username::string(), Password::string(), Database::string(),
-%%    NumConns::integer())
-add_connections(_PoolId, _Hostname, _Port, _Username, _Password, _Database,
-		0) ->
-    ok;
+    mysql:start_link(PoolId1, Hostname, Port, Username, Password, Database).
 
-add_connections(PoolId, Hostname, Port, Username, Password, Database,
-		NumConns) ->
-    mysql:connect(PoolId, Hostname, Port, Username, Password, Database, true),
-    add_connections(PoolId, Hostname, Port, Username, Password, Database,
-		    NumConns-1).
+
+%% @doc Call connect/7 with Port set to 3306 and Reconnect set to 'true'.
+%%
+%% @spec connect(PoolId::atom(), Hostname::string(),
+%%    Username::string(), Password::string(), Database::string()) -> ok
+connect(PoolId, Hostname, Username, Password, Database) ->
+    mysql:connect(PoolId, Hostname, 3306, Username, Password, Database,
+		  true).
+
+%% @doc Add a connection to the connection pool. If PoolId is
+%%   'undefined', the default pool, 'erlydb_mysql', is used.
+%%
+%% @spec connect(PoolId::atom(), Hostname::string, Port::integer(),
+%%    Username::string(), Password::string(), Database::string(),
+%%    Reconnect::boolean()) -> ok
+connect(PoolId, Hostname, Port, Username, Password, Database,
+		Reconnect) ->
+    mysql:connect(PoolId, Hostname, Port, Username, Password, Database,
+		  Reconnect).
 
 %% @doc Get the table names and fields for the database.
 %%
@@ -169,16 +168,20 @@ parse_list(Str) ->
     [list_to_binary(string:strip(Tok, both, 39)) || Tok <- Toks].
     
 
-%% @doc Execute a statement directly against the MySQL driver. If 
-%%   Options contains the value {allow_unsafe_sql, true}, binary
-%%   and string queries as well as ErlSQL queries with binary and/or
-%%   string expressions are accepted. Otherwise, this function crashes.
+%% @doc Execute a statement against the MySQL driver with the default options.
+%% The connection pool named 'erlydb_mysql' is used.
 %%
-%% @spec q(Statement::statement(), Options::options()) ->
-%%   mysql_result() | exit({unsafe_statement, Statement})
+%% @spec q(Statement::statement()) -> mysql_result()
 q(Statement) ->
     q(Statement, undefined).
 
+%% @doc Execute a statement directly against the MySQL driver. If 
+%%   Options contains the value {allow_unsafe_sql, true}, binary
+%%   and string queries as well as ErlSQL queries with binary and/or
+%%   string expressions are accepted. Otherwise, this function exits.
+%%
+%% @spec q(Statement::statement(), Options::options()) ->
+%%   mysql_result() | exit({unsafe_statement, Statement})
 q({esql, Statement}, Options) ->
     case allow_unsafe_statements(Options) of
 	true -> q2(erlsql:unsafe_sql(Statement), Options);
@@ -194,12 +197,17 @@ q(Statement, Options) when is_binary(Statement); is_list(Statement) ->
 	_ -> exit({unsafe_statement, Statement})
     end.
 
+%% @doc Execute a (binary or string) statement against the MySQL driver.
+%% ErlyDB doesn't use this function, but it's sometimes convenient for testing.
+%%
+%% @spec q2(Statement::string() | binary(), Options::proplist()) ->
+%%   mysql_result()
 q2(Statement, Options) ->
     mysql:fetch(get_pool_id(Options), Statement).
 
 %% @doc Execute a group of statements in a transaction.
 %%   Fun is the function that implements the transaction.
-%%   It can contain an arbitrary sequence of calls to
+%%   Fun can contain an arbitrary sequence of calls to
 %%   the erlydb_mysql's query functions. If Fun crashes or returns
 %%   or throws 'error' or {error, Err}, the transaction is automatically
 %%   rolled back. 
@@ -210,19 +218,19 @@ transaction(Fun, Options) ->
     mysql:transaction(get_pool_id(Options), Fun).
 
     
-%% @doc Execute a SELECT statment.
+%% @doc Execute a raw SELECT statement.
 %%
 %% @spec select(PoolId::atom(), Statement::statement()) ->
 %%   {ok, Rows::list()} | {error, Error}
 select(Statement, Options) ->
     select2(Statement, Options, []).
 
-%% @doc Perform a SELECT query for records belonging to the given module,
+%% @doc Execute a SELECT statements for records belonging to the given module,
 %%   returning all rows with additional data to support
 %%   higher-level ErlyDB features.
 %%
-%% @spec select_as(Statement::statement(), FixedCols::tuple()) ->
-%%   {ok, Rows} | {error, Error}
+%% @spec select_as(Module::atom(), Statement::statement(),
+%%   FixedCols::tuple()) -> {ok, Rows} | {error, Error}
 select_as(Module, Statement, Options) ->
     select2(Statement, Options, [Module, false]).
 
@@ -248,7 +256,8 @@ get_select_result(Other, _) -> Other.
 
 %% @doc Execute a DELETE or UPDATE statement.
 %%
-%% @spec update(Statement::statement()) -> {ok, NumAffected} | {error, Err}
+%% @spec update(Statement::statement(), Options::options()) ->
+%%  {ok, NumAffected} | {error, Err}
 update(Statement, Options) ->
     get_update_result(q(Statement, Options)).
 
@@ -289,7 +298,7 @@ execute(Name, Options) ->
 %% @doc Execute a prepared statement with the list of parameters.
 %%
 %% @spec execute(Name::atom(), Params::[term()], Options::options()) ->
-%%   mysql_result().
+%%   mysql_result()
 execute(Name, Params, Options) ->
     mysql:execute(get_pool_id(Options), Name, Params).
 
@@ -312,7 +321,7 @@ execute_select(Name, Params, Options) ->
 %% @doc Execute a prepared statement and return the result as the the
 %%   update() function.
 %%
-%% @spec execute_upate(Name::atom(), Options::options) ->
+%% @spec execute_update(Name::atom(), Options::options()) ->
 %%   {ok, NumUpdated::integer()} | {error, Err}
 execute_update(Name, Options) ->
     get_update_result(execute(Name, Options)).
@@ -320,7 +329,7 @@ execute_update(Name, Options) ->
 %% @doc Execute a prepared statement with the list of parameters and
 %%   and return the result as the the update() function.
 %%
-%% @spec execute_update(Name::atom(), Params::[term()], Options::options) ->
+%% @spec execute_update(Name::atom(), Params::[term()], Options::options()) ->
 %%   {ok, NumUpdated::integer()} | {error, Err}
 execute_update(Name, Params, Options) ->
     get_update_result(execute(Name, Params, Options)).
