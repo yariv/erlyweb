@@ -1,6 +1,18 @@
-%% @author Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com)
+%% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com]
+%% @copyright Yariv Sadan 2006
+%%
 %% @doc This module contains data structures and functions for
-%% for exposing metadata of database fields.
+%% exposing database fields' metadata.
+%%
+%% After calling {@link erlydb:codegen/3}, generated modules contain a few
+%% functions for getting database field metadata as well as transforming
+%% records to iolists and setting their field values from strings. Those
+%% functions use opaque erlydb_field structures, whose values can be
+%% retrieved using the functions in this module. For more information,
+%% refer to {@link erlydb_base}.
+
+%% @type erlydb_field(). An opaque structure holding database field
+%% metadata.
 
 %% For license information see license.txt
 
@@ -32,10 +44,33 @@
 	 null, key,
 	 default, extra}).
 
+%% @doc Create a new erlydb_field record.
+%%
+%% @spec new() -> erlydb_field()
 new() ->
     #erlydb_field{}.
 
-new(Name, {Type, Modifier}, Null, Key, Default, Extra) ->
+%% @doc Create a new erlydb_field record initialized with the given values.
+%%
+%% 'Type' is the database datatype, e.g. "integer", "varchar", etc.
+%%
+%% 'Modifier' is used to define the maximum length of the field, or the list
+%% of options for an enum field. This value is set to 'undefined' if it's not
+%% provided.
+%% 
+%% 'Null' a boolean value indicating if the field is allowed to have a null
+%%  value.
+%%
+%% 'Key' indicates if the field is used as a primary or a unique key.
+%%
+%% 'Default' is the field's default value.
+%%
+%% 'Extra' is any additional information used to describe the field.
+%%
+%% @spec new(Name::atom(), Type::term() | {term(), Modifier::term()},
+%%  Null::boolean(), Key::term(), Default::term(), Extra::term()) ->
+%%  erlydb_field()
+new(Name, Type, Null, Key, Default, Extra) ->
     NameStr = atom_to_list(Name),
     #erlydb_field{name = Name,
 		  name_str = NameStr,
@@ -51,42 +86,91 @@ new(Name, {Type, Modifier}, Null, Key, Default, Extra) ->
 new(Name, Type, Null, Key, Default, Extra) ->
     new(Name, {Type, undefined}, Null, Key, Default, Extra).
 
+%% @doc Get the field's name.
+%%
+%% @spec name(Field::erlydb_field()) -> atom()
 name(Field) ->
     Field#erlydb_field.name.
 
+%% @doc Get the field's name as a string.
+%%
+%% @spec name_str(Field::erlydb_field()) -> string()
 name_str(Field) ->
     Field#erlydb_field.name_str.
 
+%% @doc Get the field's name as a binary.
+%%
+%% @spec name_bin(Field::erlydb_field()) -> binary()
 name_bin(Field) ->
     Field#erlydb_field.name_bin.
 
+%% @doc Get the field's type.
+%%
+%% @spec type(Field::erlydb_field()) -> term()
 type(Field) ->
     Field#erlydb_field.type.
 
+%% @doc Get the field's modifier.
+%%
+%% @spec modifier(Field::erlydb_field()) -> term()
 modifier(Field) ->
     Field#erlydb_field.modifier.
 
+%% @doc If this is a text field, get its max length. This is identical to
+%% modifier/1.
+%%
+%% @spec maxlength(Field::erlydb_field()) -> term()
 maxlength(Field) ->
     Field#erlydb_field.modifier.
 
+%% @doc If this is an enum field, get its list of options. This is identical to
+%% modifier/1.
+%%
+%% @spec options(Field::erlydb_field()) -> term()
 options(Field) ->
     Field#erlydb_field.modifier.
 
+%% @doc Get the field's corresponding Erlang type.
+%%
+%% Date, time and datetime fields have the following forms:
+%%
+%% {date, {Year, Month, Day}}<br/>
+%% {time, {Hour, Minute, Second}}<br/>
+%% {datetime, {{Year, Month, Day}, {Hour, Minute, Second}}}<br/>
+%%
+%% @spec erl_type(Field::erlydb_field()) -> binary | integer | float | date |
+%%  time | datetime
 erl_type(Field) ->
     Field#erlydb_field.erl_type.
 
+%% @doc Get the field's default HTML input field type.
+%%
+%% @spec html_input_type(Field::erlydb_field()) -> text_field |
+%%  text_area | select
 html_input_type(Field) ->
     Field#erlydb_field.html_input_type.
 
+%% @doc Get the field's 'null' status.
+%%
+%% @spec null(Field::erlydb_field()) -> boolean()
 null(Field) ->
     Field#erlydb_field.null.
 
+%% @doc Get the field's key definition.
+%%
+%% @spec key(Field::erlydb_field()) -> undefined | term()
 key(Field) ->
     Field#erlydb_field.key.
 
+%% @doc Get the field's default value.
+%%
+%% @spec default(Field::erlydb_field()) -> undefined | term()
 default(Field) ->
     Field#erlydb_field.default.
 
+%% @doc Get the field's extra metadata.
+%%
+%% @spec extra(Field::erlydb_field()) -> undefined | term()
 extra(Field) ->
     Field#erlydb_field.extra.
 

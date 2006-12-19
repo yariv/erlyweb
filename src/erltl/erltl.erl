@@ -73,29 +73,46 @@
 %% `<%! [Comment] %>' <br/>Comment tag. The contents of this tag are
 %% used for documentation only. They are discarded in compile-time.
 %%
-%% Following is an sample ErlTL template that uses the ErlTL tags above:
+%% Following is an sample ErlTL template that uses the ErlTL tags above
+%% (you can find this code under test/erltl):
 %%
 %% ```
 %% <%~
+%% %% date: 10/21/2006
 %% -author("Yariv Sadan").
-%% -import(my_app, [header/, footer/]).
+%% -import(widgets, [foo/1, bar/2, baz/3]).
 %% %>
-%% <%? [Title, Body, Id] = Data %>
-%% <%! This is a comment %>
+%% <%! This is a sample ErlTL template that renders a list of albums %>
 %% <html>
-%% <head>
-%%   <title><% Title %></title>
-%% </head>
 %% <body>
-%%   <% header() %>
-%%   <% Body %><br/>
-%%   <% question(<<"delete">>, <<"person">>, Id) %>
-%%   <% footer() %>
+%% <% [album(A) || A <- Data] %>
 %% </body>
 %% </html>
 %%
-%% <%@ question(Action, ModelName, Id) %>
-%% Are you sure you want to <% Action %> the <% ModelName %> with id <% Id %>?
+%% <%@ album({Title, Artist, Songs}) %>
+%% Title: <b><% Title %></b><br>
+%% Artist: <b><% Artist %></b><br>
+%% Songs: <br>
+%% <table>
+%% <% [song(Number, Name) || {Number, Name} <- Songs] %>
+%% </table>
+%%
+%% <%@ song(Number, Name) when size(Name) > 15 %>
+%% <%? <<First:13/binary, Rest/binary>> = Name %>
+%% <% song(Number, [First, <<"...">>]) %>
+%%
+%% <%@ song(Number, Name) %>
+%% <%?
+%% Class =
+%%   case Number rem 2 of
+%%     0 -> <<"even">>;
+%%     1 -> <<"odd">>
+%%   end
+%% %>
+%% <tr>
+%%   <td class="<% Class %>"><% integer_to_list(Number) %></td>
+%%   <td class="<% Class %>"><% Name %></td>
+%% </tr>
 %% '''
 %%
 %% @end

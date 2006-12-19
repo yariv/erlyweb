@@ -4,7 +4,7 @@
 %% @doc
 %% ErlSQL is a domain specific embedded language for
 %% expressing SQL statements in Erlang as well as a library
-%% for generating the literal equivalents of esql expressions. 
+%% for generating the literal equivalents of ErlSQL expressions. 
 %%
 %% ErlSQL lets you describe SQL queries using a combination of Erlang
 %% lists, tuples, atoms and values in a way that resembles the
@@ -17,25 +17,23 @@
 %% ErlSQL supports a large subset of the SQL language implemented by
 %% some popular RDBMS's, including most common INSERT, UPDATE, DELETE
 %% and SELECT statements. ErlSQL can generate complex queries including
-%% those with unions, nested statements and aggregate functions but
+%% those with unions, nested statements and aggregate functions, but
 %% it does not currently attempt to cover every feature and extension
 %% of the SQL language.
 %% 
-%% ErlSQL's benefits are:
-%% - Easy dynamic generation of SQL queries from Erlang for application
-%%   developers.
+%% ErlSQL's benefits are:<br/>
+%% - Easy dynamic generation of SQL queries from Erlang by combining
+%%   native Erlang types rather than string fragments.<br/>
 %% - Prevention of most, if not all, SQL injection attacks by
-%%   assuring that all string values are properly escaped.
-%% - Integration with higher level libraries such as ErlyDB
-%%   (http://code.google.com/p/erlydb).
+%%   assuring that all string values are properly escaped.<br/>
+%% - Efficient generation of iolists as nested lists of binaries.<br/>
 %%
-%% WARNING: ErlSQL allows you to write verbatim WHERE clauses as well as
+%% Warning: ErlSQL allows you to write verbatim WHERE clauses as well as
 %% verbatim LIMIT and other trailing clauses, but using this feature
 %% is highly discouraged because it exposes you to SQL injection attacks.
 %%
 %% For usage examples, look at the file test_erlsql.erl under the test/
 %% directory.
-%%   
 
 %% For license information see LICENSE.TXT
 
@@ -57,7 +55,7 @@
 %%  and other trailing clauses. To write such clauses,
 %%  call unsafe_sql/1 or unsafe_sql/2.
 %%
-%% @spec sql(Esql::term()) -> iolist()
+%% @spec sql(ErlSQL::term()) -> iolist()
 sql(Esql) ->
     sql2(Esql, true).
 
@@ -65,7 +63,7 @@ sql(Esql) ->
 %%   indicating if the return value should be a single binary
 %%   rather than an iolist.
 %% 
-%% @spec sql(Esql::term(), boolean()) -> binary() | iolist()
+%% @spec sql(ErlSQL::term(), boolean()) -> binary() | iolist()
 sql(Esql, true) ->
     iolist_to_binary(sql(Esql));
 sql(Esql, false) ->
@@ -82,7 +80,7 @@ sql(Esql, false) ->
 %%  injection attacks. When you use unsafe_sql, make sure to
 %%  quote all your strings using the encode/1 function.
 %%
-%% @spec unsafe_sql(Esql::term()) -> iolist()
+%% @spec unsafe_sql(ErlSQL::term()) -> iolist()
 %% @throws {error, {unsafe_expression, Expr}}
 unsafe_sql(Esql) ->
     sql2(Esql, false).
@@ -90,7 +88,7 @@ unsafe_sql(Esql) ->
 %% @doc Similar to unsafe_sql/1, but accepts a boolean parameter
 %%  indicating if the return value should be a binary or an iolist.
 %%
-%% @spec unsafe_sql(Esql::term(), AsBinary::bool()) -> binary() | iolist()
+%% @spec unsafe_sql(ErlSQL::term(), AsBinary::bool()) -> binary() | iolist()
 %% @throws {error, {unsafe_expression, Expr}}
 unsafe_sql(Esql, true) ->
     iolist_to_binary(unsafe_sql(Esql));

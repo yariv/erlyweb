@@ -1,31 +1,38 @@
 %% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com]
 %% @copyright Yariv Sadan 2006
 %% @doc ErlyDB: The Erlang Twist on Database Abstraction.
+%%
 %% ErlyDB is a database abstraction layer generator for Erlang. ErlyDB
 %% combines database metadata and user-provided metadata to generate
 %% functions that let you perform common data access operations in
 %% an intuitive manner. It also provides a single API for working with
 %% different database engines (although currently, only MySQL is supported),
-%% helping you you write portable code.
+%% letting you write portable data access code.
 %%
-%% ErlyDB generates as much code as possible in advance to minimize the runtime
-%% overhead of the generated database abstraction layer.
+%% ErlyDB is designed to work with relational schemas, supporting both
+%% one-to-many and many-to-many relations.
 %%
-%% By using ErlSQL under the hood for SQL statement generation, ErlyDB
+%% By using {@link erlsql} under the hood for SQL statement generation, ErlyDB
 %% provides a simple and effective mechanism for protection against
 %% SQL injection attacks. (It's possible to use ErlyDB in 'unsafe' mode,
 %% which lets you write SQL statement snippets as strings, but this isn't
-%% recommended.)
+%% recommended.) Many of the functions that ErlyDB generates let you extend
+%% the automatically generated queries by passing WHERE
+%% conditions and/or extras (e.g. LIMIT, ORDER BY) clauses, expressed as
+%% ErlSQL snippets, as parameters.
 %%
 %% ErlyDB uses the module erlydb_base as a generic template for database
 %% access modules. During code generation, ErlyDB calls
 %% smerl:extend(erlydb_base, Module), and then performs different
-%% manipulations on the inherited erlydb_base functions to specialize them
-%% for the specific model and its relations to other models.
+%% manipulations on the functions in the resulting module in order to
+%% specialize them for the specific model.
 %% 
 %% To learn about the functions that ErlyDB generates and how to implement
-%% functions that provide ErlyDB extra database metadata, refer to the
-%% documentation for erlydb_base.
+%% functions that provide ErlyDB extra database metadata prior to code
+%% generation, refer to the documentation for erlydb_base.
+%%
+%% You can find sample code illustrating how to use many of ErlyDB's features
+%% in the test/erlydb directory.
 
 %% For license information see LICENSE.txt
 
@@ -73,7 +80,7 @@ driver_mod(mnesia) -> erlydb_mnesia;
 driver_mod(odbc) -> erlydb_odbc.
 
 %% @doc Generate ErlyDB code for the list of modules using the default
-%% options for the provided driver. This may only work for some drivers.
+%% options for the provided driver. This doesn't work for all drivers.
 %% For more information,
 %% refer to the driver's documentation.
 %%

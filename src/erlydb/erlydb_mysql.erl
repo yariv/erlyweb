@@ -2,20 +2,11 @@
 %% @copyright Yariv Sadan 2006
 %% 
 %% @doc This module implements the MySQL driver for ErlyDB.
-%% Some of the functions accept a SQL statement as a parameter.
-%% This statement can be expressed as a string, an iolist, a binary or
-%% a ErlSQL expression. The preferred type is ErlSQL because it can
-%% be easily converted to a binary representation and because it protects
-%% against SQL injection attacks.
-%% For more information on ErlSQL, visit http://code.google.com/p/erlsql.
 %%
-%% Many of the functions in the module accept an Options parameter.
-%% The value for this parameter can be defined by the user when calling
-%% erlydb:code_gen/3. The available options are:
-%%
-%% pool_id::atom() - the connection pool id used for the module
-%% allow_unsafe_sql::bool() - whether the driver should accept string
-%%   and/or binary SQL queries.
+%% This is an internal ErlyDB module that you normally shouldn't have to
+%% use directly. For most situations, all you have to know
+%% about this module is the options you can pass to {@link start/1}, which
+%% is called by {@link erlydb:start/2}.
 %%
 
 %% For license information see LICENSE.txt
@@ -54,16 +45,28 @@
 %% @type statement() = esql() | binary() | string()
 
 %% @doc Start the MySQL driver using the options property list.
-%%  The available options are
-%%  - pool_id (optional): an atom identifying the connection pool id.
-%%        An 'undefined' value indicates that the default connection
-%%        pool should be used. 
-%%  - hostname: a string indicating the database host name.
-%%  - port (optional): an integer indicating the database port
+%%  The available options are:
+%%
+%%  `pool_id' (optional): an atom identifying the connection pool id.
+%%     An 'undefined' value indicates that the default connection
+%%     pool, i.e. 'erlydb_mysql', should be used.
+%%
+%%  `hostname': a string indicating the database host name.
+%%
+%%  `port' (optional): an integer indicating the database port
 %%      ('undefined' indicates the default MySQL port, 3306).
-%%  - username: a string indicating the username.
-%%  - password: a string indicating the password.
-%%  - database: a string indicating the database name.
+%%
+%%  `username': a string indicating the username.
+%%
+%%  `password': a string indicating the password.
+%%
+%%  `database': a string indicating the database name.
+%%
+%%  `allow_unsafe_sql': a boolean value indicating whether the driver should
+%%  accept string and/or binary SQL queries and query fragments. If you
+%%  set this value to
+%%  'true', ErlyDB lets you use string or binary Where and Extras expressions
+%%  in generated functions. For more information, see {@link erlydb}.
 %%
 %% @spec start(StartOptions::proplist()) -> ok | {error, Error}
 start(Options) ->

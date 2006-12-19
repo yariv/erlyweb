@@ -2,9 +2,13 @@
 %% @copyright Yariv Sadan 2006
 %%
 %% @doc  Smerl: Simple Metaprogramming for Erlang
+%%
 %%  Smerl is an Erlang library
-%%   that simplifies the creation and manipulation of Erlang modules in
-%%   runtime.
+%%  that simplifies the creation and manipulation of Erlang modules in
+%%  runtime.
+%%
+%%  You don't need to know Smerl in order to use ErlyWeb; Smerl
+%%  is included in ErlyWeb because ErlyWeb uses it internally.
 %%
 %%  Smerl uses Erlang's capabilities for hot code swapping and
 %%  abstract syntax tree transformations to do its magic. Smerl is inspired by
@@ -77,7 +81,6 @@
 	 get_attribute/2,
 	 add_func/2,
 	 add_func/3,
-	 add_func/4,
 	 remove_func/3,
 	 has_func/3,
 	 get_func/3,
@@ -108,7 +111,8 @@
 -define(L(Obj), io:format("LOG ~w ~p\n", [?LINE, Obj])).
 -define(S(Obj), io:format("LOG ~w ~s\n", [?LINE, Obj])).	 
 
-%% @type meta_mod(). A tuple holding the abstract representation for module.
+%% @type meta_mod(). A data structure holding the abstract representation
+%%  for a module.
 %% @type func_form(). The abstract form for the function, as described
 %%    in the ERTS Users' manual.
 
@@ -294,17 +298,17 @@ get_forms(Module, Path) ->
 	    end
     end.
 
-%% @doc Add a new function to the MetaMod record and return the new MetaMod
-%%   record. The new function will be added to the module's export list.
+%% @doc Add a new function to the meta_mod and return the resulting meta_mod.
+%% This function calls add_func(MetaMod, Form, true).
 %%
 %% @spec add_func(MetaMod::meta_mod(), Form::func_form() | string()) ->
 %%   {ok, NewMod::meta_mod()} | {error, parse_error}
 add_func(MetaMod, Form) ->
     add_func(MetaMod, Form, true).
 
-%% @doc Add a new function to the MetaMod record and return the new MetaMod
-%%   record. If Export == false, the function will not be added to the
-%%   MetaMod record's export list.
+%% @doc Add a new function to the meta_mod and return the new MetaMod
+%% record. Export is a boolean variable indicating if the function should
+%% be added to the module's exports.
 %%
 %% @spec add_func(MetaMod::meta_mod(), Func::func_form() | string(),
 %%   Export::boolean()) ->
@@ -333,38 +337,38 @@ add_func(MetaMod, Name, Fun) when is_function(Fun) ->
 add_func(_, _, _) ->
     {error, parse_error}.
 
-add_func(MetaMod, Name, Fun, Export) when is_function(Fun) ->
-    case form_for_fun(Name, Fun) of
-	{ok, Form} ->
-	    add_func(MetaMod, Form, Export);
-	Err ->
-	    Err
-    end.
+%% add_func(MetaMod, Name, Fun, Export) when is_function(Fun) ->
+%%     case form_for_fun(Name, Fun) of
+%% 	{ok, Form} ->
+%% 	    add_func(MetaMod, Form, Export);
+%% 	Err ->
+%% 	    Err
+%%     end.
 
-form_for_fun(Name, Fun) ->
-    Line = 999,
-    Info = erlang:fun_info(Fun),
-    case Info of
-	[{module, _ModName}, _FuncName, _Arity, _Env, {type, external}] ->
-	    {error, cant_add_external_funcs};
-	[_Pid, _Module, _NewIdx, _NewUniq, _Index, _Uniq, _Name,
-	 {arity, Arity},
-	 {env, [Vars, _Unknown1, _Unknown2, Clauses]},
-	 {type, local}] ->
-	    EnvVars = lists:map(
-			fun({VarName, Val}) ->
-				{match,Line,{var,Line,VarName},
-				 erl_parse:abstract(Val)}
-			end, Vars),
-	    NewClauses = lists:map(
-			   fun({clause, Line1, Params, Guards, Exprs}) ->
-				   {clause, Line1, Params, Guards,
-				    EnvVars ++ Exprs}
-			   end, Clauses),
-	    {ok, {function, Line, Name, Arity, NewClauses}};
-	_Other ->
-	    {error, bad_fun}
-    end.
+%% form_for_fun(Name, Fun) ->
+%%     Line = 999,
+%%     Info = erlang:fun_info(Fun),
+%%     case Info of
+%% 	[{module, _ModName}, _FuncName, _Arity, _Env, {type, external}] ->
+%% 	    {error, cant_add_external_funcs};
+%% 	[_Pid, _Module, _NewIdx, _NewUniq, _Index, _Uniq, _Name,
+%% 	 {arity, Arity},
+%% 	 {env, [Vars, _Unknown1, _Unknown2, Clauses]},
+%% 	 {type, local}] ->
+%% 	    EnvVars = lists:map(
+%% 			fun({VarName, Val}) ->
+%% 				{match,Line,{var,Line,VarName},
+%% 				 erl_parse:abstract(Val)}
+%% 			end, Vars),
+%% 	    NewClauses = lists:map(
+%% 			   fun({clause, Line1, Params, Guards, Exprs}) ->
+%% 				   {clause, Line1, Params, Guards,
+%% 				    EnvVars ++ Exprs}
+%% 			   end, Clauses),
+%% 	    {ok, {function, Line, Name, Arity, NewClauses}};
+%% 	_Other ->
+%% 	    {error, bad_fun}
+%%     end.
 
 
 parse_func_string(Func) ->
@@ -446,8 +450,9 @@ get_func2([_Form|Rest], FuncName, Arity) ->
 
 
 
+%% @doc
 %% Replace an existing function with the new one. If the function doesn't exist
-%% the new function is added to the MetaMod record.
+%% the new function is added to the meta_mod.
 %% This is tantamount to calling smerl:remove_func followed by smerl:add_func.
 %%
 %% @spec replace_func(MetaMod::meta_mod(), Function::string() | func_form()) ->
@@ -478,14 +483,22 @@ replace_func(MetaMod, Name, Fun) when is_function(Fun) ->
 	    Err
     end.
 	    
-%% @doc Compile the module represented by the meta_mod.
-%% You should call this function once you're done manipulating your
-%% module and you're ready to deploy the changes into the VM in runtime.
+%% @doc Compile the module represented by the meta_mod and load the
+%% resulting BEAM into the emulator. This function calls
+%% compile(MetaMod, [report_errors, report_warnings]).
 %%
 %% @spec compile(MetaMod::meta_mod()) -> ok | {error, Error}
 compile(MetaMod) ->
     compile(MetaMod, undefined).
 
+%% @doc Compile the module represented by the meta_mod and load the
+%% resulting BEAM into the emulator. 'Options' is a list of options as
+%% described in the 'compile' module in the Erlang documentation.
+%%
+%% If the 'outdir' option is provided,
+%% the .beam file is written to the destination directory.
+%%
+%% @spec compile(MetaMod::meta_mod(), Options::[term()]) -> ok | {error, Error}
 compile(MetaMod, undefined) ->
     compile(MetaMod, [report_errors, report_warnings]);
 
@@ -538,9 +551,9 @@ rename({function, Line, _Name, Arity, Clauses}, NewName) ->
     {function, Line, NewName, Arity, Clauses}.
 
 
-%% @doc Get the curried form for the function and parameter(s). (Meta)Currying
-%% involves replacing one or more of the leading parameters the function
-%% accepts with predefined values.
+%% @doc Get the curried form for the function and parameter(s). Currying
+%% involves replacing one or more of the function's leading parameters
+%% with predefined values.
 %%
 %% @spec curry(Form::func_form(), Param::term() | [term()]) ->
 %%   {ok, NewForm::func_form()} | {error, Err}
@@ -694,9 +707,9 @@ curry_replace(MetaMod, Name, Arity, Params) ->
     curry_change(MetaMod, Name, Arity, Params, true).
 
 
-%% @doc Embed all parameters that match a Name element of the list of
-%%  {Name, Value} pairs in the body of the function by setting them
-%%  to the Value element.
+%% @doc This function takes a function form and list of name/value pairs,
+%% and replaces all the function's parameters that whose names match an
+%% element from the list with the predefined value.
 %%
 %% @spec embed_params(Func::func_form(),
 %%   Vals::[{Name::atom(), Value::term()}]) -> NewForm::func_form()
@@ -732,8 +745,8 @@ embed_params({function, L, Name, Arity, Clauses}, Vals) ->
 	end,
     {function, L, Name, NewArity, lists:reverse(NewClauses)}.
 
-%% @doc Apply embed_params/2 to the function from the meta_mod and
-%%   add the resulting function to the MetaMod, returning a new
+%% @doc Apply {@link embed_params/2} to a function from the meta_mod and
+%%   add the resulting function to the meta_mod, and return the resulting
 %%   meta_mod.
 %%
 %% @spec embed_params(MetaMod::meta_mod(), Name::atom(), Arity::integer(),
@@ -761,7 +774,7 @@ embed_params(MetaMod, Name, Arity, Values, NewName) ->
 
 %% @doc Apply the embed_params function with the list of {Name, Value}
 %% pairs to all forms in the meta_mod. Exports
-%% for functions whose arity has changed as modified appropriately.
+%% for functions whose arities change due to the embedding are preserved.
 %%
 %% @spec embed_all(MetaMod::meta_mod(), Vals::[{Name::atom(),
 %%   Value::term()}]) -> NewMetaMod::meta_mod()
@@ -791,10 +804,12 @@ embed_all(MetaMod, Vals) ->
 	      forms = lists:reverse(NewForms),
 	      export_all = get_export_all(MetaMod)}.
 
-%% @doc extend/2 Create a child module from a parent module.
-%% All exported functions that are unique to the parent module are
-%% added to the child module in the form of remote function calls
-%% to functions in the parent module.
+%% @doc extend/2 
+%% Add all the parent module's functions that are missing from the child
+%% module to the child module. The new functions in the child module are
+%% shallow: they have the name and arity as their corresponding functions in
+%% the parent meta_mod, but instead of implementing their logic they call
+%% the parent module's functions.
 %%
 %% @spec extend(Parent::atom() | meta_mod(), Child::atom() | meta_mod()) ->
 %%      NewChildMod::meta_mod()
