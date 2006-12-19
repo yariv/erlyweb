@@ -1,0 +1,36 @@
+<%~
+%% date: 10/21/2006
+-author("Yariv Sadan").
+-import(widgets, [foo/1, bar/2, baz/3]).
+%>
+<%! This is a sample ErlTL template that renders a list of albums %>
+<html>
+<body>
+<% [album(A) || A <- Data] %>
+</body>
+</html>
+
+<%@ album({Title, Artist, Songs}) %>
+Title: <b><% Title %></b><br>
+Artist: <b><% Artist %></b><br>
+Songs: <br>
+<table>
+<% [song(Number, Name) || {Number, Name} <- Songs] %>
+</table>
+
+<%@ song(Number, Name) when size(Name) > 15 %>
+<%? <<First:13/binary, Rest/binary>> = Name %>
+<% song(Number, [First, <<"...">>]) %>
+
+<%@ song(Number, Name) %>
+<%?
+Class =
+  case Number rem 2 of
+    0 -> <<"even">>;
+    1 -> <<"odd">>
+  end
+%>
+<tr>
+  <td class="<% Class %>"><% integer_to_list(Number) %></td>
+  <td class="<% Class %>"><% Name %></td>
+</tr>
