@@ -2,6 +2,7 @@
 %% @copyright Yariv Sadan 2006
 %% @doc erlydb_base is the base module that all modules that ErlyDB generates
 %% extend.
+%%
 %% Generated modules inherit many of erlydb_base's exported functions
 %% directly, but some of the functions in erlydb_base undergo
 %% changes before they attain their final forms the generated modules.
@@ -9,17 +10,17 @@
 %% erlydb_base is used in generated modules, refer to the function's
 %% documentation.
 %%
-%% You can provide some of the default code generation behavior by
+%% You can override some of the default code generation behavior by
 %% providing your own implementations for some of erlydb_base's functions in
 %% generated modules.
-%% This is useful for giving ErlyDB information about relations (one-to-many
+%% This is useful for telling ErlyDB about relations (one-to-many
 %% and many-to-many) and mappings between Erlang modules and database tables
 %% and fields.
 
 -module(erlydb_base).
 -author("Yariv Sadan (yarivvv@gmail.com, http://yarivsblog.com)").
 
-%% helps debugging
+%% debugging helpers
 -define(L(Rec), io:format("LOG ~w ~p\n", [?LINE, Rec])).
 -define(S(Rec), io:format("LOG ~w ~s\n", [?LINE, Rec])).
 
@@ -33,8 +34,19 @@
     table/0,
     type_field/0,
 
+    %% functions for getting information about the module's table and database
+    %% fields
+    db_table/1,
+    db_fields/1,
+    db_field_names/1,
+    db_field_names_str/1,
+    db_field_names_bin/1,
+    db_num_fields/1,
+    db_field/2,
+
     %% functions for getting information about a record
     is_new/1,
+    get_module/1,
 
     %% functions for converting a record to an iolist
     to_iolist/2,
@@ -73,7 +85,13 @@
     find_first/3,
     find_max/4,
     find_range/5,
+    aggregate/5,
     count/1,
+    
+    %% miscellaneous functions
+    driver/1,
+    get/2,
+    set/3,
 
     %% private exports
 
@@ -97,26 +115,11 @@
     find_related_many_range/6,
     aggregate_related_many/6,
 
-    %% functions for getting information about the module's table and database
-    %% fields
-    db_table/1,
-    db_fields/1,
-    db_field_names/1,
-    db_field_names_str/1,
-    db_field_names_bin/1,
-    db_num_fields/1,
-    db_field/2,
-
     %% internal functions
     field_names_for_query/1,
     field_names_for_query/2,
-    get/2,
-    set/3,
-    get_module/1,
-    driver/1,
     do_save/1,
-    do_delete/1,
-    aggregate/5    
+    do_delete/1
    ]).
 
 %% @doc Return the list of relations of the module. By overriding the function,
@@ -135,10 +138,10 @@ relations() ->
 %% The '*' atom indicates all fields, which is the default setting.
 %%
 %% Note: You are free to call the fields() function from other modules
-%% to create arbitrary type relations.
-%% For example, in a module called 'painting', you could have the function
+%% to create arbitrary field set relations.
+%% For example, in a module called 'artist', you could have the function
 %%
-%%   fields() -> creation:fields() ++ [material, canvas, style]
+%% ``fields() -> person:fields() ++ [genre, studio]''
 %%
 %% @spec fields() -> '*' | [atom()]
 fields() ->
@@ -163,27 +166,108 @@ table() ->
 type_field() ->
     undefined.
 
+%% functions for getting information about the database table and fields
+%% for a module
+
+%% @doc Get the table name for the module.
+%%
+%% @spec db_table(Module::atom()) -> atom()
+db_table(Module) ->
+    case Module:table() of
+	default ->
+	    Module;
+	Other ->
+	    Other
+    end.
+
+%% @doc Get the number of fields for the module.
+%%
+%% In generated modules, this function takes 0 parameters.
+%%
+%% @spec db_num_fields(NumFields::integer()) -> integer()
+db_num_fields(NumFields) ->
+    NumFields.
+
+%% @doc Get a list of {@link erlydb_field} records representing the database fields
+%%  for the module.
+%%
+%% In generated modules, this function takes 0 parameters.
+%%
+%% @spec db_fields(Fields::[erlydb_field()]) -> [erlydb_field()]
+db_fields(Fields) ->
+    Fields.
+
+%% @doc Get the module's database fields' names as atoms.
+%%
+%% In generated modules, this function takes 0 parameters.
+%%
+%% @spec db_field_names(FileNames::[atom()]) -> [atom()]
+db_field_names(FieldNames) ->
+    FieldNames.
+
+%% @doc Get the module's database fields' names as strings.
+%%
+%% In generated modules, this function takes 0 parameters.
+%%
+%% @spec db_field_names_str(FieldNameStrs::[string()]) -> [string()]
+db_field_names_str(FieldNameStrs) ->
+    FieldNameStrs.
+
+%% @doc Get the module's database fields' names as binaries.
+%%
+%% In generated modules, this function takes 0 parameters.
+%%
+%% @spec db_field_names_bin(FieldNamesBin::[binary()]) -> [binary()]
+db_field_names_bin(FieldNamesBin) ->
+    FieldNamesBin.
+
+%% @doc Get the {@link erlydb_field} record matching the given field name.
+%%   If the field isn't found, this function exits.
+%%
+%% In generated modules, the 'Module' parameter is omitted.
+%%
+%% @spec db_field(Module::atom(), FieldName::string() | atom()) ->
+%%   erlydb_field() | exit(Err)
+db_field(Module, FieldName) ->
+    Pred = if is_list(FieldName) ->
+		    fun(Field) ->
+			    erlydb_field:name_str(Field) == FieldName
+		    end;
+	     true ->
+		    fun(Field) ->
+			    erlydb_field:name(Field) == FieldName
+		    end
+	  end,
+
+    case find_val(Pred, Module:db_fields()) of
+	none -> exit({no_such_field, {Module, FieldName}});
+	{value, Field} -> Field
+    end.
+
+
 %% @doc Check if the record has been saved in the database.
 %%
-%% @spec is_new(Rec::tuple()) -> bool()
+%% @spec is_new(Rec::record()) -> boolean()
 is_new(Rec) ->
     element(2, Rec).
 
-%% @doc Return an iolist representing the record or list of records.
-%%   This iolist is a
-%%   concatenation of the values of the record's fields as returned from
-%%   the db_fields/0 function.
-%%   You can override the way the values are converted to strings/binaries
-%%   by passing your own conversion Fun. This Fun can return 'default' to
-%%   render using field_to_iolist/2.
-%%
+%% @equiv to_iolist(Module, Recs, fun field_to_iolist/2)
+%% @spec to_iolist(Module::atom(), Recs::record() | [record()]) -> [iolist()] |
+%%   [[iolist()]]
 to_iolist(Module, Recs) ->
     to_iolist(Module, Recs, fun field_to_iolist/2).
 
-%% @type to_iolist_function() = (ErlyDbField::erlydb_field(), Val::term()) ->
-%%   binary() | string()
-%% @spec to_iolist(Module::atom(), Rec::tuple() | [Rec::tuple()],
-%%   ToIolistFun::to_iolist_function()) -> iolist()
+%% @doc If Recs is a single record, Convert each of a record's fields into an iolist
+%% and return the list of the converted records. If Recs is a list of records,
+%% to_iolist is recursively called on each record, and the list of results is returned.
+%%
+%% ToIoListFun is a function that accepts an {@link erlydb_field} structure and a
+%% field value and returns an iolist (see {@link field_to_iolist/2} for an example).
+%%
+%% In generated modules, the 'Module' parameter is omitted.
+%%
+%% @spec to_iolist(Module::atom(), Rec::record() | [Rec::record()],
+%%   ToIolistFun::to_iolist_function()) -> [iolist()] | [[iolist()]]
 to_iolist(Module, Recs, ToIolistFun) when is_list(Recs) ->
     [to_iolist1(Module, Rec, ToIolistFun) || Rec <- Recs];
 to_iolist(Module, Recs, ToIolistFun) ->
@@ -211,10 +295,36 @@ to_iolist1(Module, Rec, ToIolistFun) ->
 	      [WrapperFun(Val, Field) | Acc]
       end, [], Fields).
 
-%% A helper function for easy conversion of field values to iolists.
+%% @doc A helper function used for converting field values to iolists.
+%%
+%% @equiv field_to_iolist(Val, undefined)
+%% @spec field_to_iolist(Val::term()) -> iolist()
 field_to_iolist(Val) ->
     field_to_iolist(Val, undefined).
 
+%% @doc This function converts standard ErlyDB field values to iolists.
+%% This is its source code:
+%% ```
+%% case Val of
+%%   Bin when is_binary(Bin) -> Val;
+%%   List when is_list(List) -> Val;
+%%   Int when is_integer(Int) -> integer_to_list(Val);
+%%   Float when is_float(Float) -> float_to_list(Val);
+%%   {datetime, {{Year,Month,Day},{Hour,Minute,Second}}} ->
+%%      io_lib:format("~b/~b/~b ~b:~b:~b",
+%%  	  [Month, Day, Year, Hour, Minute, Second]);
+%%   {date, {Year, Month, Day}} ->
+%%      io_lib:format("~b/~b/~b",
+%%         [Month, Day, Year]);
+%%   {time, {Hour, Minute, Second}}  ->
+%%      io_lib:format("~b:~b:~b", [Hour, Minute, Second]);
+%%   undefined -> [];
+%%   _Other ->
+%%      io_lib:format("~p", [Val])
+%% end.
+%% '''
+%%
+%% @spec field_to_iolist(Val::term, Field::erlydb_field()) -> iolist()
 field_to_iolist(Val, _Field) ->
     case Val of
 	Bin when is_binary(Bin) -> Val;
@@ -235,50 +345,61 @@ field_to_iolist(Val, _Field) ->
     end.
 
 
-%% @doc Create a new record from this module with all fields set to
-%%  'undefined'.
+%% @doc Create a new record with all fields set to 'undefined'.
 %%
-%% @spec new(Module::atom()) -> tuple()
+%% In generated modules, the 'Module' parameter is omitted.
+%%
+%% @spec new(Module::atom()) -> record()
 new(Module) ->
     Rec = erlang:make_tuple(Module:db_num_fields() + 2, undefined),
     Rec1 = set_is_new(Rec, true),
     set_module(Rec1, Module).
 
-%% @doc Create a new record from this module with some fields assigned from
-%%   Fields. Read the documentation for set_fields for more info.
+%% @doc Create a new record, setting its field values
+%% according to the key/value pairs in the Fields property list.
 %%
-%% @spec new_with(Module::atom(), Fields::proplist()) -> tuple() | exit(Err)
+%% In generated modules, the 'Module' parameter is omitted.
+%%
+%% @see set_fields/3
+%% @spec new_with(Module::atom(), Fields::proplist()) -> record() | exit(Err)
 new_with(Module, Fields) ->
     Module:set_fields(Module:new(), Fields).
 
-%% @doc Create a new record for this module, using the ConvertValFun function
-%%  to convert the values of the fields before setting them.
+%% @doc Similar to {@link new_with/2}, but uses the ToFieldFun to convert
+%% property list values to field values before setting them. ToFieldFun
+%% accepts an {@link erlydb_field} record and the original value and returns
+%% the new value.
+%%
+%% In generated modules, the 'Module' parameter is omitted.
 %%
 %% @spec new_with(Module::atom(), Fields::proplist(),
-%%   ToFieldFun::(erlydb_field(), Val) -> NewVal) -> tuple() | exit(Err)
+%%   ToFieldFun::function()) -> record() | exit(Err)
 new_with(Module, Fields, ToFieldFun) ->
     Module:set_fields(Module:new(), Fields, ToFieldFun).
 
-%% @doc Create a new record for this module from a property list mapping
-%%  field names to strings representing field values. The strings are converted
-%%  to properly typed values using the field_from_string/2 function.
-%%
+%% @equiv new_with(Module, Fields, fun field_from_string/2)
+%% @see field_from_string/2
 %% @spec new_from_strings(Module::atom(),
-%%  Fields::[{atom() | list(), list()}]) -> tuple() | exit(Err)
+%%  Fields::[{atom() | list(), list()}]) -> record() | exit(Err)
 new_from_strings(Module, Fields) ->
     Module:set_fields(Module:new(), Fields, fun field_from_string/2).
 
-%% @doc Set the record's fields using values from a property list.
+%% @doc Set the record's fields according to the name/value pairs in the property
+%% list, e.g.
 %%
-%% e.g. Language1 = language:set_fields(Language, [{name,"Erlang"},
+%% ```
+%% Language1 = language:set_fields(Language, [{name,"Erlang"},
 %%                     {creation_year, 1981}])
+%% '''
 %%
 %% The property list can have keys that are either strings or atoms.
-%% If the field name doesn't match an existing field for this record,
-%% this function crashes.
+%% If a field name doesn't match an existing field for this record,
+%% this function exits.
 %%
-%% @spec set_fields(Module::atom(), Record::tuple(), Fields::proplist()) ->
-%%   tuple()
+%% In generated modules, the 'Module' parameter is omitted.
+%%
+%% @spec set_fields(Module::atom(), Record::record(), Fields::proplist()) ->
+%%   record() | exit(Err)
 set_fields(Module, Record, Fields) ->
     lists:foldl(
       fun({FieldName, Val}, Rec) ->
@@ -291,12 +412,14 @@ get_field_name(Module, FieldName) ->
     ErlyDbField = Module:db_field(FieldName),
     erlydb_field:name(ErlyDbField).
 
-%% @doc Set the record's fields using values from a property list by first
-%%  converting the values using the ToFieldFun.
+%% @doc Set the record's fields using according to the property list name/value pairs,
+%% after first converting the values using the ToFieldFun. ToFieldFun accepts an
+%% {@link erlydb_field} record and the original value and returns the new value.
 %%
-%% @type to_field_fun() = (erlydb_field(), Val::term()) -> NewVal::term()
-%% @spec set_fields(Module::atom(), Record::tuple(), Fields::proplist(),
-%%   ToFieldFun::to_field_fun()) -> tuple() | exit(Err)
+%% In generated modules, the 'Module' parameter is omitted.
+%%
+%% @spec set_fields(Module::atom(), Record::record(), Fields::proplist(),
+%%   ToFieldFun::function()) -> record() | exit(Err)
 set_fields(Module, Record, Fields, ToFieldFun) ->
     lists:foldl(
       fun({FieldName, Val}, Rec) ->
@@ -306,11 +429,10 @@ set_fields(Module, Record, Fields, ToFieldFun) ->
       end, Record, Fields).
 
 
-%% @doc Set the record's fields using values from a property list by first
-%%  decoding their values from strings.
-%%
-%% @spec set_fields_from_strs(Module::atom(), Record::tuple(),
-%%   Fields::proplist()) -> tuple() | exit(Err)
+%% @equiv set_fields(Module, Record, Fields, fun field_from_string/2)
+%% @see field_from_string/2
+%% @spec set_fields_from_strs(Module::atom(), Record::record(),
+%%   Fields::proplist()) -> record() | exit(Err)
 set_fields_from_strs(Module, Record, Fields) ->
     set_fields(Module, Record, Fields, fun field_from_string/2).
 
@@ -367,7 +489,7 @@ field_from_string(ErlyDbField, Str) ->
 %%   The return value can be overridden by implementing the after_save
 %%   hook.
 %%
-%% @spec save(Rec::tuple()) -> tuple() | exit(Err)
+%% @spec save(Rec::record()) -> record() | exit(Err)
 save(Rec) ->
     hook(Rec, do_save, before_save, after_save).
 
@@ -376,7 +498,7 @@ save(Rec) ->
 %%   The return value can be overridden by implementing the after_delete
 %%   hook.
 %%
-%% @spec delete(Rec::tuple()) -> ok | exit(Err)
+%% @spec delete(Rec::record()) -> ok | exit(Err)
 delete(Rec) ->
     if_saved(Rec,
 	     fun() ->
@@ -386,11 +508,15 @@ delete(Rec) ->
 %% @doc Delete the record with the given id. Returns the number of
 %%   records actually deleted.
 %%
+%% In generated modules, the 'Module' parameter is omitted.
+%%
 %% @spec delete_id(Module::atom(), Id::integer()) -> integer()
 delete_id(Module, Id) ->
     delete_where(Module, {id,'=',Id}).
 
 %% @doc Delete all records matching the Where expressions.
+%%
+%% In generated modules, the 'Module' parameter is omitted.
 %%
 %% @spec delete_where(Module::atom(), Where::where_expr()) ->
 %% NumDeleted::integer() | exit(Err)
@@ -412,11 +538,15 @@ delete_where(Module, Where) ->
 
 %% @doc Delete all records from the module.
 %%
+%% In generated modules, the 'Module' parameter is omitted.
+%%
 %% @spec delete_all(Module::atom()) -> NumDeleted::integer() | exit(Err)
 delete_all(Module) ->
     delete_where(Module, undefined).
 
 %% @doc Execute a transaction using the module's driver settings.
+%%
+%% In generated modules, the 'Module' parameter is omitted.
 %%
 %% @spec transaction(Module::atom(), Fun::function()) ->
 %%   {atomic, Result::term()} | {aborted, Details}
@@ -431,14 +561,14 @@ transaction(Module, Fun) ->
 %%   be overridden in the target module. To abort the operation, this hook
 %%   can throw an exception or crash.
 %%
-%% @spec before_save(Rec::tuple()) -> tuple() 
+%% @spec before_save(Rec::record()) -> record() 
 before_save(Rec) ->
     Rec.
 
 %% @doc A hook that gets called after a record is saved. This function
 %%   be overridden by the user.
 %%
-%% @spec after_save(Rec::tuple()) -> tuple()
+%% @spec after_save(Rec::record()) -> record()
 after_save(Rec) ->
     Rec.
 
@@ -446,14 +576,14 @@ after_save(Rec) ->
 %%   be overridden in the target module. To abort the operation, this hook
 %%   can throw an exception or crash.
 %%
-%% @spec before_delete(Rec::tuple()) -> tuple()
+%% @spec before_delete(Rec::record()) -> record()
 before_delete(Rec) ->
     Rec.
 
 %% @doc A hook that gets called after a record is deleted. This function be
 %%   be overridden in the target module.
 %%
-%% @spec after_delete(Rec::tuple()) -> ok
+%% @spec after_delete(Rec::record()) -> ok
 after_delete(_Rec) ->
     ok.
 
@@ -461,7 +591,7 @@ after_delete(_Rec) ->
 %% @doc A hook that gets called after a record is fetched from the database.
 %%   This function be overridden in the target module.
 %%
-%% @spec after_fetch(Rec::tuple()) -> tuple()
+%% @spec after_fetch(Rec::record()) -> record()
 after_fetch(Rec) ->
     Rec.
 
@@ -505,36 +635,46 @@ after_fetch(Rec) ->
 %%
 %% (This applies to all find_X and aggregate_X functions in erlydb_base.erl)
 %%
+%% In generated modules, the 'Module' parameter is omitted.
+%%
 %% @spec find(Module::atom(), Where::where_expr(), Extras::extras_expr()) ->
-%%   [tuple()] | exit(Err)
+%%   [record()] | exit(Err)
 find(Module, Where, Extras) ->
     do_find(Module, field_names_for_query(Module, true), Where, Extras).
 
 %% @doc Find the first record for the module according to the Where and
 %%   Extras expressions.
 %%
+%% In generated modules, the 'Module' parameter is omitted.
+%%
 %% @spec find_first(Modue::atom(), Where::where_expr(),
-%%  Extras::extras_expr()) -> tuple() | exit(Err)
+%%  Extras::extras_expr()) -> record() | exit(Err)
 find_first(Module, Where, Extras) ->
     as_single_val(find_max(Module, 1, Where, Extras)).
 
 %% @doc Find up to Max records from the module according
 %%   to the Where and Extras expressions.
 %%
+%% In generated modules, the 'Module' parameter is omitted.
+%%
 %% @spec find_max(Module::atom(), Max::integer(), Where::where_expr(),
-%%   Extras::extras_expr()) -> [tuple()] | exit(Err)
+%%   Extras::extras_expr()) -> [record()] | exit(Err)
 find_max(Module, Max, Where, Extras) ->
     find(Module, Where, append_extras({limit, Max}, Extras)).
 
 %% @doc Find up to Max records, starting from offset First,
 %%   according to the Where and Extras expressions.
 %%
+%% In generated modules, the 'Module' parameter is omitted.
+%%
 %% @spec find_range(Module::atom(), First::integer(), Max::integer(),
-%%   Where::where_expr(), Extras::extras_expr()) -> [tuple()] | exit(Err)
+%%   Where::where_expr(), Extras::extras_expr()) -> [record()] | exit(Err)
 find_range(Module, First, Max, Where, Extras) ->
     find(Module, Where, append_extras({limit, First, Max}, Extras)).
 
 %% @doc Find the record with the given Id.
+%%
+%% In generated modules, the 'Module' parameter is omitted.
 %%
 %% @spec find_id(Module::atom(), Id::term()) -> Rec | exit(Err)
 find_id(Module, Id) ->
@@ -548,6 +688,8 @@ find_id(Module, Id) ->
 %%  aggregate functions for a module, e.g. person:avg(age) and their
 %%  variations as in the find() function.
 %%
+%% In generated modules, the 'Module' parameter is omitted.
+%%
 %% @spec aggregate(Module::atom(), AggFunc::atom(), Field::atom(),
 %%  Where::where_expr(), Extras::extras_expr()) -> number() | exit(Err)
 aggregate(Module, AggFunc, Field, Where, Extras) ->
@@ -556,6 +698,8 @@ aggregate(Module, AggFunc, Field, Where, Extras) ->
 
 %% @doc A shortcut for counting all the records for a module. This allows
 %%    calling person:count() instead of person:count('*').
+%%
+%% In generated modules, the 'Module' parameter is omitted.
 %%
 %% @spec count(Module::atom()) -> integer() | exit(Err)
 count(Module) ->
@@ -831,73 +975,6 @@ hook(Rec, Func, BeforeFunc, AfterFunc) ->
     Rec1 = Module:BeforeFunc(Rec),
     Rec2 = Module:Func(Rec1),
     Module:AfterFunc(Rec2).
-
-
-%% functions for getting information about the database table and fields
-%% for a module
-
-%% @doc Get the table name for the module.
-%%
-%% @spec db_table(Module::atom()) -> atom()
-db_table(Module) ->
-    case Module:table() of
-	default ->
-	    Module;
-	Other ->
-	    Other
-    end.
-
-%% @doc Get the number of fields for the module.
-%%
-%% @spec db_num_fields(NumFields::integer()) -> integer()
-db_num_fields(NumFields) ->
-    NumFields.
-
-%% @doc Get a list of erlydb_field records representing the database fields
-%%  for the module.
-%%
-%% @spec db_fields(Fields::[erlydb_field()]) -> [erlydb_field()]
-db_fields(Fields) ->
-    Fields.
-
-%% @doc Get the module's database fields' names as atoms.
-%%
-%% @spec db_field_names(FileNames::[atom()]) -> [atom()]
-db_field_names(FieldNames) ->
-    FieldNames.
-
-%% @doc Get the module's database fields' names as strings.
-%%
-%% @spec db_field_names_str(FieldNameStrs::[string()]) -> [string()]
-db_field_names_str(FieldNameStrs) ->
-    FieldNameStrs.
-
-%% @doc Get the module's database fields' names as binaries.
-%%
-%% @spec db_field_names_bin(FieldNamesBin::[binary()]) -> [binary()]
-db_field_names_bin(FieldNamesBin) ->
-    FieldNamesBin.
-
-%% @doc Get the erlydb_field record matching the the given name.
-%%   If the field isn't found, this function crashes.
-%%
-%% @spec db_field(Module::atom(), FieldName::string() | atom()) ->
-%%   erlydb_field()
-db_field(Module, FieldName) ->
-    Pred = if is_list(FieldName) ->
-		    fun(Field) ->
-			    erlydb_field:name_str(Field) == FieldName
-		    end;
-	     true ->
-		    fun(Field) ->
-			    erlydb_field:name(Field) == FieldName
-		    end
-	  end,
-
-    case find_val(Pred, Module:db_fields()) of
-	none -> exit({no_such_field, {Module, FieldName}});
-	{value, Field} -> Field
-    end.
 
 find_val(_Pred, []) -> none;
 find_val(Pred, [First | Rest]) ->
