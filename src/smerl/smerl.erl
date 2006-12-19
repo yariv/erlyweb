@@ -850,10 +850,7 @@ extend(Parent, Child, ArityDiff) ->
 		  {ok, ChildMod2} = add_func(ChildMod1, Func),
 		  ChildMod2
 	  end, ChildMod, ExportsDiff),
-    {ok, NewChild1} =
-	smerl:add_func(
-	  NewChild, "parent()->" ++ atom_to_list(ParentName) ++ "."),
-    NewChild1.
+    NewChild.
 
 get_extend_data(Parent, Child) when is_atom(Parent) ->
     [{exports, Exports} |_] = Parent:module_info(),
