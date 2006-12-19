@@ -17,6 +17,43 @@
 %% and many-to-many) and mappings between Erlang modules and database tables
 %% and fields.
 
+%% @type record(). An Erlang tuple containing the values for (some of)
+%% the fields of a database row, as well as additional data used by
+%% ErlyDB. To ensure future compatibility, it is recommended to use the
+%% getters and setters ErlyDB adds to generated modules in order to
+%% access the record's fields instead of accessing them directly.
+%%
+%% @type where_expr(). An ErlSQL (see {@link erlsql}) statement fragment
+%% that defines the conditions in a {where, Conditions} clause.
+%%
+%% Examples:
+%% ```
+%% {age, '=', 34}
+%% {{name, 'like', "Bob%"}, 'or', {not, {age, '>', 26}}}
+%% '''
+%%
+%% If you pass the option {allow_unsafe_sql, true} to
+%% {@link erlydb:code_gen/3}, you can use string and/or binary Where
+%% expressions, but this isn't recommended because it exposes to you
+%% SQL injection attacks if you forget to quote your strings.
+
+%% @type extras_expr(). ErlSQL (see {@link erlsql}) statement fragments
+%% that appear at the end of the statement, following the 'where' clause
+%% (if it exists). Currently, this includes 'order_by' and 'limit' clauses.
+%%
+%% Examples:
+%% ```
+%% {order_by, age}
+%% {limit, 6, 8}
+%% [{order_by, [{age, {height, asc}, {gpa, desc}}]}, {limit, 5}]
+%% '''
+%%
+%% If you pass the option {allow_unsafe_sql, true} to
+%% {@link erlydb:code_gen/3}, you can use string and/or binary Extras
+%% expressions, but this isn't recommended because it exposes to you
+%% SQL injection attacks if you forget to quote your strings.
+
+
 -module(erlydb_base).
 -author("Yariv Sadan (yarivvv@gmail.com, http://yarivsblog.com)").
 
@@ -251,6 +288,12 @@ db_field(Module, FieldName) ->
 is_new(Rec) ->
     element(2, Rec).
 
+%% @doc Get the name of the module to which the record belongs.
+%%
+%% @spec get_module(Rec::record()) -> atom()
+get_module(Rec) ->
+    element(1, Rec).
+
 %% @equiv to_iolist(Module, Recs, fun field_to_iolist/2)
 %% @spec to_iolist(Module::atom(), Recs::record() | [record()]) -> [iolist()] |
 %%   [[iolist()]]
@@ -412,9 +455,11 @@ get_field_name(Module, FieldName) ->
     ErlyDbField = Module:db_field(FieldName),
     erlydb_field:name(ErlyDbField).
 
-%% @doc Set the record's fields using according to the property list name/value pairs,
-%% after first converting the values using the ToFieldFun. ToFieldFun accepts an
-%% {@link erlydb_field} record and the original value and returns the new value.
+%% @doc Set the record's fields using according to the property list
+%% name/value pairs,
+%% after first converting the values using the ToFieldFun. ToFieldFun accepts
+%% an {@link erlydb_field} record and the original value and returns the new
+%% value.
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
@@ -436,10 +481,24 @@ set_fields(Module, Record, Fields, ToFieldFun) ->
 set_fields_from_strs(Module, Record, Fields) ->
     set_fields(Module, Record, Fields, fun field_from_string/2).
 
-%% @doc A helper function for converting Strings to their corresponding
-%%   Erlang types.
+%% @doc A helper function for converting values encoded as strings to their
+%% corresponding Erlang types.
+%%
+%% This function assumes field values are formatted according to the logic in
+%% {@link field_to_iolist/2}. In addition, it checks the following ranges:
+%%
+%% second: 0-59<br/>
+%% minute: 0-59<br/>
+%% hour: 0-23<br/>
+%% day: 1-31<br/>
+%% month: 1-12<br/>
+%% year: 1-9999<br/>
+%%
+%% If you set a field to 'undefined' when erlydb_field:null(ErlyDbField)
+%% returns 'true', this function exits.
 %%
 %% @spec field_from_string(ErlyDbField::erlydb_field(), Str::list()) -> term()
+%%  | exit(Err)
 field_from_string(ErlyDbField, undefined) ->
     case erlydb_field:null(ErlyDbField) of
 	true -> undefined;
@@ -449,54 +508,50 @@ field_from_string(ErlyDbField, undefined) ->
     end;
     
 field_from_string(ErlyDbField, Str) ->
-    if Str == undefined ->
-	    case erlydb_field:null(ErlyDbField) of
-		true -> undefined;
-		false ->
-		    exit({null_value,
-			  erlydb_field:name(ErlyDbField)})
+    case erlydb_field:erl_type(ErlyDbField) of
+	%% If the value started as a string, we keep it
+	%% as a string and let the database driver convert it
+	%% to binary before sending it to the socket.
+	%% Note: this may change in a future version.
+	binary -> Str; 
+	integer -> fread_val("~d", Str);
+	float ->
+	    case catch fread_val("~f", Str) of
+		{'EXIT', _} -> fread_val("~d", Str);
+		Val -> Val
 	    end;
-       true ->
-	    case erlydb_field:erl_type(ErlyDbField) of
-		%% If the value started as a string, we keep it
-		%% as a string and let the database driver convert it
-		%% to binary before sending it to the socket.
-		%% Note: this may change in a future version.
-		binary -> Str; 
-		integer -> fread_val("~d", Str);
-		float ->
-		    case catch fread_val("~f", Str) of
-			{'EXIT', _} -> fread_val("~d", Str);
-			Val -> Val
-		    end;
-		datetime ->
-		    [Year, Month, Day, Hour, Minute, Second] =
-			fread_vals("~d/~d/~d ~d:~d:~d", Str),
-		    {datetime, {make_date(Year, Month, Day),
-				make_time(Hour, Minute, Second)}};
-		date -> 
-		    [Month, Day, Year] = fread_vals("~d/~d/~d", Str),
-		    {date, make_date(Year, Month, Day)};
-		time ->
-		    [Hour, Minute, Second] = fread_vals("~d:~d:~d", Str),
-		    {time, make_time(Hour, Minute, Second)}
-	    end
+	datetime ->
+	    [Year, Month, Day, Hour, Minute, Second] =
+		fread_vals("~d/~d/~d ~d:~d:~d", Str),
+	    {datetime, {make_date(Year, Month, Day),
+			make_time(Hour, Minute, Second)}};
+	date -> 
+	    [Month, Day, Year] = fread_vals("~d/~d/~d", Str),
+	    {date, make_date(Year, Month, Day)};
+	time ->
+	    [Hour, Minute, Second] = fread_vals("~d:~d:~d", Str),
+	    {time, make_time(Hour, Minute, Second)}
     end.
 
+
 %% @doc Save an object by executing a INSERT or UPDATE query.
-%%   By default, this function returns a modified tuple representing
-%%   the record or throws an exception if an error occurs.
-%%   The return value can be overridden by implementing the after_save
-%%   hook.
+%% This function returns a modified tuple representing
+%% the saved record or throws an exception if an error occurs.
+%%
+%% You can override the return value by implementing the after_save
+%% hook.
 %%
 %% @spec save(Rec::record()) -> record() | exit(Err)
 save(Rec) ->
     hook(Rec, do_save, before_save, after_save).
 
-%% @doc Delete the record from the database. By default, this function
-%%   returns 'ok' or crashes if the deletion succeeds.
-%%   The return value can be overridden by implementing the after_delete
-%%   hook.
+%% @doc Delete the record from the database. This function
+%% returns 'ok' or crashes if the number of deleted records isn't equal
+%% to 1 (one of this function's preconditions is that the record must
+%% have been saved in the database).
+%%
+%% You can override the return value by implementing the after_delete
+%% hook.
 %%
 %% @spec delete(Rec::record()) -> ok | exit(Err)
 delete(Rec) ->
@@ -505,21 +560,22 @@ delete(Rec) ->
 		     hook(Rec, do_delete, before_delete, after_delete)
 	     end).
 
-%% @doc Delete the record with the given id. Returns the number of
-%%   records actually deleted.
+%% @doc Delete the record with the given id. This function returns the number
+%% of records actually deleted.
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
-%% @spec delete_id(Module::atom(), Id::integer()) -> integer()
+%% @spec delete_id(Module::atom(), Id::integer()) -> NumDeleted::integer()
 delete_id(Module, Id) ->
     delete_where(Module, {id,'=',Id}).
 
-%% @doc Delete all records matching the Where expressions.
+%% @doc Delete all records matching the Where expressions,
+%% and return the number of deleted records.
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
 %% @spec delete_where(Module::atom(), Where::where_expr()) ->
-%% NumDeleted::integer() | exit(Err)
+%%    NumDeleted::integer() | exit(Err)
 delete_where(Module, Where) ->
     {DriverMod, Options} = Module:driver(),
     case DriverMod:transaction(
@@ -536,7 +592,10 @@ delete_where(Module, Where) ->
 	    exit(Err)
     end.
 
-%% @doc Delete all records from the module.
+%% @doc Delete all records from the module and return the number of records
+%% actually deleted.
+%%
+%% Needless to say, use this function with extreme care.
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
@@ -544,7 +603,8 @@ delete_where(Module, Where) ->
 delete_all(Module) ->
     delete_where(Module, undefined).
 
-%% @doc Execute a transaction using the module's driver settings.
+%% @doc Execute a transaction using the module's driver settings, as defined
+%% by the parameters passed to {@link erlydb:code_gen/3}.
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
@@ -557,31 +617,38 @@ transaction(Module, Fun) ->
 
 %% hooks
 
-%% @doc A hook that gets called before a record is saved. This function
-%%   be overridden in the target module. To abort the operation, this hook
-%%   can throw an exception or crash.
+%% @doc A hook that gets called before a record is saved.
+%%
+%% By default, this function returns the original record. You can implement
+%% this function in the target module to override the default behavior.
 %%
 %% @spec before_save(Rec::record()) -> record() 
 before_save(Rec) ->
     Rec.
 
-%% @doc A hook that gets called after a record is saved. This function
-%%   be overridden by the user.
+%% @doc A hook that gets called after a record is saved.
+%%
+%% By default, this function returns the original record. You can implement
+%% this function in the target module to override the default behavior.
 %%
 %% @spec after_save(Rec::record()) -> record()
 after_save(Rec) ->
     Rec.
 
-%% @doc A hook that gets called before a record is deleted. This function
-%%   be overridden in the target module. To abort the operation, this hook
-%%   can throw an exception or crash.
+%% @doc A hook that gets called before a record is deleted.
+%%
+%% By default, this function returns the original record. You can implement
+%% this function in the target module to override the default behavior.
 %%
 %% @spec before_delete(Rec::record()) -> record()
 before_delete(Rec) ->
     Rec.
 
-%% @doc A hook that gets called after a record is deleted. This function be
-%%   be overridden in the target module.
+%% @doc A hook that gets called after a record is deleted. 
+%%
+%% By default, this function returns 'ok', indicating the deletion succeeded.
+%% You can implement
+%% this function in the target module to override the default behavior.
 %%
 %% @spec after_delete(Rec::record()) -> ok
 after_delete(_Rec) ->
@@ -589,7 +656,9 @@ after_delete(_Rec) ->
 
 
 %% @doc A hook that gets called after a record is fetched from the database.
-%%   This function be overridden in the target module.
+%%
+%% By default, this function returns the original record. You can implement
+%% this function in the target module to override the default behavior.
 %%
 %% @spec after_fetch(Rec::record()) -> record()
 after_fetch(Rec) ->
@@ -599,43 +668,48 @@ after_fetch(Rec) ->
 %% find functions
 
 %% @doc Find records for the module. The Where and Extras clauses are,
-%%  by default, ErlSQL expressions. Example Where expressions are
-%%    {name,'=',"Joe"}
-%%  and
-%%    {{age,'>',26},'and',{country,like,"Australia"}}
+%%  by default, ErlSQL expressions (see {@link erlsql}).
+%%  Example Where expressions are<br/>
+%%  `` {name,'=',"Joe"}''<br/>
+%%  and<br/>
+%%  `` {{age,'>',26},'and',{country,like,"Australia"}}''
 %%  
-%%  Example Extras expressions are
-%%    {limit, 7}
-%%  and
-%%    [{limit, 4,5}, {order_by, [name, {age, desc}]}]
+%%  Example Extras expressions are<br/>
+%%  ``  {limit, 7}''<br/>
+%%  and<br/>
+%%  ``  [{limit, 4,5}, {order_by, [name, {age, desc}, {height, asc}]}]''
 %%
-%%  The main benefits of using ErlSQL are
+%%  The main benefits of using ErlSQL are<br/>
 %%  - It protects against SQL injection attacks by quoting all string
-%%    values.
+%%    values.<br/>
 %%  - It simplifies embedding runtime variables in SQL expressions
-%%    by stringifying values such as numbers, atoms, dates and times.
+%%    by automatically stringifying
+%%    values such as numbers, atoms, dates and times.<br/>
 %%  - It's more efficient than string concatenation because it generates
 %%    iolists of binaries, which generally consume less memory than
 %%    strings.
 %%
-%% For more information, visit http://code.google.com/p/erlsql.
-%%
 %% Some drivers (e.g. the MySQL driver), let you use string and binary
-%% expressions directly when you set the 'unsafe_sql' option to 'true'
-%% when calling erlydb:code_gen. This usage is discouraged because it
+%% expressions directly when you pass the {allow_unsafe_sql, true} option to
+%% {@link erlydb:code_gen/3}. This usage is discouraged, however, because it
 %% makes you vulnerable to SQL injection attacks if you don't properly
 %% encode all your strings.
 %%
-%% The code generation process automatically creates a few variations on
-%% this function:
+%% During code generation, ErlyDB creates a few derivatives from this function
+%% in target modules:
 %%
-%%   find(Module)
-%%   find(Module, Where)
-%%   find_with(Module, Extras)
+%% ```
+%%   find()  %% returns all records
+%%   find(Where)
+%%   find_with(Extras)
+%%   find(Where, Extras)
+%% '''
 %%
-%% (This applies to all find_X and aggregate_X functions in erlydb_base.erl)
+%% (Note that in generated modules, the 'Module' parameter is omitted.)
 %%
-%% In generated modules, the 'Module' parameter is omitted.
+%% ErlyDB creates similar derivatives for all find_x and aggregate functions
+%% in erlydb_base (e.g. find_first(), find_first(Where),
+%% find_first_with(Extras), find_first(Where, Extras)...).
 %%
 %% @spec find(Module::atom(), Where::where_expr(), Extras::extras_expr()) ->
 %%   [record()] | exit(Err)
@@ -647,6 +721,7 @@ find(Module, Where, Extras) ->
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
+%% @see find/3
 %% @spec find_first(Modue::atom(), Where::where_expr(),
 %%  Extras::extras_expr()) -> record() | exit(Err)
 find_first(Module, Where, Extras) ->
@@ -657,6 +732,7 @@ find_first(Module, Where, Extras) ->
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
+%% @see find/3
 %% @spec find_max(Module::atom(), Max::integer(), Where::where_expr(),
 %%   Extras::extras_expr()) -> [record()] | exit(Err)
 find_max(Module, Max, Where, Extras) ->
@@ -667,6 +743,7 @@ find_max(Module, Max, Where, Extras) ->
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
+%% @see find/3
 %% @spec find_range(Module::atom(), First::integer(), Max::integer(),
 %%   Where::where_expr(), Extras::extras_expr()) -> [record()] | exit(Err)
 find_range(Module, First, Max, Where, Extras) ->
@@ -681,23 +758,38 @@ find_id(Module, Id) ->
     as_single_val(find(Module, {id,'=',Id}, undefined)).
 
 
-%% @doc Call an aggregate function such as 'count', 'sum', 'min', 'max',
-%%  or 'avg' on the given field of records from the module matching the
-%%  Where and Extras expressions.
-%%  In code generation time, this function is used to create
-%%  aggregate functions for a module, e.g. person:avg(age) and their
-%%  variations as in the find() function.
+%% @doc ErlyDB uses this function to generate derivative functions in
+%% target modules for calculating aggregate values for database
+%% fields. Drivative functions have the form `Module:FuncName(Field)',
+%% where 'Module' is the module name, 'FuncName' is 'count', 'avg',
+%% 'sum', 'min', 'max' or 'stddev', and Field is the name of the field.
+%% Derivative functions also have variations as described in {@link find/3}.
 %%
-%% In generated modules, the 'Module' parameter is omitted.
+%% For example, in a module called 'person', ErlyDB
+%% would generate the following functions:
 %%
+%% ```
+%%   person:count(Field)
+%%   person:count(Field, Where)
+%%   person:count_with(Field, Extras)
+%%   person:count(Field, Where, Extras)
+%%   person:avg(Field)
+%%   ...
+%% '''
+%% where Field can be any field in the person module (such as 'age', 'height',
+%% etc.).
+%% 
+%% @see find/3
 %% @spec aggregate(Module::atom(), AggFunc::atom(), Field::atom(),
-%%  Where::where_expr(), Extras::extras_expr()) -> number() | exit(Err)
+%%  Where::where_expr(), Extras::extras_expr()) -> integer() | float() |
+%%  exit(Err)
 aggregate(Module, AggFunc, Field, Where, Extras) ->
     do_find(Module, {call, AggFunc, Field}, Where, Extras,
 	    false).
 
-%% @doc A shortcut for counting all the records for a module. This allows
-%%    calling person:count() instead of person:count('*').
+%% @doc A shortcut for counting all the records for a module. In generated
+%% modules, this function lets you can call Module:count() instead of
+%% Module:count('*').
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
@@ -706,8 +798,50 @@ count(Module) ->
     aggregate(Module, 'count', '*', undefined, undefined).
 
 
-%% one-to-many functions
+%% miscellaneous functions
 
+%% @doc A generic getter function ErlyDB uses to generate getters, e.g.
+%% person:name(Person), for all of a module's database fields.
+%%
+%% @spec get(Idx::integer(), Rec::record()) -> term()
+get(Idx, Rec) ->
+    element(Idx, Rec).
+
+%% @doc A generic setter function ErlyDB uses to generate setters, e.g.
+%% person:name(Person, NewName), for all of a module's database fields.
+%%
+%% @spec set(Idx::integer(), Rec::record(), NewVal::term()) -> record()
+set(Idx, Rec, Val) ->
+    setelement(Idx, Rec, Val).
+
+%% @doc Get the driver settings, defined in the call to
+%% {@link erlydb:code_gen/3}, ErlyDB uses for the module.
+%%
+%% In generated modules, the 'Driver' parameter is omitted.
+%%
+%% @spec driver(Driver::term()) -> term()
+driver(Driver) ->
+    Driver.
+
+
+
+%% many-to-one functions
+
+%% @doc Set the [RelatedModule_id] field of a record from a module having a
+%% many-to-one relation to the id field of the Other record.
+%%
+%% This function isn't meant to be used directly; ErlyDB uses it to generate
+%% special setters for related records in modules that define many-to-one
+%% relations.
+%%
+%% For example, if you had a module 'bone' that defined the relation
+%% `{many_to_one, [dog]}', ErlyDB would add the function `bone:dog(Bone, Dog)'
+%% to the 'bone' module. This function would be equivalent to
+%% ``bone:dog_id(Bone, dog:id(Dog))'', with an extra chekck to verify
+%% that Dog is saved in the database.
+%%
+%% @spec set_related_one_to_many(Rec::record(), Other::record()) -> record()
+%%   | exit(Err)
 set_related_one_to_many(Rec, Other) ->
     if_saved(Other,
 	     fun() ->
@@ -716,14 +850,69 @@ set_related_one_to_many(Rec, Other) ->
 		     Module:FuncName(Rec, get_id(Other))
 	     end).
 
+%% @doc Find the related record for a record from a module having a
+%% many-to-one relation.
+%%
+%% This function isn't meant to be used directly; ErlyDB uses it to generate
+%% special 'find' functions for related records in modules
+%% defining many-to-one relations.
+%%
+%% For example, if you had a module 'bone' that defined the relation
+%% `{many_to_one, [dog]}', ErlyDB would add the function `bone:dog(Bone)'
+%% to the 'bone' module. This function would be equivalent to
+%% `dog:find_id(bone:dog_id(Bone))'.
+%%
+%% @see find_id/2
+%% @spec find_related_one_to_many(OtherModule::atom(), Rec::record()) ->
+%%  record() | exit(Err)
 find_related_one_to_many(OtherModule, Rec) ->
     FuncName = list_to_atom(atom_to_list(OtherModule) ++ "_id"),
     ModName = get_module(Rec),
-    as_single_val(OtherModule:find({id,'=', ModName:FuncName(Rec)})).
+    OtherModule:find_id(ModName:FuncName(Rec)).
 
 
-%% many-to-one functions
+%% one-to-many functions
 
+%% @doc Find the set of related records in a one-to-many relation.
+%%
+%% This function isn't meant to be used directly; ErlyDB uses this function
+%% to generate special 'find' functions in modules that define
+%% one-to-many relations.
+%%
+%% For example, if you had a module 'dog' that defined the relation
+%% `{one_to_many, [bone]}', ErlyDB would add the following
+%% functions to the 'dog' module:
+%%
+%% ```
+%% dog:bones(Dog)
+%% dog:bones(Dog, Where)
+%% dog:bones_with(Dog, Extras)
+%% dog:bones(Dog, Where, Extras)
+%%
+%% dog:bones_first(Dog)
+%% dog:bones_first(Dog, Where)
+%% dog:bones_first_with(Dog, Extras)
+%% dog:bones_first(Dog, Where, Extras)
+%%
+%% dog:bones_max(Dog, Max)
+%% dog:bones_max(Dog, Max, Where)
+%% dog:bones_max_with(Dog, Max, Extras)
+%% dog:bones_max(Dog, Max, Where, Extras)
+%%
+%% dog:bones_range(Dog, First, Max)
+%% dog:bones_range(Dog, First, Max, Where)
+%% dog:bones_range_with(Dog, First, Max, Extras)
+%% dog:bones_range(Dog, First, Max, Where, Extras)
+%% '''
+%%
+%% If 'Dog' isn't saved in the database, these functions would exit.
+%%
+%% @see find/3
+%% @see find_first/3
+%% @see find_max/4
+%% @see find_range/5
+%% @spec find_related_many_to_one(OtherModule::atom(), Rec::record(),
+%%    Where::where_expr(), Extras::extras_expr()) -> [record()] | exit(Err)
 find_related_many_to_one(OtherModule, Rec, Where,
 			Extras) ->
     if_saved(Rec,
@@ -732,6 +921,36 @@ find_related_many_to_one(OtherModule, Rec, Where,
 		make_id_expr(Rec, Where), Extras)
       end).
 
+%% @doc Get aggregate statistics about fields from related records in
+%% one-to-many relations.
+%%
+%% This function isn't meant to be used directly; ErlyDB uses this function
+%% to generate special aggregate functions in modules that define
+%% one-to-many relations.
+%%
+%% For example, if you had a module 'dog' that defined the relation
+%% `{one_to_many, [bone]}', ErlyDB would add the following
+%% functions to the 'dog' module:
+%%
+%% ```
+%% dog:avg_of_bones(Dog, Field)
+%% dog:avg_of_bones(Dog, Field, Where)
+%% dog:avg_of_bones_with(Dog, Field, Extras)
+%% dog:avg_of_bones(Dog, Field, Where, Extras)
+%% '''
+%%
+%% where 'Field' is the name of the field in the 'bone' module (e.g. 'size').
+%%
+%% ErlyDB generates similar derivatives for all aggregate functions listed in
+%% {@link aggregate/5}.
+%%
+%% If 'Dog' isn't saved in the database, these functions would exit.
+%%
+%% @see aggregate/5
+%% @spec aggregate_related_many_to_one(OtherModule::atom(), AggFunc::atom(),
+%% Rec::record(), Field::atom(),
+%% Where::where_expr(), Extras::extras_expr()) -> float() | integer() |
+%%   exit(Err)
 aggregate_related_many_to_one(OtherModule, AggFunc, Rec, Field, Where,
 			      Extras) ->
     if_saved(Rec,
@@ -742,6 +961,20 @@ aggregate_related_many_to_one(OtherModule, AggFunc, Rec, Field, Where,
 
 %% many-to-many functions
 
+%% @doc Add a related record in a many-to-many relation.
+%%
+%% This function isn't meant to be used directly; ErlyDB uses this function
+%% to generate special add_[RelatedModule] functions in modules that define
+%% many-to-many relations.
+%%
+%% For instance, if you had a module 'student' that defined the relation
+%% `{many_to_many, [class]}', ErlyDB would add the function
+%% `student:add_class(Student, Class)' to the 'student' module. This
+%% function would insert the row (ClassId, StudentId) to the class_student
+%% table.
+%%
+%% @spec add_related_many_to_many(JoinTable::atom(), Rec::record(),
+%%   OtherRec::record()) -> ok | exit(Err)
 add_related_many_to_many(JoinTable, Rec, OtherRec) ->
     if_saved(
       [Rec,OtherRec],
@@ -758,6 +991,20 @@ make_add_related_many_to_many_query(JoinTable, Rec, OtherRec) ->
      [{get_id_field(Rec), get_id(Rec)},
       {get_id_field(OtherRec), get_id(OtherRec)}]}.
 
+%% @doc Remove a related record in a many-to-many relation.
+%%
+%% This function isn't meant to be used directly; ErlyDB uses this function
+%% to generate special remove_[RelatedModule] functions in modules that define
+%% many-to-many relations.
+%%
+%% For instance, if you had a module 'student' that defined the relation
+%% `{many_to_many, [class]}', ErlyDB would add the function
+%% `student:remove_class(Student, Class)' to the 'student' module. This
+%% function would remove the row (ClassId, StudentId) from the class_student
+%% table.
+%%
+%% @spec remove_related_many_to_many(JoinTable::atom(), Rec::record(),
+%%   OtherRec::record()) -> ok | exit(Err)
 remove_related_many_to_many(JoinTable, Rec, OtherRec) ->
     if_saved(
       [Rec, OtherRec],
@@ -774,6 +1021,13 @@ make_remove_related_many_to_many_query(JoinTable, Rec, OtherRec) ->
 			 {get_id_field(OtherRec),'=',get_id(OtherRec)}}}.
 
 
+%% @doc This function works as {@link find_related_many_to_one/4}, but
+%% for modules defining many-to-many relations.
+%%
+%% @see find_related_many_to_one/4
+%% @spec find_related_many_to_many(OtherModule::atom(), JoinTable::atom(),
+%% Rec::record(), Where::where_clause(), Extras::extras_clause()) ->
+%%   [record()] | exit(Err)   
 find_related_many_to_many(OtherModule, JoinTable, Rec, Where, Extras) ->
     Fields = [{db_table(OtherModule), Field} ||
 		 Field <- OtherModule:field_names_for_query()],
@@ -804,6 +1058,13 @@ make_find_related_many_to_many_query(OtherModule, JoinTable, Rec, Fields,
      make_where_expr(OtherModule, Cond, Where),
      Extras}.
 
+%% @doc This function works as {@link aggregate_related_many_to_one/5}, but
+%% for modules defining many-to-many relations.
+%%
+%% @see aggregate_related_many_to_one/5
+%% @spec aggregate_related_many_to_many(OtherModule::atom(), JoinTable::atom(),
+%% AggFunc::atom(), Rec::record(), Field::atom(), Where::where_clause(),
+%% Extras::extras_clause()) -> [record()] | exit(Err)   
 aggregate_related_many_to_many(OtherModule, JoinTable, AggFunc, Rec, Field,
 			       Where, Extras) ->
     find_related_many_to_many2(
@@ -814,20 +1075,25 @@ aggregate_related_many_to_many(OtherModule, JoinTable, AggFunc, Rec, Field,
 
 %% generic find functions for both many-to-one and many-to-many relations
 
+%% @hidden
 find_related_many(Func, Rec, Where, Extras) ->
     Mod = get_module(Rec),
     Mod:Func(Rec, Where, Extras).
 
+%% @hidden
 find_related_many_first(Func, Rec, Where, Extras) ->
     find_related_many_max(Func, Rec, 1, Where, Extras).
 
+%% @hidden
 find_related_many_max(Func, Rec, Num, Where, Extras) ->
     find_related_many(Func, Rec, Where, append_extras({limit, Num},Extras)).
 
+%% @hidden
 find_related_many_range(Func, Rec, First, Last, Where, Extras) ->
     find_related_many(Func, Rec, Where,
 		      append_extras({limit, First, Last}, Extras)).
 
+%% @hidden
 aggregate_related_many(Func, AggFunc, Rec, Field, Where, Extras) ->
     Module = get_module(Rec),
     Module:Func(AggFunc, Rec, Field, Where, Extras).
@@ -837,6 +1103,7 @@ aggregate_related_many(Func, AggFunc, Rec, Field, Where, Extras) ->
 
 %% internal functions
 
+%% @hidden
 do_save(Rec) ->
     {DriverMod, Options} = get_driver(Rec),
     Res =
@@ -891,7 +1158,7 @@ make_save_statement(Rec) ->
 	    {insert, {insert, get_table(Rec), Fields1, [Vals1]}}
     end.
 
-
+%% @hidden
 do_delete(Rec) ->
     if_saved(
       Rec,
@@ -991,8 +1258,11 @@ get_driver(Rec) ->
     Module:driver().
 
 
+%% @hidden
 field_names_for_query(Module) ->
     field_names_for_query(Module, false).
+
+%% @hidden
 field_names_for_query(Module, UseStar) ->
     case Module:fields() of
 	'*' ->
@@ -1008,18 +1278,6 @@ field_names_for_query(Module, UseStar) ->
 	    [id | Fields]
     end.
 
-
-%% A metafunction for generating getters, e.g. person:name(Person).
-get(Idx, Tuple) ->
-    element(Idx, Tuple).
-
-%% A metafunction for generating setters, e.g. person:name(Person, "Bob")
-set(Idx, Tuple, Val) ->
-    setelement(Idx, Tuple, Val).
-
-
-driver(Driver) ->
-    Driver.
 
 if_saved(Rec, Fun) when not is_list(Rec) ->
     if_saved([Rec], Fun);
@@ -1040,9 +1298,6 @@ if_saved(Recs, Fun) ->
 	    exit(Err)
     end.
 
-
-get_module(Rec) ->
-    element(1, Rec).
 
 set_module(Rec, Module) ->
     setelement(1, Rec, Module).
@@ -1090,7 +1345,7 @@ and_expr(Expr1, undefined) -> Expr1;
 and_expr(Expr1, Expr2) -> {Expr1, 'and', Expr2}.
 
 as_single_update({ok, 1}) -> ok;
-as_single_update({ok, Num}) -> exit({error, {unexpected_num_updates, Num}});
+as_single_update({ok, Num}) -> exit({expected_single_update, Num});
 as_single_update({error, _} = Err) -> exit(Err).
 
 as_single_val(Res) -> as_single_val(Res, false).
@@ -1099,7 +1354,7 @@ as_single_val({ok, [{Val}]}, true) -> Val;
 as_single_val([], _) -> undefined;
 as_single_val([Val], false) -> Val;
 as_single_val({error, _} = Err, _) -> exit(Err);
-as_single_val(Res, _) -> exit({error, {too_many_results, Res}}).
+as_single_val(Res, _) -> exit({too_many_results, Res}).
 
 fread_val(Format, Str) ->
     [Val] = fread_vals(Format, Str),
