@@ -16,7 +16,8 @@
 -author("Yariv Sadan (yarivvv@gmail.com) (http://yarivsblog.com)").
 
 -export([start/1,
-	 add_connections/7,
+	 connect/5,
+	 connect/7,
 	 get_metadata/1,
 	 q/1,
 	 q/2,

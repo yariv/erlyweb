@@ -67,10 +67,10 @@ new() ->
 %%
 %% 'Extra' is any additional information used to describe the field.
 %%
-%% @spec new(Name::atom(), Type::term() | {term(), Modifier::term()},
+%% @spec new(Name::atom(), {Type::atom(), Modifier::term()},
 %%  Null::boolean(), Key::term(), Default::term(), Extra::term()) ->
 %%  erlydb_field()
-new(Name, Type, Null, Key, Default, Extra) ->
+new(Name, {Type, Modifier}, Null, Key, Default, Extra) ->
     NameStr = atom_to_list(Name),
     #erlydb_field{name = Name,
 		  name_str = NameStr,

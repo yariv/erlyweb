@@ -16,6 +16,7 @@
 -author("Roberto Saccon (rsaccon@gmail.com)").
 
 -export([new/0, connection/1, connection/2, accept/1, accept/2,
+	 host/1, host/2,
 	 if_modified_since/1, if_modified_since/2, if_match/1, if_match/2,
 	 if_none_match/1, if_none_match/2, if_range/1, if_range/2,
 	 if_unmodified_since/1, if_unmodified_since/2,
@@ -42,6 +43,12 @@ accept(Arg) ->
 
 accept(Arg, Val) ->
     (Arg#arg.headers)#headers{accept = Val}.
+
+host(Arg) ->
+    (Arg#arg.headers)#headers.host.
+
+host(Arg, Val) ->
+    (Arg#arg.headers)#headers{host=Val}.
 
 if_modified_since(Arg) ->
     (Arg#arg.headers)#headers.if_modified_since.

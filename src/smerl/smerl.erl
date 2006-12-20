@@ -85,7 +85,7 @@
 	 has_func/3,
 	 get_func/3,
 	 replace_func/2,
-	 replace_func/3,
+%	 replace_func/3,
 	 compile/1,
 	 compile/2,
 	 rename/2,
@@ -136,8 +136,8 @@ new(ModuleName) when is_atom(ModuleName) ->
 %%
 %% @spec for_module(ModuleName::atom() | string()) ->
 %%   {ok, meta_mod()} | {error, Error}
-for_module(ModuleName) when is_list(FileName) ->
-    for_file(FileName);
+for_module(ModuleName) when is_list(ModuleName) ->
+    for_file(ModuleName);
 for_module(ModuleName) when is_atom(ModuleName) ->
     [_Exports, _Imports, _Attributes,
      {compile, [_Options, _Version, _Time, {source, Path}]}] =
@@ -331,8 +331,8 @@ add_func(MetaMod, {function, _Line, _FuncName, _Arity, _Clauses} = Form,
 	 false) ->
    {ok, MetaMod#meta_mod{forms = [Form | MetaMod#meta_mod.forms]}};
 
-add_func(MetaMod, Name, Fun) when is_function(Fun) ->
-    add_func(MetaMod, Name, Fun, true);
+%%add_func(MetaMod, Name, Fun) when is_function(Fun) ->
+%%    add_func(MetaMod, Name, Fun, true);
 
 add_func(_, _, _) ->
     {error, parse_error}.
@@ -470,18 +470,18 @@ replace_func(MetaMod, {function, _Line, FuncName, Arity, _Clauses} = Form) ->
 replace_func(_MetaMod, _) ->
     {error, parse_error}.
 
-%% @doc Simliar to replace_func/2, but accepts a function
-%%   name + fun expression.
-%%
-%% @spec replace_func(MetaMod::meta_mod(), Name::atom(), Fun::function()) ->
-%%   {ok, NewMod::meta_mod()} | {error, Error}
-replace_func(MetaMod, Name, Fun) when is_function(Fun) ->
-    case form_for_fun(Name, Fun) of
-	{ok, Form} ->
-	    replace_func(MetaMod, Form);
-	Err ->
-	    Err
-    end.
+%% %% @doc Simliar to replace_func/2, but accepts a function
+%% %%   name + fun expression.
+%% %%
+%% %% @spec replace_func(MetaMod::meta_mod(), Name::atom(), Fun::function()) ->
+%% %%   {ok, NewMod::meta_mod()} | {error, Error}
+%% replace_func(MetaMod, Name, Fun) when is_function(Fun) ->
+%%     case form_for_fun(Name, Fun) of
+%% 	{ok, Form} ->
+%% 	    replace_func(MetaMod, Form);
+%% 	Err ->
+%% 	    Err
+%%     end.
 	    
 %% @doc Compile the module represented by the meta_mod and load the
 %% resulting BEAM into the emulator. This function calls
