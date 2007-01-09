@@ -36,8 +36,8 @@
 -define(L(Msg), io:format("~b ~p~n", [?LINE, Msg])).
 
 %% @doc Create a new ErlyWeb application in the directory AppDir.
-%%   This function creates the standard directory structure as well as
-%%   a few basic files for a rudimantary application.
+%% This function creates the standard ErlyWeb directory structure as well as
+%% a few basic files for a rudimantary application.
 %%
 %% @spec create_app(AppName::string(), AppDir::string()) -> ok | {error, Err}
 create_app(AppName, AppDir) ->
@@ -52,8 +52,8 @@ create_app(AppName, AppDir) ->
 %%  'Component' is the name of the component and 'AppDir' is the application's
 %%  root directory.
 %%
-%%  To disable the build-in CRUD features, remove the '-erlyweb_magic(on).'
-%%  lines in the view and the model.
+%% To disable the build-in CRUD features, remove the '-erlyweb_magic(on).'
+%% lines in the view and the model.
 %%
 %% @spec create_component(Component::atom(), AppDir::string()) ->
 %%   ok | {error, Err}
@@ -318,7 +318,7 @@ compile_file(FileName, BaseName, Extension, Type,
 			    compile_file(FileName, BaseName, Type, Options)
 		    end;
 	       true -> 
-		    ?Debug("Skipping compilation of ~p", [BaseName]),
+%		    ?Debug("Skipping compilation of ~p", [BaseName]),
 		    ok
 	    end;
 	{error, _} = Err1 ->
@@ -482,37 +482,36 @@ ewc({ewc, Component, FuncName, Params}, AppData) ->
     ewc(Result, AppData);
 
 ewc({controller, Controller, FuncName, [A | _] = Params}, AppData) ->
-    case apply(Controller, FuncName, Params) of
-	{ewr, FuncName1} ->
-	    {redirect_local,
-	     {any_path,
-	      atom_to_list(FuncName1)}};
-	{ewr, Component1, FuncName1} ->
-	    AppDir = get_app_root(A),
-	    {redirect_local,
-	     {any_path,
-	      filename:join([AppDir, atom_to_list(Component1),
-			     atom_to_list(FuncName1)])}};
-	{ewr, Component1, FuncName1, Params1} ->
-	    Params2 = [erlydb_base:field_to_iolist(Param) ||
-			  Param <- Params1],
-	    AppDir = get_app_root(A),
-	    {redirect_local,
-	     {any_path,
-	      filename:join(
-		filename:join([AppDir, atom_to_list(Component1),
-			       atom_to_list(FuncName1)]),
-	       Params2)}}; 
-	Response ->
+    Response = apply(Controller, FuncName, Params),
+    case ewr(A, Response) of
+	{redirect_local, _} = Res -> Res;
+	_ ->
 	    Response1 = Controller:before_return(FuncName, Params, Response),
 	    Views = AppData:get_views(),
 	    {value, View} = gb_trees:lookup(Controller, Views),
-	    render_response(Response1, View, FuncName, AppData)
+	    render_response(A, Response1, View, FuncName, AppData)
     end;
 
 ewc(Other, _AppData) -> Other.
 
-render_response({response, Elems}, View, FuncName, AppData) ->
+ewr(A, {ewr, Component}) -> ewr2(A, [Component]);
+ewr(A, {ewr, Component, FuncName}) -> ewr2(A, [Component, FuncName]);
+ewr(A, {ewr, Component, FuncName, Params}) ->
+	    Params1 = [erlydb_base:field_to_iolist(Param) ||
+			  Param <- Params],
+	    ewr2(A, [Component, FuncName | Params1]);
+ewr(_A, Other) -> Other.
+
+ewr2(A, PathElems) ->
+    Strs = [if is_atom(Elem) -> atom_to_list(Elem);
+	       true -> Elem
+	    end || Elem <- PathElems],
+    AppDir = get_app_root(A),
+    {redirect_local,
+     {any_path,
+      filename:join([AppDir | Strs])}}.
+
+render_response(A, {response, Elems}, View, FuncName, AppData) ->
     {_Config2, Elems2} =
 	lists:foldl(
 	  fun({view_param, _Val} = Elem, {Config1, Elems1}) ->
@@ -532,10 +531,10 @@ render_response({response, Elems}, View, FuncName, AppData) ->
 				       RenderFun),
 		  {Config1, [{rendered, Rendered} | Elems1]};
 	     (Elem, {Config1, Elems1}) ->
-		  {Config1, [Elem | Elems1]}
+		  {Config1, [ewr(A, Elem) | Elems1]}
 	  end, {[], []}, Elems),
     {response, lists:reverse(Elems2)};
-render_response(Ewc, View, FuncName, AppData) ->
+render_response(_A, Ewc, View, FuncName, AppData) ->
     Output1 = render_ewc(Ewc, View, FuncName, AppData),
     {response, [{rendered, Output1}]}.
 

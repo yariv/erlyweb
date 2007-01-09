@@ -21,6 +21,7 @@
 	 get_metadata/1,
 	 q/1,
 	 q/2,
+	 q2/1,
 	 q2/2,
 	 transaction/2,
 	 select/2,
@@ -37,7 +38,8 @@
 
 
 %% Useful for debugging
--define(L(Obj), io:format("LOG ~w ~p\n", [?LINE, Obj])).
+
+-define(L(Msg), io:format("~p:~b ~p ~n", [?MODULE, ?LINE, Msg])).
 -define(S(Obj), io:format("LOG ~w ~s\n", [?LINE, Obj])).
 
 -define(Epid, erlydb_mysql).
@@ -138,11 +140,11 @@ new_field([Name, Type, Null, Key, Default, Extra]) ->
 	       <<"PRI">> -> primary;
 	       <<"UNI">> -> unique;
 	       <<"MUL">> -> multiple;
-	       _Other -> none
+	       _Other -> undefined
 	   end,
     Extra1 = case Extra of
 		 <<"auto_increment">> -> identity;
-		 _ -> none
+		 _ -> undefined
 	     end,
 
     erlydb_field:new(
@@ -200,6 +202,16 @@ q(Statement, Options) when is_binary(Statement); is_list(Statement) ->
 	true -> q2(Statement, Options);
 	_ -> exit({unsafe_statement, Statement})
     end.
+
+%% @doc Execute a (binary or string) statement against the MySQL driver
+%% using the default options.
+%% ErlyDB doesn't use this function, but it's sometimes convenient for
+%% testing.
+%%
+%% @spec q2(Statement::string() | binary(), Options::proplist()) ->
+%%   mysql_result()
+q2(Statement) ->
+    q2(Statement, undefined).
 
 %% @doc Execute a (binary or string) statement against the MySQL driver.
 %% ErlyDB doesn't use this function, but it's sometimes convenient for testing.
@@ -263,7 +275,9 @@ get_select_result(Other, _) -> Other.
 %% @spec update(Statement::statement(), Options::options()) ->
 %%  {ok, NumAffected} | {error, Err}
 update(Statement, Options) ->
-    get_update_result(q(Statement, Options)).
+    R = q(Statement, Options),
+    get_update_result(R).
+
 
 get_update_result({updated, MySQLRes}) ->
     {ok, mysql:get_result_affected_rows(MySQLRes)};

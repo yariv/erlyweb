@@ -1,0 +1,33 @@
+v0.4
+
+- Added support for arbitrary primary key fields. ErlyDB now gets its primary key information from the database and everything 'just works.' Note that foreign key fields now have a more general naming convention: instead of [TableName]_id, they are called [TableName]_[PrimaryKeyField].
+
+- Added support for self-referencing many-to-many relations. A module can now define a many-to-many relation to itself, and ErlyDB would use special database querying logic to handle this case. Relation tables in such scenarios have a different field naming convention. For more information, read the documentation at the top of erlydb.erl (it will be published when v0.4 is released).
+
+- Fix: Database updates in add_related_many_to_many() and remove_related_many_to_many() are now in done in transactions.
+
+- Fix: Foreign key field names and many-to-many relation table names are now derived from a module's database table's name, not the module's name (note: this only affects modules that override the table() function).
+
+- Fix: Proper handling of -include() directives in Smerl (Smerl now automatically searches the source file's directory for header files).
+
+- {ewr, Name} now triggers a redirect to the component with the given name, not the function with the given name in the same component. This is a more logical behavior (and it also matches the documentation :) ).
+
+- Fix: You can now use 'ewr' tuples in {response, Elems}
+
+- erlydb_field:extras/1 now returns 'undefined' instead of 'none'.
+
+- erlydb_field:key/1 now returns 'undefined' instead of 'none'.
+
+- In ErlyDB, functions ending with '_first' (e.g. language:projects_first(Erlang)), which return the first record of a related module, now return either the related record or 'undefined' instead of a list that may be empty or contain the one related record. This is to be consistent with the behavior of Module:find_first().
+
+- Some functions in erlydb_base used to call exit({error, {no_such_record, Rec}}}) if they were passed a record(s) that hadn't been saved in the database. To be consistent with other errors, these functions now call exit({no_such_record, Rec}).
+
+- Fixed a documentation bug referring to 'allow_unsafe_sql' instead of 'allow_unsafe_statements'
+
+- Fixed a bug in where a call to Model:save/1 inside Model:transaction/1 would cause a crash when it results in an UPDATE statement.
+
+- Removed the "Skipping compilation of..." debug statement.
+
+- Made several documentation updates.
+
+- Updated the ErlyDB test code.

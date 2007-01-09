@@ -165,7 +165,7 @@ for_module(ModuleName) when is_atom(ModuleName) ->
 %% @spec for_file(SrcFilePath::string()) -> {ok, meta_mod()} |
 %%   {error, invalid_module}
 for_file(SrcFilePath) ->
-    case epp:parse_file(SrcFilePath, [], []) of
+    case epp:parse_file(SrcFilePath, [filename:dirname(SrcFilePath)], []) of
 	{ok, Forms} ->
 	    mod_for_forms(Forms);
 	_err ->
@@ -294,7 +294,7 @@ get_forms(Module, Path) ->
 		    Err;
 		{SrcPath, _} ->
 		    Filename = SrcPath ++ ".erl",
-		    epp:parse_file(Filename, [], [])
+		    epp:parse_file(Filename, [filename:dirname(Filename)], [])
 	    end
     end.
 

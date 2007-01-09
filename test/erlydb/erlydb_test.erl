@@ -22,7 +22,8 @@ init() ->
 
     %% generate the abstraction layer modules
     erlydb:code_gen(mysql, [language, project, developer, musician,
-			    employee, person]).
+			    employee, person,
+			    customer, store, item]).
 
 test() ->
     init(),
@@ -73,20 +74,21 @@ test() ->
     %% Let's run some queries
     E1 = language:find_id(language:id(Erlang)),
     true = E1 == Erlang,
-    
+
+
     [E2] = language:find({name, '=', "Erlang"}),
     true = E2 == Erlang,
 
     E3 = language:find_first({paradigm, like, "functional%"}),
     true = E3 == Erlang,
+
     [E4, J4, R4] = language:find(),
     true =
 	E4 == Erlang andalso 
 	J4 == J1 andalso 
 	R4 == Ruby,
-    
+
     %% Let's make some projects
-    
     Yaws = project:new(
 	     <<"Yaws">>, <<"A web server written in Erlang">>, Erlang),
     Ejabberd = project:new(
@@ -125,22 +127,22 @@ test() ->
 
     Projects =  [Yaws, Ejabberd, OpenPoker, Tomact, JBoss, Spring,
 		 Mongrel, Rails, Ferret, Gruff],
-    
+
     %% Insert our projects into the database
     [Yaws1, Ejabberd1, OpenPoker1 | _Rest] =
 	lists:map(
 	  fun(Project) ->
 		  project:save(Project)
 	  end, Projects),
-    
+
     %% lets get the language associated with Yaws
     Erlang2 = project:language(Yaws1),
+
     Erlang2 = Erlang,
-    
+
     %% now let's correct a grave error
     Ejabberd2 = project:save(project:language(Ejabberd1, Erlang)),
     true = language:id(Erlang) == project:language_id(Ejabberd2),
-
 
     %% let's get all the projects for a language
     [Yaws3, Ejabberd3, OpenPoker3] = language:projects(Erlang),
@@ -155,11 +157,11 @@ test() ->
 		      Erlang, {name,'=',"Yaws"}),
     Yaws4 = Yaws1,
 
-    [Yaws5] = language:projects_first(
+    Yaws5 = language:projects_first(
 		      Erlang),
     Yaws4 = Yaws5,
 
-    [Ejabberd4] = language:projects_first(
+    Ejabberd4 = language:projects_first(
 			  Erlang, {name, like, "%e%"}),
     Ejabberd4 = Ejabberd3,
 
@@ -196,7 +198,6 @@ test() ->
     ok = developer:add_project(Klacke, Mnesia),
     ok = developer:add_project(Ulf, Mnesia),
 
-    
     %% basic SELECT query
     [Joe, Ulf, Klacke] =
 	project:developers(OTP),
@@ -204,7 +205,7 @@ test() ->
     %% fancier SELECT queries
     [Ulf, Klacke] =
 	project:developers(Mnesia),
-    [Ulf] = project:developers_first(Mnesia),
+    Ulf = project:developers_first(Mnesia),
     [Klacke] =
 	project:developers(Mnesia, {name, like, "Claes%"}),
     
@@ -227,6 +228,7 @@ test() ->
 	
 
     test2(),
+    test3(),
     ok.
 
 %% test some 0.7 features
@@ -269,6 +271,71 @@ test2() ->
     ok.
     
 
+%% test multi-field custom primary keys
+test3() ->
+    store:delete_all(),
+    customer:delete_all(),
+    item:delete_all(),
 
-% useful when working in the shell
-% lists:foreach(fun(F) -> c(F) end, filelib:wildcard("../*/*.erl")), erlydb:start(mysql,[{hostname, "localhost"}, {username, "root"}, {password, "password"}, {database, "test"}]), erlydb:code_gen(mysql, [developer, project, language, person, employee, musician], [{allow_unsafe_statements, true}]).
+    S1 = store:new(1, <<"dunkin">>),
+    S2 = store:save(S1),
+
+    I1 = item:new_with([{size, 3}, {name, <<"coffee">>}, {store, S2}]),
+    I2 = item:save(I1),
+    I3 = item:new_with([{size, 5}, {name, <<"bagel">>}, {store, S2}]),
+    I4 = item:save(I3),
+    
+    S2 = item:store(I2),
+    S2 = item:store(I4),
+
+    [I2, I4] = store:items(S2),
+    I2 = store:items_first(S2),
+    2 = store:count_of_items(S2),
+
+    C1 = customer:new(<<"bob">>),
+    C2 = customer:save(C1),
+    C3 = customer:new(<<"jane">>),
+    C4 = customer:save(C3),
+    
+    ok = store:add_customer(S2, C2),
+    ok = store:add_customer(S2, C4),
+
+    C2 = store:customers_first(S2),
+    [C2, C4] = store:customers(S2),
+    2 = store:count_of_customers(S2),
+    <<"jane">> = store:max_of_customers(S2, name),
+    
+    ok = store:remove_customer(S2, C2),
+    1 = store:count_of_customers(S2),
+    C4 = store:customers_first(S2),
+    
+    ok = store:remove_customer(S2, C4),
+    0 = store:count_of_customers(S2),
+    undefined = store:customers_first(S2),
+
+    
+    C5 = customer:new(<<"adam">>),
+    C6 = customer:save(C5),
+
+    ok = customer:add_customer(C2, C4),
+    1 = customer:count_of_customers(C2),
+    ok = customer:add_customer(C2, C6),
+    2 = customer:count_of_customers(C2),
+    C4 = customer:customers_first(C2),
+    [C4, C6] = customer:customers(C2),
+    
+    <<"jane">> = customer:max_of_customers(C2, name),
+    <<"adam">> = customer:min_of_customers(C2, name),
+    
+    ok = customer:remove_customer(C2, C4),
+    1 = customer:count_of_customers(C2),
+    C6 = customer:customers_first(C2),
+
+
+    ok = customer:remove_customer(C2, C6),
+    0 = customer:count_of_customers(C2),
+    undefined = customer:customers_first(C2),
+    
+    ok.
+    
+

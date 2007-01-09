@@ -16,6 +16,7 @@
 %% This is useful for telling ErlyDB about relations (one-to-many
 %% and many-to-many) and mappings between Erlang modules and database tables
 %% and fields.
+%%
 
 %% @type record(). An Erlang tuple containing the values for (some of)
 %% the fields of a database row, as well as additional data used by
@@ -32,7 +33,7 @@
 %% {{name, 'like', "Bob%"}, 'or', {not, {age, '>', 26}}}
 %% '''
 %%
-%% If you pass the option {allow_unsafe_sql, true} to
+%% If you pass the option {allow_unsafe_statements, true} to
 %% {@link erlydb:code_gen/3}, you can use string and/or binary Where
 %% expressions, but this isn't recommended because it exposes to you
 %% SQL injection attacks if you forget to quote your strings.
@@ -48,7 +49,7 @@
 %% [{order_by, [{age, {height, asc}, {gpa, desc}}]}, {limit, 5}]
 %% '''
 %%
-%% If you pass the option {allow_unsafe_sql, true} to
+%% If you pass the option {allow_unsafe_statements, true} to
 %% {@link erlydb:code_gen/3}, you can use string and/or binary Extras
 %% expressions, but this isn't recommended because it exposes to you
 %% SQL injection attacks if you forget to quote your strings.
@@ -58,7 +59,9 @@
 -author("Yariv Sadan (yarivvv@gmail.com, http://yarivsblog.com)").
 
 %% debugging helpers
--define(L(Rec), io:format("LOG ~w ~p\n", [?LINE, Rec])).
+
+-define(L(Msg), io:format("~p:~b ~p ~n", [?MODULE, ?LINE, Msg])).
+%-define(L(Rec), io:format("LOG ~w ~p\n", [?LINE, Rec])).
 -define(S(Rec), io:format("LOG ~w ~s\n", [?LINE, Rec])).
 
 -export(
@@ -80,6 +83,7 @@
     db_field_names_bin/1,
     db_num_fields/1,
     db_field/2,
+    db_pk_fields/1,
 
     %% functions for getting information about a record
     is_new/1,
@@ -156,7 +160,9 @@
     field_names_for_query/1,
     field_names_for_query/2,
     do_save/1,
-    do_delete/1
+    do_delete/1,
+    get_pk_fk_fields/1,
+    get_pk_fk_fields2/1
    ]).
 
 %% @doc Return the list of relations of the module. By overriding the function,
@@ -183,7 +189,6 @@ relations() ->
 %% @spec fields() -> '*' | [atom()]
 fields() ->
     '*'.
-
 
 %% @doc Return the name of the table that holds the records for this module.
 %%   By default, the table name is identical to the Module's name, but you
@@ -225,8 +230,8 @@ db_table(Module) ->
 db_num_fields(NumFields) ->
     NumFields.
 
-%% @doc Get a list of {@link erlydb_field} records representing the database fields
-%%  for the module.
+%% @doc Get a list of {@link erlydb_field} records representing the database
+%%  fields for the module.
 %%
 %% In generated modules, this function takes 0 parameters.
 %%
@@ -281,6 +286,12 @@ db_field(Module, FieldName) ->
 	{value, Field} -> Field
     end.
 
+%% @doc Return the list of fields (see @link erlydb_field)
+%% for which `erlydb_field:key(Field) == primary' is true.
+%%
+%% @spec db_pk_fields() -> [erlydb_field()]
+db_pk_fields(Fields) ->
+    Fields.
 
 %% @doc Check if the record has been saved in the database.
 %%
@@ -300,12 +311,15 @@ get_module(Rec) ->
 to_iolist(Module, Recs) ->
     to_iolist(Module, Recs, fun field_to_iolist/2).
 
-%% @doc If Recs is a single record, Convert each of a record's fields into an iolist
+%% @doc If Recs is a single record, convert each of a record's fields into
+%% an iolist
 %% and return the list of the converted records. If Recs is a list of records,
-%% to_iolist is recursively called on each record, and the list of results is returned.
+%% to_iolist is recursively called on each record, and the list of results is
+%% returned.
 %%
-%% ToIoListFun is a function that accepts an {@link erlydb_field} structure and a
-%% field value and returns an iolist (see {@link field_to_iolist/2} for an example).
+%% ToIoListFun is a function that accepts an {@link erlydb_field} structure
+%% and a field value and returns an iolist (see {@link field_to_iolist/2}
+%% for an example).
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
@@ -392,6 +406,17 @@ field_to_iolist(Val, _Field) ->
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
+%% Generated modules also have the function new/N, where N is the number of
+%% fields the module uses (as returned from db_num_fields/0), minus
+%% 1 if the module has an 'identity' primary key field, which is initialized
+%% by the DBMS. This function lets you create a new record and initialize
+%% its fields with a single call. Note that fields that end with '_id' have
+%% a special property: they accept either a literal id value, or a record
+%% from a related table that has an 'id' primary key. For example, if the
+%% 'project' module had the fields 'name' and 'language_id',
+%% `project:new("ErlyWeb", Erlang)' would be equivalent to
+%% `project:new("ErlyWeb", language:id(Erlang))'.
+%%
 %% @spec new(Module::atom()) -> record()
 new(Module) ->
     Rec = erlang:make_tuple(Module:db_num_fields() + 2, undefined),
@@ -427,8 +452,8 @@ new_with(Module, Fields, ToFieldFun) ->
 new_from_strings(Module, Fields) ->
     Module:set_fields(Module:new(), Fields, fun field_from_string/2).
 
-%% @doc Set the record's fields according to the name/value pairs in the property
-%% list, e.g.
+%% @doc Set the record's fields according to the name/value pairs in the
+%% property list, e.g.
 %%
 %% ```
 %% Language1 = language:set_fields(Language, [{name,"Erlang"},
@@ -560,11 +585,7 @@ delete(Rec) ->
 		     hook(Rec, do_delete, before_delete, after_delete)
 	     end).
 
-%% @doc Delete the record with the given id. This function returns the number
-%% of records actually deleted.
-%%
-%% In generated modules, the 'Module' parameter is omitted.
-%%
+%% @equiv delete_where(Module, {id,'=',Id})
 %% @spec delete_id(Module::atom(), Id::integer()) -> NumDeleted::integer()
 delete_id(Module, Id) ->
     delete_where(Module, {id,'=',Id}).
@@ -690,7 +711,8 @@ after_fetch(Rec) ->
 %%    strings.
 %%
 %% Some drivers (e.g. the MySQL driver), let you use string and binary
-%% expressions directly when you pass the {allow_unsafe_sql, true} option to
+%% expressions directly when you pass the {allow_unsafe_statements, true}
+%% option to
 %% {@link erlydb:code_gen/3}. This usage is discouraged, however, because it
 %% makes you vulnerable to SQL injection attacks if you don't properly
 %% encode all your strings.
@@ -717,13 +739,14 @@ find(Module, Where, Extras) ->
     do_find(Module, field_names_for_query(Module, true), Where, Extras).
 
 %% @doc Find the first record for the module according to the Where and
-%%   Extras expressions.
+%% Extras expressions. If no records match the conditions, the function
+%% returns 'undefined'.
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
 %% @see find/3
 %% @spec find_first(Modue::atom(), Where::where_expr(),
-%%  Extras::extras_expr()) -> record() | exit(Err)
+%%  Extras::extras_expr()) -> record() | undefined | exit(Err)
 find_first(Module, Where, Extras) ->
     as_single_val(find_max(Module, 1, Where, Extras)).
 
@@ -749,7 +772,7 @@ find_max(Module, Max, Where, Extras) ->
 find_range(Module, First, Max, Where, Extras) ->
     find(Module, Where, append_extras({limit, First, Max}, Extras)).
 
-%% @doc Find the record with the given Id.
+%% @doc Find the record with the given id value.
 %%
 %% In generated modules, the 'Module' parameter is omitted.
 %%
@@ -827,27 +850,38 @@ driver(Driver) ->
 
 %% many-to-one functions
 
-%% @doc Set the [RelatedModule_id] field of a record from a module having a
-%% many-to-one relation to the id field of the Other record.
+%% @doc Set the foreign key fields of a record from a module having a
+%% many-to-one relation to the primary key values of the Other record.
 %%
 %% This function isn't meant to be used directly; ErlyDB uses it to generate
 %% special setters for related records in modules that define many-to-one
 %% relations.
 %%
 %% For example, if you had a module 'bone' that defined the relation
-%% `{many_to_one, [dog]}', ErlyDB would add the function `bone:dog(Bone, Dog)'
+%% `{many_to_one, [dog]}', and the 'dog' module had a single primary key
+%% field called 'id', ErlyDB would add the
+%% function `bone:dog(Bone, Dog)'
 %% to the 'bone' module. This function would be equivalent to
-%% ``bone:dog_id(Bone, dog:id(Dog))'', with an extra chekck to verify
+%% ``bone:dog_id(Bone, dog:id(Dog))'', with an extra check to verify
 %% that Dog is saved in the database.
+%%
+%% If 'dog' had more than one primary key field, this function would
+%% set the values for all foreign key fields in the 'bone' record
+%% to the values of the 'dog' record's corresponding primary key
+%% values.
 %%
 %% @spec set_related_one_to_many(Rec::record(), Other::record()) -> record()
 %%   | exit(Err)
 set_related_one_to_many(Rec, Other) ->
     if_saved(Other,
 	     fun() ->
-		     FuncName = get_id_field(Other),
+		     OtherModule = get_module(Other),
+		     PkFields = OtherModule:get_pk_fk_fields(),
 		     Module = get_module(Rec),
-		     Module:FuncName(Rec, get_id(Other))
+		     lists:foldl(
+		       fun({PkField, FkField}, Rec1) ->
+			       Module:FkField(Rec1, OtherModule:PkField(Other))
+		       end, Rec, PkFields)
 	     end).
 
 %% @doc Find the related record for a record from a module having a
@@ -858,18 +892,23 @@ set_related_one_to_many(Rec, Other) ->
 %% defining many-to-one relations.
 %%
 %% For example, if you had a module 'bone' that defined the relation
-%% `{many_to_one, [dog]}', ErlyDB would add the function `bone:dog(Bone)'
+%% `{many_to_one, [dog]}', and 'dog' had a single primary key field called
+%% 'id', ErlyDB would add the function `bone:dog(Bone)'
 %% to the 'bone' module. This function would be equivalent to
-%% `dog:find_id(bone:dog_id(Bone))'.
+%% `dog:find({id,'=',bone:dog_id(Bone)}).'.
 %%
-%% @see find_id/2
+%% This function works as expected when the related module has multiple
+%% primary key fields.
+%%
 %% @spec find_related_one_to_many(OtherModule::atom(), Rec::record()) ->
 %%  record() | exit(Err)
 find_related_one_to_many(OtherModule, Rec) ->
-    FuncName = list_to_atom(atom_to_list(OtherModule) ++ "_id"),
-    ModName = get_module(Rec),
-    OtherModule:find_id(ModName:FuncName(Rec)).
-
+    Module = get_module(Rec),
+    PkFields = OtherModule:get_pk_fk_fields(),
+    WhereClause =
+	{'and', [{PkField, '=', Module:FkField(Rec)} ||
+		    {PkField, FkField} <- PkFields]},
+    as_single_val(OtherModule:find(WhereClause)).
 
 %% one-to-many functions
 
@@ -918,7 +957,7 @@ find_related_many_to_one(OtherModule, Rec, Where,
     if_saved(Rec,
       fun() ->
 	      OtherModule:find(
-		make_id_expr(Rec, Where), Extras)
+		make_fk_expr(Rec, Where), Extras)
       end).
 
 %% @doc Get aggregate statistics about fields from related records in
@@ -956,7 +995,7 @@ aggregate_related_many_to_one(OtherModule, AggFunc, Rec, Field, Where,
     if_saved(Rec,
 	     fun() ->
 		     OtherModule:AggFunc(Field,
-					 make_id_expr(Rec, Where), Extras)
+					 make_fk_expr(Rec, Where), Extras)
 	     end).
 
 %% many-to-many functions
@@ -968,10 +1007,15 @@ aggregate_related_many_to_one(OtherModule, AggFunc, Rec, Field, Where,
 %% many-to-many relations.
 %%
 %% For instance, if you had a module 'student' that defined the relation
-%% `{many_to_many, [class]}', ErlyDB would add the function
+%% `{many_to_many, [class]}', and both 'student' and 'class' had a single
+%% primary key field called 'id', ErlyDB would add the function
 %% `student:add_class(Student, Class)' to the 'student' module. This
-%% function would insert the row (ClassId, StudentId) to the class_student
-%% table.
+%% function would insert the row [class:id(Class), student:id(Student)] to
+%% the class_student table, where the first column is 'class_id'
+%% and the second column is 'student_id'.
+%%
+%% If either module has multiple primary key fields, all those fields are
+%% mapped to foreign keys in the many-to-many relation table.
 %%
 %% @spec add_related_many_to_many(JoinTable::atom(), Rec::record(),
 %%   OtherRec::record()) -> ok | exit(Err)
@@ -982,14 +1026,21 @@ add_related_many_to_many(JoinTable, Rec, OtherRec) ->
 	      {DriverMod, Options} = get_driver(Rec),
 	      Query = {esql, make_add_related_many_to_many_query(
 			       JoinTable, Rec, OtherRec)},
-	      Res = DriverMod:update(Query, Options),
-	      as_single_update(Res)
+	      Res =
+		  DriverMod:transaction(
+		    fun() ->
+			    Res = DriverMod:update(Query, Options),
+			    as_single_update(Res)
+		    end, Options),
+	      case Res of
+		  {atomic, ok} -> ok;
+		  {aborted, Err} -> exit(Err)
+	      end
       end).
 
 make_add_related_many_to_many_query(JoinTable, Rec, OtherRec) ->
-    {insert, JoinTable,
-     [{get_id_field(Rec), get_id(Rec)},
-      {get_id_field(OtherRec), get_id(OtherRec)}]}.
+    Fields = get_join_table_fields(Rec, OtherRec),
+    {insert, JoinTable, Fields}.
 
 %% @doc Remove a related record in a many-to-many relation.
 %%
@@ -998,13 +1049,18 @@ make_add_related_many_to_many_query(JoinTable, Rec, OtherRec) ->
 %% many-to-many relations.
 %%
 %% For instance, if you had a module 'student' that defined the relation
-%% `{many_to_many, [class]}', ErlyDB would add the function
+%% `{many_to_many, [class]}', and module 'class' and 'student' had a single
+%% primary key field called 'id', ErlyDB would add the function
 %% `student:remove_class(Student, Class)' to the 'student' module. This
-%% function would remove the row (ClassId, StudentId) from the class_student
-%% table.
+%% function would remove the row [class:id(Class), student:id(Student)]
+%% from the class_student table, where the first column is 'class_id'
+%% the second column is 'student_id'.
+%%
+%% This function expects a single record to be removed. 
 %%
 %% @spec remove_related_many_to_many(JoinTable::atom(), Rec::record(),
-%%   OtherRec::record()) -> ok | exit(Err)
+%%   OtherRec::record()) -> ok |
+%%   exit(Err)
 remove_related_many_to_many(JoinTable, Rec, OtherRec) ->
     if_saved(
       [Rec, OtherRec],
@@ -1012,14 +1068,44 @@ remove_related_many_to_many(JoinTable, Rec, OtherRec) ->
 	      {DriverMod, Options} = get_driver(Rec),
 	      Query = make_remove_related_many_to_many_query(
 			JoinTable, Rec, OtherRec),
-	      as_single_update(DriverMod:update({esql, Query}, Options))
+	      Res =
+		  DriverMod:transaction(
+		    fun() ->
+			    DriverMod:update({esql, Query}, Options)
+		    end, Options),
+	      case Res of
+		  {atomic, Res1} -> as_single_update(Res1);
+		  {aborted, Err} -> exit(Err)
+	      end
       end).
 
 make_remove_related_many_to_many_query(JoinTable, Rec, OtherRec) ->
-    {delete, JoinTable, {{get_id_field(Rec),'=',get_id(Rec)},
-			 'and',
-			 {get_id_field(OtherRec),'=',get_id(OtherRec)}}}.
+    {delete, JoinTable, make_join_table_expr(Rec, OtherRec)}.
 
+make_join_table_expr(Rec, OtherRec) ->
+    {'and', [{Field,'=',Val} ||
+		{Field, Val} <- get_join_table_fields(Rec, OtherRec)]}.
+
+get_join_table_fields(Rec, OtherRec) -> 
+    Mod = get_module(Rec),
+    OtherMod = get_module(OtherRec),
+    if Mod == OtherMod ->
+	    lists:foldl(
+	      fun({PkField, FkField1, FkField2}, Acc) ->
+		      [Val1, Val2] = lists:sort([Mod:PkField(Rec),
+						 Mod:PkField(OtherRec)]),
+		      [{FkField1, Val1},
+		       {FkField2, Val2} | Acc]
+	      end, [], Mod:get_pk_fk_fields2());
+       true ->
+	    Fields1 = [{FkField, Mod:PkField(Rec)} ||
+			  {PkField, FkField} <-
+			      Mod:get_pk_fk_fields()],
+	    lists:foldl(
+	      fun({PkField, FkField}, Acc) ->
+		      [{FkField, OtherMod:PkField(OtherRec)} | Acc]
+	      end, Fields1, OtherMod:get_pk_fk_fields())
+    end.
 
 %% @doc This function works as {@link find_related_many_to_one/4}, but
 %% for modules defining many-to-many relations.
@@ -1046,13 +1132,33 @@ find_related_many_to_many2(OtherModule, JoinTable, Rec, Fields,
 
 make_find_related_many_to_many_query(OtherModule, JoinTable, Rec, Fields,
 				     Where, Extras) ->
-    Cond = {
-      {{db_table(OtherModule), id},'=',
-       {JoinTable, get_id_field(OtherModule)}},
-      'and',
-      {{JoinTable, get_id_field(Rec)}, '=', get_id(Rec)}
-     },
-
+    OtherTable = db_table(OtherModule),
+    Module = get_module(Rec),
+    Cond =
+	if OtherModule == Module ->
+		PkFks = Module:get_pk_fk_fields2(),
+		{'or', 
+		 [{'and',
+		   [{{OtherTable, PkField}, '=',
+		     {JoinTable, FkField1}} ||
+		       {PkField, FkField1, _FkField2} <- PkFks] ++
+		   [{{JoinTable, FkField2},'=',
+		     Module:PkField(Rec)} ||
+		       {PkField, _FkField1, FkField2} <- PkFks]},
+		 {'and',
+		   [{{OtherTable, PkField}, '=',
+		     {JoinTable, FkField2}} ||
+		       {PkField, _FkField1, FkField2} <- PkFks] ++
+		   [{{JoinTable, FkField1},'=',
+		     Module:PkField(Rec)} ||
+		       {PkField, FkField1, _FkField2} <- PkFks]}]};
+	   true->
+		{'and',
+		 [{{OtherTable, PkField},'=',{JoinTable, FkField}} ||
+		     {PkField, FkField} <- OtherModule:get_pk_fk_fields()] ++
+		 [{{JoinTable, FkField},'=',Module:PkField(Rec)} ||
+		     {PkField, FkField} <- Module:get_pk_fk_fields()]}
+	end,
     {select, Fields,
      {from, [db_table(OtherModule), JoinTable]},
      make_where_expr(OtherModule, Cond, Where),
@@ -1064,7 +1170,7 @@ make_find_related_many_to_many_query(OtherModule, JoinTable, Rec, Fields,
 %% @see aggregate_related_many_to_one/5
 %% @spec aggregate_related_many_to_many(OtherModule::atom(), JoinTable::atom(),
 %% AggFunc::atom(), Rec::record(), Field::atom(), Where::where_clause(),
-%% Extras::extras_clause()) -> [record()] | exit(Err)   
+%% Extras::extras_clause()) -> [term()] | exit(Err)   
 aggregate_related_many_to_many(OtherModule, JoinTable, AggFunc, Rec, Field,
 			       Where, Extras) ->
     find_related_many_to_many2(
@@ -1082,7 +1188,7 @@ find_related_many(Func, Rec, Where, Extras) ->
 
 %% @hidden
 find_related_many_first(Func, Rec, Where, Extras) ->
-    find_related_many_max(Func, Rec, 1, Where, Extras).
+    as_single_val(find_related_many_max(Func, Rec, 1, Where, Extras)).
 
 %% @hidden
 find_related_many_max(Func, Rec, Num, Where, Extras) ->
@@ -1113,13 +1219,25 @@ do_save(Rec) ->
 		  fun() ->
 			  case DriverMod:update({esql, Stmt}, Options) of
 			      {ok, 1} ->
-				  case DriverMod:get_last_insert_id(Options) of
-				      {ok, Id} ->
-					  Rec1 = set_is_new(Rec, false),
-					  set_id(Rec1, Id);
-				      Err ->
-					  Err
-				  end;	    
+				  Module = get_module(Rec),
+				  Rec1 = set_is_new(Rec, false),
+				  PkField = hd(Module:db_pk_fields()),
+
+				  HasIdentity = erlydb_field:extra(PkField)
+				      == identity,
+				  if HasIdentity ->
+					  case DriverMod:get_last_insert_id(
+						 Options) of
+					      {ok, Val} ->
+						  FName = erlydb_field:name(
+							    PkField),
+						  Module:FName(Rec1, Val);
+					      Err ->
+						  Err
+					  end;
+				     true ->
+					  Rec1
+				  end;
 			      Err ->
 				  Err
 			  end
@@ -1133,29 +1251,36 @@ do_save(Rec) ->
 			      Other ->
 				  Other
 			  end
-		  end, Options)
+		  end,  Options)
 	end,
     case Res of
 	{atomic, NewRec} -> NewRec;
-	{aborted, Err} -> exit(Err)
+	{aborted, Err} -> exit(Err);
+	Other -> Other
     end.
 
 make_save_statement(Rec) ->
     Module = get_module(Rec),
-    [_IdField | Fields] = field_names_for_query(Module),
+    Fields = field_names_for_query(Module),
+    PkField = hd(Module:db_pk_fields()),
+    Fields1 = case erlydb_field:extra(PkField) == identity of
+	true -> lists:delete(erlydb_field:name(PkField), Fields);
+	false -> Fields
+    end,
+
     case is_new(Rec) of
 	false ->
-	    [_Module, _IsNew1, Id | Vals] = tuple_to_list(Rec),
-	    {update, {update, get_table(Rec), lists:zip(Fields, Vals),
-		      {where, {id,'=',Id}}}};
+	    Vals = [{Field, Module:Field(Rec)} || Field <- Fields1],
+	    {update, {update, get_table(Rec), Vals,
+		      {where, make_pk_expr(Rec)}}};
 	true ->
-	    [_Module, _IsNew1, _Pk | Vals] = tuple_to_list(Rec),
-	    {Fields1, Vals1} =
+	    Vals = [Module:Field(Rec) || Field <- Fields1],
+	    {Fields2, Vals1} = 
 		case Module:type_field() of
-		    undefined -> {Fields, Vals};
-		    TypeField -> {[TypeField|Fields], [Module|Vals]}
+		    undefined -> {Fields1, Vals};
+		    TypeField -> {[TypeField | Fields1], [Module | Vals]}
 		end,
-	    {insert, {insert, get_table(Rec), Fields1, [Vals1]}}
+	    {insert, {insert, get_table(Rec), Fields2, [Vals1]}}
     end.
 
 %% @hidden
@@ -1188,7 +1313,15 @@ do_delete(Rec) ->
 
 make_delete_stmt(Rec) ->
     {esql, {delete, get_table(Rec),
-	    {where, {id,'=',get_id(Rec)}}}}.
+	    {where, make_pk_expr(Rec)}}}.
+
+%% @hidden
+get_pk_fk_fields(Fields) ->
+    Fields.
+
+%% @hidden
+get_pk_fk_fields2(Fields) ->
+    Fields.
 
 do_find(Module, Fields, Where, Extras) ->
     do_find(Module, Fields, Where, Extras, true).
@@ -1201,15 +1334,35 @@ make_find_query(Module, Fields, Where, Extras) ->
      {select, Fields, {from, db_table(Module)},
       make_where_expr(Module, Where),
       Extras}}.
-    
 
-get_id_field(Rec) when is_tuple(Rec) ->
-    get_id_field(get_module(Rec));
-get_id_field(Module) ->
-    list_to_atom(atom_to_list(Module) ++ "_id").
 
-make_id_expr(Rec, Where) ->
-    and_expr({get_id_field(Rec),'=',get_id(Rec)}, Where).
+make_pk_expr(Rec) ->
+    make_pk_expr(Rec, undefined).
+
+make_pk_expr(Rec, Where) ->
+    make_pk_expr2(Rec, Where, false).
+
+make_fk_expr(Rec, Where) ->
+    make_pk_expr2(Rec, Where, true).
+
+make_pk_expr2(Rec, WhereExpr, UseFk) ->
+    WhereList =
+	case WhereExpr of
+	    undefined -> [];
+	    _ -> [WhereExpr]
+	end,
+    Mod = get_module(Rec),
+    case UseFk of
+	false ->
+	    {'and', WhereList ++
+	     [{PkField, '=', Mod:PkField(Rec)} ||
+		 {PkField, _FkField} <- Mod:get_pk_fk_fields()]};
+	true ->
+	    {'and', WhereList ++
+	     [{FkField, '=', Mod:PkField(Rec)} ||
+		 {PkField, FkField} <- Mod:get_pk_fk_fields()]}
+    end.
+
 
 append_extras(Clause, Extras) ->
     case Extras of
@@ -1274,8 +1427,8 @@ field_names_for_query(Module, UseStar) ->
 		_TypeCol ->
 		    Module:db_field_names()
 	    end;
-	Fields ->
-	    [id | Fields]
+	_Fields ->
+	    Module:db_field_names()
     end.
 
 
@@ -1286,7 +1439,7 @@ if_saved(Recs, Fun) ->
 	    fun(Rec) ->
 		    case is_new(Rec) of
 			true ->
-			    throw({error, {no_such_record, Rec}});
+			    exit({no_such_record, Rec});
 			false ->
 			    ok
 		    end
@@ -1294,7 +1447,7 @@ if_saved(Recs, Fun) ->
 	of
 	ok ->
 	    Fun();
-	Err ->
+	{'EXIT', Err} ->
 	    exit(Err)
     end.
 
@@ -1306,31 +1459,16 @@ get_table(Rec) ->
     Module = get_module(Rec),
     db_table(Module).
 
-get_id(Rec) ->
-    element(3, Rec).
-
-set_id(Rec, Id) ->
-    setelement(3, Rec, Id).
-
 set_is_new(Rec, Val) ->
     setelement(2, Rec, Val).
 
 
 make_where_expr(Module, Expr) ->
     make_where_expr(Module, Expr, undefined).
-make_where_expr(Module, {where, Expr1}, Expr2) ->
-    make_where_expr(Module, Expr1, Expr2);
-make_where_expr(Module, Expr1, {where, Expr2}) ->
-    make_where_expr(Module, Expr1, Expr2);
 make_where_expr(Module, Expr1, Expr2) ->
     case Module:type_field() of
 	undefined ->
-	    case and_expr(Expr1, Expr2) of
-		undefined ->
-		    undefined;
-		Other ->
-		    {where, Other}
-	    end;
+	    {where, and_expr(Expr1, Expr2)};
 	FieldName ->
 	    Expr3 = and_expr(Expr1, Expr2),
 	    {where, and_expr({{db_table(Module),FieldName}, '=',
@@ -1338,8 +1476,6 @@ make_where_expr(Module, Expr1, Expr2) ->
 				 Expr3)}
     end.
 
-and_expr({where, Expr1}, Expr2) -> and_expr(Expr1, Expr2);
-and_expr(Expr1, {where, Expr2}) -> and_expr(Expr1, Expr2);
 and_expr(undefined, Expr2) -> Expr2;
 and_expr(Expr1, undefined) -> Expr1;
 and_expr(Expr1, Expr2) -> {Expr1, 'and', Expr2}.

@@ -52,7 +52,8 @@ new() ->
 
 %% @doc Create a new erlydb_field record initialized with the given values.
 %%
-%% 'Type' is the database datatype, e.g. "integer", "varchar", etc.
+%% 'Type' is the DBMS datatype, ('integer', 'varchar', etc.), represented
+%% as an atom.
 %%
 %% 'Modifier' is used to define the maximum length of the field, or the list
 %% of options for an enum field. This value is set to 'undefined' if it's not
@@ -62,10 +63,12 @@ new() ->
 %%  value.
 %%
 %% 'Key' indicates if the field is used as a primary or a unique key.
+%%  The possible values are 'primary', 'unique', 'multiple' and 'undefined'.
 %%
 %% 'Default' is the field's default value.
 %%
 %% 'Extra' is any additional information used to describe the field.
+%% Currently, the possible values are 'identity' and 'undefined'
 %%
 %% @spec new(Name::atom(), {Type::atom(), Modifier::term()},
 %%  Null::boolean(), Key::term(), Default::term(), Extra::term()) ->
@@ -130,13 +133,16 @@ maxlength(Field) ->
 options(Field) ->
     Field#erlydb_field.modifier.
 
-%% @doc Get the field's corresponding Erlang type.
+%% @doc Get the field's corresponding Erlang type. Possible values are
+%% 'binary', 'integer', 'float', 'date', 'time', and 'datetime'.
 %%
 %% Date, time and datetime fields have the following forms:
-%%
-%% {date, {Year, Month, Day}}<br/>
-%% {time, {Hour, Minute, Second}}<br/>
-%% {datetime, {{Year, Month, Day}, {Hour, Minute, Second}}}<br/>
+%% 
+%% ```
+%% {date, {Year, Month, Day}}
+%% {time, {Hour, Minute, Second}}
+%% {datetime, {{Year, Month, Day}, {Hour, Minute, Second}}}
+%% '''
 %%
 %% @spec erl_type(Field::erlydb_field()) -> binary | integer | float | date |
 %%  time | datetime
@@ -144,6 +150,7 @@ erl_type(Field) ->
     Field#erlydb_field.erl_type.
 
 %% @doc Get the field's default HTML input field type.
+%% Possible values are 'text_field', 'text_area' and 'select'.
 %%
 %% @spec html_input_type(Field::erlydb_field()) -> text_field |
 %%  text_area | select
@@ -158,7 +165,7 @@ null(Field) ->
 
 %% @doc Get the field's key definition.
 %%
-%% @spec key(Field::erlydb_field()) -> undefined | term()
+%% @spec key(Field::erlydb_field()) -> undefined | primary | unique | multiple
 key(Field) ->
     Field#erlydb_field.key.
 
@@ -170,7 +177,7 @@ default(Field) ->
 
 %% @doc Get the field's extra metadata.
 %%
-%% @spec extra(Field::erlydb_field()) -> undefined | term()
+%% @spec extra(Field::erlydb_field()) -> undefined | identity
 extra(Field) ->
     Field#erlydb_field.extra.
 

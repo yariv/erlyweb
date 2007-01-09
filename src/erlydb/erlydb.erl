@@ -2,6 +2,12 @@
 %% @copyright Yariv Sadan 2006
 %% @doc ErlyDB: The Erlang Twist on Database Abstraction.
 %%
+%% === Contents ===
+%%
+%% {@link Introduction}<br/>
+%% {@link Primary and Foreign Key Conventions}
+%%
+%% === Introduction ===
 %% ErlyDB is a database abstraction layer generator for Erlang. ErlyDB
 %% combines database metadata and user-provided metadata to generate
 %% functions that let you perform common data access operations in
@@ -10,7 +16,8 @@
 %% letting you write portable data access code.
 %%
 %% ErlyDB is designed to work with relational schemas, supporting both
-%% one-to-many and many-to-many relations.
+%% one-to-many and many-to-many relations. For more details on how to
+%% define relations between modules, see {@link erlydb_base:relations/0}.
 %%
 %% By using {@link erlsql} under the hood for SQL statement generation, ErlyDB
 %% provides a simple and effective mechanism for protection against
@@ -33,11 +40,55 @@
 %%
 %% You can find sample code illustrating how to use many of ErlyDB's features
 %% in the test/erlydb directory.
+%%
+%% === Primary and Foreign Key Conventions ===
+%%
+%% Prior to ErlyWeb 0.4, ErlyDB assumed that all tables have an identity
+%% primary key field named 'id'. From ErlyWeb 0.4, ErlyDB lets users define
+%% arbitrary primary key fields for their tables. ErlyDB
+%% figures out which fields are the primary key fields automatically by
+%% querying the database' metadata.
+%%
+%% ErlyDB currently relies on a naming convention to map primary key field
+%% names to foreign key field names in related tables. Foreign key field
+%% names are constructed as follows: [TableName]_[FieldName]. For example,
+%% if the 'person' table had
+%% primary key fields named 'name' and 'age', then related tables would have
+%% the foreign key fields 'person_name' and 'person_age', referencing the
+%% 'name' and 'age' fields of the 'person' table.
+%%
+%% Important: Starting from ErlyWeb 0.4, when a module defines a different
+%% table name (by overriding the {@link erlydb_base:table/0} function),
+%% the table name is used in foreign key field names, not the module name.
+%%
+%% In one-to-many/many-to-one relations, the foreign key fields for the 'one'
+%% table exist in the 'many' table. In many_to_many relations, all
+%% foreign key fields for both modules exist in a separate table named
+%% [Table1]_[Table2], where Table1 < Table2 by alphabetical ordering.
+%%
+%% Starting from v0.4, ErlyDB has special logic to handle the case where a
+%% module has a
+%% many-to-many relation to itself. In such a case, the relation table
+%% would be called [TableName]_[TableName], and its fields would be the
+%% table's primary key corresponding foreign key fields,
+%% first with the postfix "1", and
+%% then with the postfix "2". For example, if the 'person' module defined
+%% the relation `{many_to_many, [person]}' (and the table name were 'person',
+%% i.e., the default), then there should exist a
+%% 'person_person' relation table with the following fields: person_name1,
+%% person_name2, person_age1, and person_age2.
+%%
+%% (In addition to using a different foreign key naming convention, ErlyDB uses
+%% different query construction rules when working with self-referencing
+%% many-to-many relations.)
+%%
+%% In a future version, ErlyDB may allow users to customize the foreign
+%% key field names as well as many_to_many relation table names.
 
 %% For license information see LICENSE.txt
 
 -module(erlydb).
--author("Yariv Sadan (yarivvv@gmail.com) (http://yarivsblog.com)").
+-author("Yariv Sadan (yarivsblog@gmail.com) (http://yarivsblog.com)").
 
 -export(
    [start/1,
@@ -147,8 +198,14 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
 
     {Fields, FieldNames} = get_db_fields(Module, DbFields),
     
+    PkFields = [Field || Field <- Fields, erlydb_field:key(Field) == primary],
+    
+    {ok, M24} = smerl:curry_replace(M20, db_pk_fields, 1, [PkFields]),
+
+    M26 = add_pk_fk_field_names(M24, PkFields),
+    
     %% inject the fields list into the db_fields/1 function
-    {ok, M30} = smerl:curry_replace(M20, db_fields, 1, [Fields]),
+    {ok, M30} = smerl:curry_replace(M26, db_fields, 1, [Fields]),
 
     {ok, M32} = smerl:curry_replace(
 		  M30, db_field_names, 1,
@@ -173,9 +230,9 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
 		     end, {M42, 3}, FieldNames),
 
 
-    %% created the constructor
+    %% create the constructor
     {ok, M70} = smerl:add_func(M60,
-			      make_new_func(Module, FieldNames)),
+			      make_new_func(Module, Fields)),
     
     %% inject the driver configuration into the driver/1 function
     {ok, M80} = smerl:curry_replace(M70, driver, 1, [{DriverMod, Options}]),
@@ -207,18 +264,22 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
 %% Throw an error if any user-defined fields aren't in the database.
 get_db_fields(Module, Fields) ->
     FieldNames = [erlydb_field:name(Field) || Field <- Fields],
-    
     Fields1 =
 	case Module:fields() of
 	    '*' -> Fields;
 	    DefinedFields ->
+		PkFieldNames = [erlydb_field:name(Field) ||
+				   Field <- Fields,
+				   erlydb_field:key(Field) == primary],
+		DefinedFields1 = PkFieldNames ++ (DefinedFields --
+						  PkFieldNames),
 		InvalidFieldNames =
-		    [FieldName || FieldName <- [id | DefinedFields],
+		    [FieldName || FieldName <- DefinedFields1,
 				  not lists:member(FieldName, FieldNames)],
 		case InvalidFieldNames of
 		    [] -> [Field || Field <- Fields,
 				    lists:member(erlydb_field:name(Field),
-						 [id |DefinedFields])];
+						 DefinedFields1)];
 		    _ -> exit({no_such_fields, {Module, InvalidFieldNames}})
 		end
 	end,
@@ -239,43 +300,66 @@ get_db_fields(Module, Fields) ->
 	end,
     Res.
 
+add_pk_fk_field_names(MetaMod, PkFields) ->
+    Module = smerl:get_module(MetaMod),
+    PkFieldNames = 
+	[erlydb_field:name(Field) || Field <- PkFields],
+    
+    PkFkFieldNames =
+	[{FieldName, append([get_table(Module), '_', FieldName])} ||
+	    FieldName <- PkFieldNames],
+    
+    {ok, M2} = smerl:curry_replace(
+		  MetaMod, get_pk_fk_fields, 1, [PkFkFieldNames]),
+
+    PkFkFieldNames2 =
+	[{PkField, append([FkField, '1']), append([FkField, '2'])} ||
+	    {PkField, FkField} <- PkFkFieldNames],
+
+    {ok, M5} = smerl:curry_replace(
+		  M2, get_pk_fk_fields2, 1, [PkFkFieldNames2]),
+    M5.
 
 
-
-%% Create the abstract form for the given Module's 'new' function.
+%% Create the abstract form for the given Module's 'new' function,
+%% accepting all field values as parameters, except for fields that
+%% are designated as 'identity' primary key fields.
 %%
-%% For related records, the 'new' function accepts as a parameter
+%% For related records with an 'id' primary key, the 'new'
+%% function accepts as a parameter
 %% either a tuple representing the related record, or the record's
 %% id directly.
 %%
 %% Example:
 %% {ok, Erlang} = language:find_id(1),
 %% project:new("Yaws", Lang) == project:new("Yaws", language:id(Lang))
-make_new_func(Module, [_IdField | Fields]) ->
+make_new_func(Module, Fields) ->
     L = 1,
-    Params =
-	lists:map(
-	  fun(Field) ->
-		  {_Res, Field1} = strip_id_chars(Field),
-    		  {var,L,Field1}
-	  end, Fields),
-    
-    Values  =
-	lists:map(
-	  fun(Field) ->
-		  case strip_id_chars(Field) of
-		      {true, Field1} ->
-			  make_new_func_if_expr(Field1);
-		      {false, _Field1} ->
-			  {var, L, Field}
+    {Params2, Vals2} =
+	lists:foldl(
+	  fun(Field, {Params, Vals}) ->
+		  case erlydb_field:extra(Field) == identity of
+		      true -> {Params, [{atom, L, undefined} | Vals]};
+		      false ->
+			  Name = erlydb_field:name(Field),
+			  {Stripped, Name1} = strip_id_chars(Name),
+			  Params1 = [{var,L,Name1} | Params],
+			  Vals1 =
+			      case Stripped of
+				  true ->
+				      [make_new_func_if_expr(Name1) | Vals];
+				  false ->
+				      [{var,L,Name1} | Vals]
+			      end,
+			  {Params1, Vals1}
 		  end
-	  end, Fields),
-    
+	  end, {[], []}, Fields),
+
     Func =
-	{function,L,new,length(Fields),
-	 [{clause,L,Params,[],
+	{function,L,new,length(Params2),
+	 [{clause,L,lists:reverse(Params2),[],
 	   [{tuple,L,
-	     [{atom,L,Module},{atom,L,true},{atom,L,undefined}|Values]}
+	     [{atom,L,Module},{atom,L,true} | lists:reverse(Vals2)]}
 	   ]}
 	 ]},
     Func.			
@@ -305,17 +389,15 @@ strip_id_chars(Field) ->
     FieldName = atom_to_list(Field),
     FieldLen = length(FieldName),
     if
-	FieldLen < 3 ->
+	FieldLen < 4 ->
 	    {false, Field};
 	true ->
-	    LastThreeChars =
-		string:substr(FieldName,
-			      FieldLen - 2, 3),
-	    if
-		LastThreeChars == "_id" ->
+	    case string:substr(FieldName,
+			       FieldLen - 2, 3) of
+		"_id" ->
 		    {true,
 		     list_to_atom(string:substr(FieldName, 1, FieldLen - 3))};
-		true ->
+		_ ->
 		    {false, Field}
 	    end
     end.
@@ -437,7 +519,7 @@ make_many_to_many_forms(OtherModule, MetaMod) ->
     %% Bad example: project_person
     [Module1, Module2] = 
 	lists:sort([ModuleName, OtherModule]),
-    JoinTableName = append([Module1, "_", Module2]),
+    JoinTableName = append([get_table(Module1), "_", get_table(Module2)]),
 
     CurryFuncs =
 	[{add_related_many_to_many,
