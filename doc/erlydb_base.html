@@ -1,0 +1,797 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Module erlydb_base</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css">
+</head>
+<body bgcolor="white">
+
+<h1>Module erlydb_base</h1>
+erlydb_base is the base module that all modules that ErlyDB generates  
+extend.
+<p>Copyright © Yariv Sadan 2006</p>
+<ul><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+<p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivvv@gmail.com"><tt>yarivvv@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com" target="_top">http://yarivsblog.com</a></tt>].</p>
+
+<h2><a name="description">Description</a></h2><p>erlydb_base is the base module that all modules that ErlyDB generates  
+extend.</p>
+ 
+  <p>Generated modules inherit many of erlydb_base's exported functions  
+directly, but some of the functions in erlydb_base undergo  
+changes before they attain their final forms the generated modules.  
+For an exact description of how each function in  
+erlydb_base is used in generated modules, refer to the function's  
+documentation.</p>
+ 
+  You can override some of the default code generation behavior by
+  providing your own implementations for some of erlydb_base's functions in
+  generated modules.
+  This is useful for telling ErlyDB about relations (one-to-many
+  and many-to-many) and mappings between Erlang modules and database tables
+  and fields.
+ 
+<h2><a name="types">Data Types</a></h2>
+
+<h3><a name="type-extras_expr">extras_expr()</a></h3>
+<p><b>abstract datatype</b>: <tt>extras_expr()</tt></p>
+<p><p>ErlSQL (see <a href="erlsql.html"><code>erlsql</code></a>) statement fragments  
+that appear at the end of the statement, following the 'where' clause  
+(if it exists). Currently, this includes 'order_by' and 'limit' clauses.</p>
+ 
+  Examples:
+  <pre>  {order_by, age}
+  {limit, 6, 8}
+  [{order_by, [{age, {height, asc}, {gpa, desc}}]}, {limit, 5}]</pre>
+ 
+  If you pass the option {allow_unsafe_statements, true} to
+  <a href="erlydb.html#code_gen-3"><code>erlydb:code_gen/3</code></a>, you can use string and/or binary Extras
+  expressions, but this isn't recommended because it exposes to you
+  SQL injection attacks if you forget to quote your strings.</p>
+
+<h3><a name="type-record">record()</a></h3>
+<p><b>abstract datatype</b>: <tt>record()</tt></p>
+<p>An Erlang tuple containing the values for (some of)
+  the fields of a database row, as well as additional data used by
+  ErlyDB. To ensure future compatibility, it is recommended to use the
+  getters and setters ErlyDB adds to generated modules in order to
+  access the record's fields instead of accessing them directly.
+ </p>
+
+<h3><a name="type-where_expr">where_expr()</a></h3>
+<p><b>abstract datatype</b>: <tt>where_expr()</tt></p>
+<p><p>An ErlSQL (see <a href="erlsql.html"><code>erlsql</code></a>) statement fragment  
+that defines the conditions in a {where, Conditions} clause.</p>
+ 
+  Examples:
+  <pre>  {age, '=', 34}
+  {{name, 'like', "Bob%"}, 'or', {not, {age, '&gt;', 26}}}</pre>
+ 
+  If you pass the option {allow_unsafe_statements, true} to
+  <a href="erlydb.html#code_gen-3"><code>erlydb:code_gen/3</code></a>, you can use string and/or binary Where
+  expressions, but this isn't recommended because it exposes to you
+  SQL injection attacks if you forget to quote your strings.</p>
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1"><tr><td valign="top"><a href="#add_related_many_to_many-3">add_related_many_to_many/3</a></td><td>Add a related record in a many-to-many relation.</td></tr>
+<tr><td valign="top"><a href="#after_delete-1">after_delete/1</a></td><td>A hook that gets called after a record is deleted.</td></tr>
+<tr><td valign="top"><a href="#after_fetch-1">after_fetch/1</a></td><td>A hook that gets called after a record is fetched from the database.</td></tr>
+<tr><td valign="top"><a href="#after_save-1">after_save/1</a></td><td>A hook that gets called after a record is saved.</td></tr>
+<tr><td valign="top"><a href="#aggregate-5">aggregate/5</a></td><td>ErlyDB uses this function to generate derivative functions in
+  target modules for calculating aggregate values for database
+  fields.</td></tr>
+<tr><td valign="top"><a href="#aggregate_related_many_to_many-7">aggregate_related_many_to_many/7</a></td><td>This function works as <a href="#aggregate_related_many_to_one-5"><code>aggregate_related_many_to_one/5</code></a>, but
+  for modules defining many-to-many relations.</td></tr>
+<tr><td valign="top"><a href="#aggregate_related_many_to_one-6">aggregate_related_many_to_one/6</a></td><td>Get aggregate statistics about fields from related records in  
+one-to-many relations.</td></tr>
+<tr><td valign="top"><a href="#before_delete-1">before_delete/1</a></td><td>A hook that gets called before a record is deleted.</td></tr>
+<tr><td valign="top"><a href="#before_save-1">before_save/1</a></td><td>A hook that gets called before a record is saved.</td></tr>
+<tr><td valign="top"><a href="#count-1">count/1</a></td><td>A shortcut for counting all the records for a module.</td></tr>
+<tr><td valign="top"><a href="#db_field-2">db_field/2</a></td><td>Get the <a href="erlydb_field.html"><code>erlydb_field</code></a> record matching the given field name.</td></tr>
+<tr><td valign="top"><a href="#db_field_names-1">db_field_names/1</a></td><td>Get the module's database fields' names as atoms.</td></tr>
+<tr><td valign="top"><a href="#db_field_names_bin-1">db_field_names_bin/1</a></td><td>Get the module's database fields' names as binaries.</td></tr>
+<tr><td valign="top"><a href="#db_field_names_str-1">db_field_names_str/1</a></td><td>Get the module's database fields' names as strings.</td></tr>
+<tr><td valign="top"><a href="#db_fields-1">db_fields/1</a></td><td>Get a list of <a href="erlydb_field.html"><code>erlydb_field</code></a> records representing the database   
+fields for the module.</td></tr>
+<tr><td valign="top"><a href="#db_num_fields-1">db_num_fields/1</a></td><td>Get the number of fields for the module.</td></tr>
+<tr><td valign="top"><a href="#db_pk_fields-1">db_pk_fields/1</a></td><td>Return the list of fields (see @link erlydb_field)
+  for which <code>erlydb_field:key(Field) == primary</code> is true.</td></tr>
+<tr><td valign="top"><a href="#db_table-1">db_table/1</a></td><td>Get the table name for the module.</td></tr>
+<tr><td valign="top"><a href="#delete-1">delete/1</a></td><td>Delete the record from the database.</td></tr>
+<tr><td valign="top"><a href="#delete_all-1">delete_all/1</a></td><td>Delete all records from the module and return the number of records  
+actually deleted.</td></tr>
+<tr><td valign="top"><a href="#delete_id-2">delete_id/2</a></td><td>Equivalent to <a href="#delete_where-2"><tt>delete_where(Module, {id, '=', Id})</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#delete_where-2">delete_where/2</a></td><td>Delete all records matching the Where expressions,  
+and return the number of deleted records.</td></tr>
+<tr><td valign="top"><a href="#driver-1">driver/1</a></td><td>Get the driver settings, defined in the call to
+  <a href="erlydb.html#code_gen-3"><code>erlydb:code_gen/3</code></a>, ErlyDB uses for the module.</td></tr>
+<tr><td valign="top"><a href="#field_from_string-2">field_from_string/2</a></td><td>A helper function for converting values encoded as strings to their  
+corresponding Erlang types.</td></tr>
+<tr><td valign="top"><a href="#field_to_iolist-1">field_to_iolist/1</a></td><td>A helper function used for converting field values to iolists.</td></tr>
+<tr><td valign="top"><a href="#field_to_iolist-2">field_to_iolist/2</a></td><td>This function converts standard ErlyDB field values to iolists.</td></tr>
+<tr><td valign="top"><a href="#fields-0">fields/0</a></td><td>Return the list of fields that ErlyDB should use for the module.</td></tr>
+<tr><td valign="top"><a href="#find-3">find/3</a></td><td>Find records for the module.</td></tr>
+<tr><td valign="top"><a href="#find_first-3">find_first/3</a></td><td>Find the first record for the module according to the Where and  
+Extras expressions.</td></tr>
+<tr><td valign="top"><a href="#find_id-2">find_id/2</a></td><td>Find the record with the given id value.</td></tr>
+<tr><td valign="top"><a href="#find_max-4">find_max/4</a></td><td>Find up to Max records from the module according    
+to the Where and Extras expressions.</td></tr>
+<tr><td valign="top"><a href="#find_range-5">find_range/5</a></td><td>Find up to Max records, starting from offset First,    
+according to the Where and Extras expressions.</td></tr>
+<tr><td valign="top"><a href="#find_related_many_to_many-5">find_related_many_to_many/5</a></td><td>This function works as <a href="#find_related_many_to_one-4"><code>find_related_many_to_one/4</code></a>, but
+  for modules defining many-to-many relations.</td></tr>
+<tr><td valign="top"><a href="#find_related_many_to_one-4">find_related_many_to_one/4</a></td><td>Find the set of related records in a one-to-many relation.</td></tr>
+<tr><td valign="top"><a href="#find_related_one_to_many-2">find_related_one_to_many/2</a></td><td>Find the related record for a record from a module having a  
+many-to-one relation.</td></tr>
+<tr><td valign="top"><a href="#get-2">get/2</a></td><td>A generic getter function ErlyDB uses to generate getters, e.g.</td></tr>
+<tr><td valign="top"><a href="#get_module-1">get_module/1</a></td><td>Get the name of the module to which the record belongs.</td></tr>
+<tr><td valign="top"><a href="#is_new-1">is_new/1</a></td><td>Check if the record has been saved in the database.</td></tr>
+<tr><td valign="top"><a href="#new-1">new/1</a></td><td>Create a new record with all fields set to 'undefined'.</td></tr>
+<tr><td valign="top"><a href="#new_from_strings-2">new_from_strings/2</a></td><td>Equivalent to <a href="#new_with-3"><tt>new_with(Module, Fields, fun field_from_string/2)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#new_with-2">new_with/2</a></td><td>Create a new record, setting its field values  
+according to the key/value pairs in the Fields property list.</td></tr>
+<tr><td valign="top"><a href="#new_with-3">new_with/3</a></td><td>Similar to <a href="#new_with-2"><code>new_with/2</code></a>, but uses the ToFieldFun to convert
+  property list values to field values before setting them.</td></tr>
+<tr><td valign="top"><a href="#relations-0">relations/0</a></td><td>Return the list of relations of the module.</td></tr>
+<tr><td valign="top"><a href="#remove_related_many_to_many-3">remove_related_many_to_many/3</a></td><td>Remove a related record in a many-to-many relation.</td></tr>
+<tr><td valign="top"><a href="#save-1">save/1</a></td><td>Save an object by executing a INSERT or UPDATE query.</td></tr>
+<tr><td valign="top"><a href="#set-3">set/3</a></td><td>A generic setter function ErlyDB uses to generate setters, e.g.</td></tr>
+<tr><td valign="top"><a href="#set_fields-3">set_fields/3</a></td><td>Set the record's fields according to the name/value pairs in the  
+property list, e.g.</td></tr>
+<tr><td valign="top"><a href="#set_fields-4">set_fields/4</a></td><td>Set the record's fields using according to the property list
+  name/value pairs,
+  after first converting the values using the ToFieldFun.</td></tr>
+<tr><td valign="top"><a href="#set_fields_from_strs-3">set_fields_from_strs/3</a></td><td>Equivalent to <a href="#set_fields-4"><tt>set_fields(Module, Record, Fields,
+	   fun field_from_string/2)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#set_related_one_to_many-2">set_related_one_to_many/2</a></td><td>Set the foreign key fields of a record from a module having a  
+many-to-one relation to the primary key values of the Other record.</td></tr>
+<tr><td valign="top"><a href="#table-0">table/0</a></td><td>Return the name of the table that holds the records for this module.</td></tr>
+<tr><td valign="top"><a href="#to_iolist-2">to_iolist/2</a></td><td>Equivalent to <a href="#to_iolist-3"><tt>to_iolist(Module, Recs, fun field_to_iolist/2)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#to_iolist-3">to_iolist/3</a></td><td>If Recs is a single record, convert each of a record's fields into  
+an iolist  
+and return the list of the converted records.</td></tr>
+<tr><td valign="top"><a href="#transaction-2">transaction/2</a></td><td>Execute a transaction using the module's driver settings, as defined
+  by the parameters passed to <a href="erlydb.html#code_gen-3"><code>erlydb:code_gen/3</code></a>.</td></tr>
+<tr><td valign="top"><a href="#type_field-0">type_field/0</a></td><td>Return the column that identifies the types of the records in a table.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3><a name="add_related_many_to_many-3">add_related_many_to_many/3</a></h3>
+<p><tt>add_related_many_to_many(JoinTable::atom(), Rec::<a href="#type-record">record()</a>, OtherRec::<a href="#type-record">record()</a>) -&gt; ok | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Add a related record in a many-to-many relation.</p>
+ 
+  <p>This function isn't meant to be used directly; ErlyDB uses this function  
+to generate special add_[RelatedModule] functions in modules that define  
+many-to-many relations.</p>
+ 
+  <p>For instance, if you had a module 'student' that defined the relation
+  <code>{many_to_many, [class]}</code>, and both 'student' and 'class' had a single
+  primary key field called 'id', ErlyDB would add the function
+  <code>student:add_class(Student, Class)</code> to the 'student' module. This  
+function would insert the row [class:id(Class), student:id(Student)] to  
+the class_student table, where the first column is 'class_id'  
+and the second column is 'student_id'.</p>
+ 
+  If either module has multiple primary key fields, all those fields are
+  mapped to foreign keys in the many-to-many relation table.
+ </p>
+
+<h3><a name="after_delete-1">after_delete/1</a></h3>
+<p><tt>after_delete(Rec::<a href="#type-record">record()</a>) -&gt; ok</tt></p>
+<p><p>A hook that gets called after a record is deleted.</p>
+ 
+  By default, this function returns 'ok', indicating the deletion succeeded.
+  You can implement
+  this function in the target module to override the default behavior.
+ </p>
+
+<h3><a name="after_fetch-1">after_fetch/1</a></h3>
+<p><tt>after_fetch(Rec::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a></tt></p>
+<p><p>A hook that gets called after a record is fetched from the database.</p>
+ 
+  By default, this function returns the original record. You can implement
+  this function in the target module to override the default behavior.
+ </p>
+
+<h3><a name="after_save-1">after_save/1</a></h3>
+<p><tt>after_save(Rec::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a></tt></p>
+<p><p>A hook that gets called after a record is saved.</p>
+ 
+  By default, this function returns the original record. You can implement
+  this function in the target module to override the default behavior.
+ </p>
+
+<h3><a name="aggregate-5">aggregate/5</a></h3>
+<p><tt>aggregate(Module::atom(), AggFunc::atom(), Field::atom(), Where::<a href="#type-where_expr">where_expr()</a>, Extras::<a href="#type-extras_expr">extras_expr()</a>) -&gt; integer() | float() | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>ErlyDB uses this function to generate derivative functions in
+  target modules for calculating aggregate values for database
+  fields. Drivative functions have the form <code>Module:FuncName(Field)</code>,
+  where 'Module' is the module name, 'FuncName' is 'count', 'avg',
+  'sum', 'min', 'max' or 'stddev', and Field is the name of the field.
+  Derivative functions also have variations as described in <a href="#find-3"><code>find/3</code></a>.</p>
+ 
+  <p>For example, in a module called 'person', ErlyDB  
+would generate the following functions:</p>
+ 
+  <pre>    person:count(Field)
+    person:count(Field, Where)
+    person:count_with(Field, Extras)
+    person:count(Field, Where, Extras)
+    person:avg(Field)
+    ...</pre>
+  where Field can be any field in the person module (such as 'age', 'height',
+  etc.).
+ </p>
+<p><b>See also:</b> <a href="#find-3">find/3</a>.</p>
+
+<h3><a name="aggregate_related_many_to_many-7">aggregate_related_many_to_many/7</a></h3>
+<p><tt>aggregate_related_many_to_many(OtherModule::atom(), JoinTable::atom(), AggFunc::atom(), Rec::<a href="#type-record">record()</a>, Field::atom(), Where::<a href="#type-where_clause">where_clause()</a>, Extras::<a href="#type-extras_clause">extras_clause()</a>) -&gt; [term()] | <a href="#type-exit">exit(Err)</a></tt></p>
+<p>This function works as <a href="#aggregate_related_many_to_one-5"><code>aggregate_related_many_to_one/5</code></a>, but
+  for modules defining many-to-many relations.
+ </p>
+<p><b>See also:</b> <a href="#aggregate_related_many_to_one-5">aggregate_related_many_to_one/5</a>.</p>
+
+<h3><a name="aggregate_related_many_to_one-6">aggregate_related_many_to_one/6</a></h3>
+<p><tt>aggregate_related_many_to_one(OtherModule::atom(), AggFunc::atom(), Rec::<a href="#type-record">record()</a>, Field::atom(), Where::<a href="#type-where_expr">where_expr()</a>, Extras::<a href="#type-extras_expr">extras_expr()</a>) -&gt; float() | integer() | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Get aggregate statistics about fields from related records in  
+one-to-many relations.</p>
+ 
+  <p>This function isn't meant to be used directly; ErlyDB uses this function  
+to generate special aggregate functions in modules that define  
+one-to-many relations.</p>
+ 
+  <p>For example, if you had a module 'dog' that defined the relation
+  <code>{one_to_many, [bone]}</code>, ErlyDB would add the following  
+functions to the 'dog' module:</p>
+ 
+  <pre>  dog:avg_of_bones(Dog, Field)
+  dog:avg_of_bones(Dog, Field, Where)
+  dog:avg_of_bones_with(Dog, Field, Extras)
+  dog:avg_of_bones(Dog, Field, Where, Extras)</pre>
+ 
+  <p>where 'Field' is the name of the field in the 'bone' module (e.g. 'size').</p>
+ 
+  <p>ErlyDB generates similar derivatives for all aggregate functions listed in
+  <a href="#aggregate-5"><code>aggregate/5</code></a>.</p>
+ 
+  If 'Dog' isn't saved in the database, these functions would exit.
+ </p>
+<p><b>See also:</b> <a href="#aggregate-5">aggregate/5</a>.</p>
+
+<h3><a name="before_delete-1">before_delete/1</a></h3>
+<p><tt>before_delete(Rec::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a></tt></p>
+<p><p>A hook that gets called before a record is deleted.</p>
+ 
+  By default, this function returns the original record. You can implement
+  this function in the target module to override the default behavior.
+ </p>
+
+<h3><a name="before_save-1">before_save/1</a></h3>
+<p><tt>before_save(Rec::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a></tt></p>
+<p><p>A hook that gets called before a record is saved.</p>
+ 
+  By default, this function returns the original record. You can implement
+  this function in the target module to override the default behavior.
+ </p>
+
+<h3><a name="count-1">count/1</a></h3>
+<p><tt>count(Module::atom()) -&gt; integer() | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>A shortcut for counting all the records for a module. In generated  
+modules, this function lets you can call Module:count() instead of  
+Module:count('*').</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+
+<h3><a name="db_field-2">db_field/2</a></h3>
+<p><tt>db_field(Module::atom(), FieldName::string() | atom()) -&gt; <a href="#type-erlydb_field">erlydb_field()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Get the <a href="erlydb_field.html"><code>erlydb_field</code></a> record matching the given field name.    
+If the field isn't found, this function exits.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+
+<h3><a name="db_field_names-1">db_field_names/1</a></h3>
+<p><tt>db_field_names(FileNames::[atom()]) -&gt; [atom()]</tt></p>
+<p><p>Get the module's database fields' names as atoms.</p>
+ 
+  In generated modules, this function takes 0 parameters.
+ </p>
+
+<h3><a name="db_field_names_bin-1">db_field_names_bin/1</a></h3>
+<p><tt>db_field_names_bin(FieldNamesBin::[binary()]) -&gt; [binary()]</tt></p>
+<p><p>Get the module's database fields' names as binaries.</p>
+ 
+  In generated modules, this function takes 0 parameters.
+ </p>
+
+<h3><a name="db_field_names_str-1">db_field_names_str/1</a></h3>
+<p><tt>db_field_names_str(FieldNameStrs::[string()]) -&gt; [string()]</tt></p>
+<p><p>Get the module's database fields' names as strings.</p>
+ 
+  In generated modules, this function takes 0 parameters.
+ </p>
+
+<h3><a name="db_fields-1">db_fields/1</a></h3>
+<p><tt>db_fields(Fields::[<a href="#type-erlydb_field">erlydb_field()</a>]) -&gt; [<a href="#type-erlydb_field">erlydb_field()</a>]</tt></p>
+<p><p>Get a list of <a href="erlydb_field.html"><code>erlydb_field</code></a> records representing the database   
+fields for the module.</p>
+ 
+  In generated modules, this function takes 0 parameters.
+ </p>
+
+<h3><a name="db_num_fields-1">db_num_fields/1</a></h3>
+<p><tt>db_num_fields(NumFields::integer()) -&gt; integer()</tt></p>
+<p><p>Get the number of fields for the module.</p>
+ 
+  In generated modules, this function takes 0 parameters.
+ </p>
+
+<h3><a name="db_pk_fields-1">db_pk_fields/1</a></h3>
+<p><tt>db_pk_fields(Fields::[<a href="#type-erlydb_field">erlydb_field()</a>]) -&gt; [<a href="#type-erlydb_field">erlydb_field()</a>]</tt></p>
+<p><p>Return the list of fields (see @link erlydb_field)
+  for which <code>erlydb_field:key(Field) == primary</code> is true.</p>
+ 
+  In generated modules, the 'Fields' parameter is omitted.
+ </p>
+
+<h3><a name="db_table-1">db_table/1</a></h3>
+<p><tt>db_table(Module::atom()) -&gt; atom()</tt></p>
+<p>Get the table name for the module.
+ </p>
+
+<h3><a name="delete-1">delete/1</a></h3>
+<p><tt>delete(Rec::<a href="#type-record">record()</a>) -&gt; ok | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Delete the record from the database. This function  
+returns 'ok' or crashes if the number of deleted records isn't equal  
+to 1 (one of this function's preconditions is that the record must  
+have been saved in the database).</p>
+ 
+  You can override the return value by implementing the after_delete
+  hook.
+ </p>
+
+<h3><a name="delete_all-1">delete_all/1</a></h3>
+<p><tt>delete_all(Module::atom()) -&gt; NumDeleted::integer() | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Delete all records from the module and return the number of records  
+actually deleted.</p>
+ 
+  <p>Needless to say, use this function with extreme care.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+
+<h3><a name="delete_id-2">delete_id/2</a></h3>
+<p><tt>delete_id(Module::atom(), Id::integer()) -&gt; NumDeleted::integer()</tt></p>
+<p>Equivalent to <a href="#delete_where-2"><tt>delete_where(Module, {id, '=', Id})</tt></a>.</p>
+
+
+<h3><a name="delete_where-2">delete_where/2</a></h3>
+<p><tt>delete_where(Module::atom(), Where::<a href="#type-where_expr">where_expr()</a>) -&gt; NumDeleted::integer() | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Delete all records matching the Where expressions,  
+and return the number of deleted records.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+
+<h3><a name="driver-1">driver/1</a></h3>
+<p><tt>driver(Driver::term()) -&gt; term()</tt></p>
+<p><p>Get the driver settings, defined in the call to
+  <a href="erlydb.html#code_gen-3"><code>erlydb:code_gen/3</code></a>, ErlyDB uses for the module.</p>
+ 
+  In generated modules, the 'Driver' parameter is omitted.
+ </p>
+
+<h3><a name="field_from_string-2">field_from_string/2</a></h3>
+<p><tt>field_from_string(ErlyDbField::<a href="#type-erlydb_field">erlydb_field()</a>, Str::list()) -&gt; term() | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>A helper function for converting values encoded as strings to their  
+corresponding Erlang types.</p>
+ 
+  <p>This function assumes field values are formatted according to the logic in
+  <a href="#field_to_iolist-2"><code>field_to_iolist/2</code></a>. In addition, it checks the following ranges:</p>
+ 
+  <p>second: 0-59<br>
+  minute: 0-59<br>
+  hour: 0-23<br>
+  day: 1-31<br>
+  month: 1-12<br>
+  year: 1-9999<br></p>
+ 
+  If you set a field to 'undefined' when erlydb_field:null(ErlyDbField)
+  returns 'true', this function exits.
+ </p>
+
+<h3><a name="field_to_iolist-1">field_to_iolist/1</a></h3>
+<p><tt>field_to_iolist(Val::term()) -&gt; <a href="#type-iolist">iolist()</a></tt></p>
+<p>Equivalent to <a href="#field_to_iolist-2"><tt>field_to_iolist(Val, undefined)</tt></a>.</p>
+<p>A helper function used for converting field values to iolists.
+ </p>
+
+<h3><a name="field_to_iolist-2">field_to_iolist/2</a></h3>
+<p><tt>field_to_iolist(Val::term, Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; <a href="#type-iolist">iolist()</a></tt></p>
+<p>This function converts standard ErlyDB field values to iolists.
+  This is its source code:
+  <pre>  case Val of
+    Bin when is_binary(Bin) -&gt; Val;
+    List when is_list(List) -&gt; Val;
+    Int when is_integer(Int) -&gt; integer_to_list(Val);
+    Float when is_float(Float) -&gt; float_to_list(Val);
+    {datetime, {{Year,Month,Day},{Hour,Minute,Second}}} -&gt;
+       io_lib:format("~b/~b/~b ~b:~b:~b",
+   	  [Month, Day, Year, Hour, Minute, Second]);
+    {date, {Year, Month, Day}} -&gt;
+       io_lib:format("~b/~b/~b",
+          [Month, Day, Year]);
+    {time, {Hour, Minute, Second}}  -&gt;
+       io_lib:format("~b:~b:~b", [Hour, Minute, Second]);
+    undefined -&gt; [];
+    _Other -&gt;
+       io_lib:format("~p", [Val])
+  end.</pre>
+ </p>
+
+<h3><a name="fields-0">fields/0</a></h3>
+<p><tt>fields() -&gt; '*' | [atom()]</tt></p>
+<p><p>Return the list of fields that ErlyDB should use for the module.  
+You can override this function to specify which  
+database fields from the table besides the id field should be exposed  
+to records from the module.  
+The '*' atom indicates all fields, which is the default setting.</p>
+ 
+  <p>Note: You are free to call the fields() function from other modules  
+to create arbitrary field set relations.  
+For example, in a module called 'artist', you could have the function</p>
+ 
+  <code>fields() -&gt; person:fields() ++ [genre, studio]</code>
+ </p>
+
+<h3><a name="find-3">find/3</a></h3>
+<p><tt>find(Module::atom(), Where::<a href="#type-where_expr">where_expr()</a>, Extras::<a href="#type-extras_expr">extras_expr()</a>) -&gt; [<a href="#type-record">record()</a>] | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Find records for the module. The Where and Extras clauses are,
+   by default, ErlSQL expressions (see <a href="erlsql.html"><code>erlsql</code></a>).
+   Example Where expressions are<br>
+   <code>{name,'=',"Joe"}</code><br>
+   and<br>
+   <code>{{age,'&gt;',26},'and',{country,like,"Australia"}}</code></p>
+ 
+   <p>Example Extras expressions are<br>
+   <code>{limit, 7}</code><br>
+   and<br>
+   <code>[{limit, 4,5}, {order_by, [name, {age, desc}, {height, asc}]}]</code></p>
+ 
+   <p>The main benefits of using ErlSQL are<br>
+   - It protects against SQL injection attacks by quoting all string
+     values.<br>
+   - It simplifies embedding runtime variables in SQL expressions
+     by automatically stringifying
+     values such as numbers, atoms, dates and times.<br>   
+- It's more efficient than string concatenation because it generates     
+iolists of binaries, which generally consume less memory than     
+strings.</p>
+ 
+  <p>Some drivers (e.g. the MySQL driver), let you use string and binary
+  expressions directly when you pass the {allow_unsafe_statements, true}
+  option to
+  <a href="erlydb.html#code_gen-3"><code>erlydb:code_gen/3</code></a>. This usage is discouraged, however, because it  
+makes you vulnerable to SQL injection attacks if you don't properly  
+encode all your strings.</p>
+ 
+  <p>During code generation, ErlyDB creates a few derivatives from this function  
+in target modules:</p>
+ 
+  <pre>    find()  %% returns all records
+    find(Where)
+    find_with(Extras)
+    find(Where, Extras)</pre>
+ 
+  <p>(Note that in generated modules, the 'Module' parameter is omitted.)</p>
+ 
+  ErlyDB creates similar derivatives for all find_x and aggregate functions
+  in erlydb_base (e.g. find_first(), find_first(Where),
+  find_first_with(Extras), find_first(Where, Extras)...).
+ </p>
+
+<h3><a name="find_first-3">find_first/3</a></h3>
+<p><tt>find_first(Modue::atom(), Where::<a href="#type-where_expr">where_expr()</a>, Extras::<a href="#type-extras_expr">extras_expr()</a>) -&gt; <a href="#type-record">record()</a> | undefined | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Find the first record for the module according to the Where and  
+Extras expressions. If no records match the conditions, the function  
+returns 'undefined'.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+<p><b>See also:</b> <a href="#find-3">find/3</a>.</p>
+
+<h3><a name="find_id-2">find_id/2</a></h3>
+<p><tt>find_id(Module::atom(), Id::term()) -&gt; Rec | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Find the record with the given id value.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+
+<h3><a name="find_max-4">find_max/4</a></h3>
+<p><tt>find_max(Module::atom(), Max::integer(), Where::<a href="#type-where_expr">where_expr()</a>, Extras::<a href="#type-extras_expr">extras_expr()</a>) -&gt; [<a href="#type-record">record()</a>] | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Find up to Max records from the module according    
+to the Where and Extras expressions.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+<p><b>See also:</b> <a href="#find-3">find/3</a>.</p>
+
+<h3><a name="find_range-5">find_range/5</a></h3>
+<p><tt>find_range(Module::atom(), First::integer(), Max::integer(), Where::<a href="#type-where_expr">where_expr()</a>, Extras::<a href="#type-extras_expr">extras_expr()</a>) -&gt; [<a href="#type-record">record()</a>] | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Find up to Max records, starting from offset First,    
+according to the Where and Extras expressions.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+<p><b>See also:</b> <a href="#find-3">find/3</a>.</p>
+
+<h3><a name="find_related_many_to_many-5">find_related_many_to_many/5</a></h3>
+<p><tt>find_related_many_to_many(OtherModule::atom(), JoinTable::atom(), Rec::<a href="#type-record">record()</a>, Where::<a href="#type-where_clause">where_clause()</a>, Extras::<a href="#type-extras_clause">extras_clause()</a>) -&gt; [<a href="#type-record">record()</a>] | <a href="#type-exit">exit(Err)</a></tt></p>
+<p>This function works as <a href="#find_related_many_to_one-4"><code>find_related_many_to_one/4</code></a>, but
+  for modules defining many-to-many relations.
+ </p>
+<p><b>See also:</b> <a href="#find_related_many_to_one-4">find_related_many_to_one/4</a>.</p>
+
+<h3><a name="find_related_many_to_one-4">find_related_many_to_one/4</a></h3>
+<p><tt>find_related_many_to_one(OtherModule::atom(), Rec::<a href="#type-record">record()</a>, Where::<a href="#type-where_expr">where_expr()</a>, Extras::<a href="#type-extras_expr">extras_expr()</a>) -&gt; [<a href="#type-record">record()</a>] | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Find the set of related records in a one-to-many relation.</p>
+ 
+  <p>This function isn't meant to be used directly; ErlyDB uses this function  
+to generate special 'find' functions in modules that define  
+one-to-many relations.</p>
+ 
+  <p>For example, if you had a module 'dog' that defined the relation
+  <code>{one_to_many, [bone]}</code>, ErlyDB would add the following  
+functions to the 'dog' module:</p>
+ 
+  <pre>  dog:bones(Dog)
+  dog:bones(Dog, Where)
+  dog:bones_with(Dog, Extras)
+  dog:bones(Dog, Where, Extras)
+ 
+  dog:bones_first(Dog)
+  dog:bones_first(Dog, Where)
+  dog:bones_first_with(Dog, Extras)
+  dog:bones_first(Dog, Where, Extras)
+ 
+  dog:bones_max(Dog, Max)
+  dog:bones_max(Dog, Max, Where)
+  dog:bones_max_with(Dog, Max, Extras)
+  dog:bones_max(Dog, Max, Where, Extras)
+ 
+  dog:bones_range(Dog, First, Max)
+  dog:bones_range(Dog, First, Max, Where)
+  dog:bones_range_with(Dog, First, Max, Extras)
+  dog:bones_range(Dog, First, Max, Where, Extras)</pre>
+ 
+  If 'Dog' isn't saved in the database, these functions would exit.
+ </p>
+<p><b>See also:</b> <a href="#find-3">find/3</a>, <a href="#find_first-3">find_first/3</a>, <a href="#find_max-4">find_max/4</a>, <a href="#find_range-5">find_range/5</a>.</p>
+
+<h3><a name="find_related_one_to_many-2">find_related_one_to_many/2</a></h3>
+<p><tt>find_related_one_to_many(OtherModule::atom(), Rec::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Find the related record for a record from a module having a  
+many-to-one relation.</p>
+ 
+  <p>This function isn't meant to be used directly; ErlyDB uses it to generate  
+special 'find' functions for related records in modules  
+defining many-to-one relations.</p>
+ 
+  <p>For example, if you had a module 'bone' that defined the relation
+  <code>{many_to_one, [dog]}</code>, and 'dog' had a single primary key field called
+  'id', ErlyDB would add the function <code>bone:dog(Bone)</code>
+  to the 'bone' module. This function would be equivalent to
+  <code>dog:find({id,</code>=',bone:dog_id(Bone)}).'.</p>
+ 
+  This function works as expected when the related module has multiple
+  primary key fields.
+ </p>
+
+<h3><a name="get-2">get/2</a></h3>
+<p><tt>get(Idx::integer(), Rec::<a href="#type-record">record()</a>) -&gt; term()</tt></p>
+<p>A generic getter function ErlyDB uses to generate getters, e.g.
+  person:name(Person), for all of a module's database fields.
+ </p>
+
+<h3><a name="get_module-1">get_module/1</a></h3>
+<p><tt>get_module(Rec::<a href="#type-record">record()</a>) -&gt; atom()</tt></p>
+<p>Get the name of the module to which the record belongs.
+ </p>
+
+<h3><a name="is_new-1">is_new/1</a></h3>
+<p><tt>is_new(Rec::<a href="#type-record">record()</a>) -&gt; <a href="#type-boolean">boolean()</a></tt></p>
+<p>Check if the record has been saved in the database.
+ </p>
+
+<h3><a name="new-1">new/1</a></h3>
+<p><tt>new(Module::atom()) -&gt; <a href="#type-record">record()</a></tt></p>
+<p><p>Create a new record with all fields set to 'undefined'.</p>
+ 
+  <p>In generated modules, the 'Module' parameter is omitted.</p>
+ 
+  Generated modules also have the function new/N, where N is the number of
+  fields the module uses (as returned from db_num_fields/0), minus
+  1 if the module has an 'identity' primary key field, which is initialized
+  by the DBMS. This function lets you create a new record and initialize
+  its fields with a single call. Note that fields that end with '_id' have
+  a special property: they accept either a literal id value, or a record
+  from a related table that has an 'id' primary key. For example, if the
+  'project' module had the fields 'name' and 'language_id',
+  <code>project:new("ErlyWeb", Erlang)</code> would be equivalent to
+  <code>project:new("ErlyWeb", language:id(Erlang))</code>.
+ </p>
+
+<h3><a name="new_from_strings-2">new_from_strings/2</a></h3>
+<p><tt>new_from_strings(Module::atom(), Fields::[{atom() | list(), list()}]) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<p>Equivalent to <a href="#new_with-3"><tt>new_with(Module, Fields, fun field_from_string/2)</tt></a>.</p>
+
+<p><b>See also:</b> <a href="#field_from_string-2">field_from_string/2</a>.</p>
+
+<h3><a name="new_with-2">new_with/2</a></h3>
+<p><tt>new_with(Module::atom(), Fields::<a href="#type-proplist">proplist()</a>) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Create a new record, setting its field values  
+according to the key/value pairs in the Fields property list.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+<p><b>See also:</b> <a href="#set_fields-3">set_fields/3</a>.</p>
+
+<h3><a name="new_with-3">new_with/3</a></h3>
+<p><tt>new_with(Module::atom(), Fields::<a href="#type-proplist">proplist()</a>, ToFieldFun::function()) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Similar to <a href="#new_with-2"><code>new_with/2</code></a>, but uses the ToFieldFun to convert
+  property list values to field values before setting them. ToFieldFun
+  accepts an <a href="erlydb_field.html"><code>erlydb_field</code></a> record and the original value and returns  
+the new value.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+
+<h3><a name="relations-0">relations/0</a></h3>
+<p><tt>relations() -&gt; [{one_to_many, [atom()]} | {many_to_many, [atom()]}]</tt></p>
+<p>Return the list of relations of the module. By overriding the function,
+    you can tell ErlyDB what relations the module has. Possible relations
+    are {one_to_many, [atom()]} and {many_to_many, [atom()]}. This function
+    returns a list of such relations.
+ </p>
+
+<h3><a name="remove_related_many_to_many-3">remove_related_many_to_many/3</a></h3>
+<p><tt>remove_related_many_to_many(JoinTable::atom(), Rec::<a href="#type-record">record()</a>, OtherRec::<a href="#type-record">record()</a>) -&gt; ok | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Remove a related record in a many-to-many relation.</p>
+ 
+  <p>This function isn't meant to be used directly; ErlyDB uses this function  
+to generate special remove_[RelatedModule] functions in modules that define  
+many-to-many relations.</p>
+ 
+  <p>For instance, if you had a module 'student' that defined the relation
+  <code>{many_to_many, [class]}</code>, and module 'class' and 'student' had a single
+  primary key field called 'id', ErlyDB would add the function
+  <code>student:remove_class(Student, Class)</code> to the 'student' module. This  
+function would remove the row [class:id(Class), student:id(Student)]  
+from the class_student table, where the first column is 'class_id'  
+the second column is 'student_id'.</p>
+ 
+  This function expects a single record to be removed.
+ </p>
+
+<h3><a name="save-1">save/1</a></h3>
+<p><tt>save(Rec::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Save an object by executing a INSERT or UPDATE query.  
+This function returns a modified tuple representing  
+the saved record or throws an exception if an error occurs.</p>
+ 
+  You can override the return value by implementing the after_save
+  hook.
+ </p>
+
+<h3><a name="set-3">set/3</a></h3>
+<p><tt>set(Idx::integer(), Rec::<a href="#type-record">record()</a>, NewVal::term()) -&gt; <a href="#type-record">record()</a></tt></p>
+<p>A generic setter function ErlyDB uses to generate setters, e.g.
+  person:name(Person, NewName), for all of a module's database fields.
+ </p>
+
+<h3><a name="set_fields-3">set_fields/3</a></h3>
+<p><tt>set_fields(Module::atom(), Record::<a href="#type-record">record()</a>, Fields::<a href="#type-proplist">proplist()</a>) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Set the record's fields according to the name/value pairs in the  
+property list, e.g.</p>
+ 
+  <pre>  Language1 = language:set_fields(Language, [{name,"Erlang"},
+                      {creation_year, 1981}])</pre>
+ 
+  <p>The property list can have keys that are either strings or atoms.  
+If a field name doesn't match an existing field for this record,  
+this function exits.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+
+<h3><a name="set_fields-4">set_fields/4</a></h3>
+<p><tt>set_fields(Module::atom(), Record::<a href="#type-record">record()</a>, Fields::<a href="#type-proplist">proplist()</a>, ToFieldFun::function()) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Set the record's fields using according to the property list
+  name/value pairs,
+  after first converting the values using the ToFieldFun. ToFieldFun accepts
+  an <a href="erlydb_field.html"><code>erlydb_field</code></a> record and the original value and returns the new  
+value.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+
+<h3><a name="set_fields_from_strs-3">set_fields_from_strs/3</a></h3>
+<p><tt>set_fields_from_strs(Module::atom(), Record::<a href="#type-record">record()</a>, Fields::<a href="#type-proplist">proplist()</a>) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<p>Equivalent to <a href="#set_fields-4"><tt>set_fields(Module, Record, Fields,
+	   fun field_from_string/2)</tt></a>.</p>
+
+<p><b>See also:</b> <a href="#field_from_string-2">field_from_string/2</a>.</p>
+
+<h3><a name="set_related_one_to_many-2">set_related_one_to_many/2</a></h3>
+<p><tt>set_related_one_to_many(Rec::<a href="#type-record">record()</a>, Other::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Set the foreign key fields of a record from a module having a  
+many-to-one relation to the primary key values of the Other record.</p>
+ 
+  <p>This function isn't meant to be used directly; ErlyDB uses it to generate  
+special setters for related records in modules that define many-to-one  
+relations.</p>
+ 
+  <p>For example, if you had a module 'bone' that defined the relation
+  <code>{many_to_one, [dog]}</code>, and the 'dog' module had a single primary key
+  field called 'id', ErlyDB would add the
+  function <code>bone:dog(Bone, Dog)</code>
+  to the 'bone' module. This function would be equivalent to
+  <code>bone:dog_id(Bone, dog:id(Dog))</code>, with an extra check to verify  
+that Dog is saved in the database.</p>
+ 
+  If 'dog' had more than one primary key field, this function would
+  set the values for all foreign key fields in the 'bone' record
+  to the values of the 'dog' record's corresponding primary key
+  values.
+ </p>
+
+<h3><a name="table-0">table/0</a></h3>
+<p><tt>table() -&gt; atom()</tt></p>
+<p>Return the name of the table that holds the records for this module.
+    By default, the table name is identical to the Module's name, but you
+    can override this to use a different table name.
+ </p>
+
+<h3><a name="to_iolist-2">to_iolist/2</a></h3>
+<p><tt>to_iolist(Module::atom(), Recs::<a href="#type-record">record()</a> | [<a href="#type-record">record()</a>]) -&gt; [<a href="#type-iolist">iolist()</a>] | [[<a href="#type-iolist">iolist()</a>]]</tt></p>
+<p>Equivalent to <a href="#to_iolist-3"><tt>to_iolist(Module, Recs, fun field_to_iolist/2)</tt></a>.</p>
+
+
+<h3><a name="to_iolist-3">to_iolist/3</a></h3>
+<p><tt>to_iolist(Module::atom(), Rec::<a href="#type-record">record()</a> | [Rec::<a href="#type-record">record()</a>], ToIolistFun::<a href="#type-to_iolist_function">to_iolist_function()</a>) -&gt; [<a href="#type-iolist">iolist()</a>] | [[<a href="#type-iolist">iolist()</a>]]</tt></p>
+<p><p>If Recs is a single record, convert each of a record's fields into  
+an iolist  
+and return the list of the converted records. If Recs is a list of records,  
+to_iolist is recursively called on each record, and the list of results is  
+returned.</p>
+ 
+  <p>ToIoListFun is a function that accepts an <a href="erlydb_field.html"><code>erlydb_field</code></a> structure
+  and a field value and returns an iolist (see <a href="#field_to_iolist-2"><code>field_to_iolist/2</code></a>  
+for an example).</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+
+<h3><a name="transaction-2">transaction/2</a></h3>
+<p><tt>transaction(Module::atom(), Fun::function()) -&gt; {atomic, Result::term()} | {aborted, Details}</tt></p>
+<p><p>Execute a transaction using the module's driver settings, as defined
+  by the parameters passed to <a href="erlydb.html#code_gen-3"><code>erlydb:code_gen/3</code></a>.</p>
+ 
+  In generated modules, the 'Module' parameter is omitted.
+ </p>
+
+<h3><a name="type_field-0">type_field/0</a></h3>
+<p><tt>type_field() -&gt; atom()</tt></p>
+<p>Return the column that identifies the types of the records in a table.
+    This is useful when storing records from multiple modules in a single
+    table, where each module uses a different subset of fields.
+    If you override this function, in most cases you should also override
+    fields/0.
+ </p>
+</body>
+</html>
