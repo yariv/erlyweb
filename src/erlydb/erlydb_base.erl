@@ -289,7 +289,9 @@ db_field(Module, FieldName) ->
 %% @doc Return the list of fields (see @link erlydb_field)
 %% for which `erlydb_field:key(Field) == primary' is true.
 %%
-%% @spec db_pk_fields() -> [erlydb_field()]
+%% In generated modules, the 'Fields' parameter is omitted.
+%%
+%% @spec db_pk_fields(Fields::[erlydb_field()]) -> [erlydb_field()]
 db_pk_fields(Fields) ->
     Fields.
 

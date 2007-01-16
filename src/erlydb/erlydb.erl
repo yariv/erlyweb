@@ -2,12 +2,12 @@
 %% @copyright Yariv Sadan 2006
 %% @doc ErlyDB: The Erlang Twist on Database Abstraction.
 %%
-%% === Contents ===
+%% == Contents ==
 %%
-%% {@link Introduction}<br/>
-%% {@link Primary and Foreign Key Conventions}
+%% {@section Introduction}<br/>
+%% {@section Primary and Foreign Key Conventions}
 %%
-%% === Introduction ===
+%% == Introduction ==
 %% ErlyDB is a database abstraction layer generator for Erlang. ErlyDB
 %% combines database metadata and user-provided metadata to generate
 %% functions that let you perform common data access operations in
@@ -41,7 +41,7 @@
 %% You can find sample code illustrating how to use many of ErlyDB's features
 %% in the test/erlydb directory.
 %%
-%% === Primary and Foreign Key Conventions ===
+%% == Primary and Foreign Key Conventions ==
 %%
 %% Prior to ErlyWeb 0.4, ErlyDB assumed that all tables have an identity
 %% primary key field named 'id'. From ErlyWeb 0.4, ErlyDB lets users define
@@ -64,7 +64,7 @@
 %% In one-to-many/many-to-one relations, the foreign key fields for the 'one'
 %% table exist in the 'many' table. In many_to_many relations, all
 %% foreign key fields for both modules exist in a separate table named
-%% [Table1]_[Table2], where Table1 < Table2 by alphabetical ordering.
+%% [Table1]_[Table2], where Table1 &lt; Table2 by alphabetical ordering.
 %%
 %% Starting from v0.4, ErlyDB has special logic to handle the case where a
 %% module has a
