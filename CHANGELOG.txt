@@ -35,3 +35,6 @@ v0.4
 - Added the debug_info flag to ErlyWeb app compilation.
 
 - Added a make script and a create app script.
+
+- Added the MySQL driver code as an external repository resource.
+
