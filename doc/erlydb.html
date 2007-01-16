@@ -1,0 +1,144 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Module erlydb</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css">
+</head>
+<body bgcolor="white">
+
+<h1>Module erlydb</h1>
+ErlyDB: The Erlang Twist on Database Abstraction.
+<p>Copyright © Yariv Sadan 2006</p>
+<ul><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+<p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivsblog@gmail.com"><tt>yarivsblog@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com" target="_top">http://yarivsblog.com</a></tt>].</p>
+
+<h2><a name="description">Description</a></h2><p>ErlyDB: The Erlang Twist on Database Abstraction.</p>
+ 
+  <h3><a name="Contents">Contents</a></h3>
+ 
+  <p><a href="#Introduction">Introduction</a><br>
+  <a href="#Primary_and_Foreign_Key_Conventions">Primary and Foreign Key Conventions</a></p>
+ 
+  <h3><a name="Introduction">Introduction</a></h3><p>  
+ErlyDB is a database abstraction layer generator for Erlang. ErlyDB  
+combines database metadata and user-provided metadata to generate  
+functions that let you perform common data access operations in  
+an intuitive manner. It also provides a single API for working with  
+different database engines (although currently, only MySQL is supported),  
+letting you write portable data access code.</p>
+ 
+  <p>ErlyDB is designed to work with relational schemas, supporting both
+  one-to-many and many-to-many relations. For more details on how to
+  define relations between modules, see <a href="erlydb_base.html#relations-0"><code>erlydb_base:relations/0</code></a>.</p>
+ 
+  <p>By using <a href="erlsql.html"><code>erlsql</code></a> under the hood for SQL statement generation, ErlyDB  
+provides a simple and effective mechanism for protection against  
+SQL injection attacks. (It's possible to use ErlyDB in 'unsafe' mode,  
+which lets you write SQL statement snippets as strings, but this isn't  
+recommended.) Many of the functions that ErlyDB generates let you extend  
+the automatically generated queries by passing WHERE  
+conditions and/or extras (e.g. LIMIT, ORDER BY) clauses, expressed as  
+ErlSQL snippets, as parameters.</p>
+ 
+  <p>ErlyDB uses the module erlydb_base as a generic template for database  
+access modules. During code generation, ErlyDB calls  
+smerl:extend(erlydb_base, Module), and then performs different  
+manipulations on the functions in the resulting module in order to  
+specialize them for the specific model.</p>
+ 
+  <p>To learn about the functions that ErlyDB generates and how to implement  
+functions that provide ErlyDB extra database metadata prior to code  
+generation, refer to the documentation for erlydb_base.</p>
+ 
+  <p>You can find sample code illustrating how to use many of ErlyDB's features  
+in the test/erlydb directory.</p>
+ 
+  <h3><a name="Primary_and_Foreign_Key_Conventions">Primary and Foreign Key Conventions</a></h3>
+ 
+  <p>Prior to ErlyWeb 0.4, ErlyDB assumed that all tables have an identity  
+primary key field named 'id'. From ErlyWeb 0.4, ErlyDB lets users define  
+arbitrary primary key fields for their tables. ErlyDB  
+figures out which fields are the primary key fields automatically by  
+querying the database' metadata.</p>
+ 
+  <p>ErlyDB currently relies on a naming convention to map primary key field  
+names to foreign key field names in related tables. Foreign key field  
+names are constructed as follows: [TableName]_[FieldName]. For example,  
+if the 'person' table had  
+primary key fields named 'name' and 'age', then related tables would have  
+the foreign key fields 'person_name' and 'person_age', referencing the  
+'name' and 'age' fields of the 'person' table.</p>
+ 
+  <p>Important: Starting from ErlyWeb 0.4, when a module defines a different
+  table name (by overriding the <a href="erlydb_base.html#table-0"><code>erlydb_base:table/0</code></a> function),  
+the table name is used in foreign key field names, not the module name.</p>
+ 
+  <p>In one-to-many/many-to-one relations, the foreign key fields for the 'one'
+  table exist in the 'many' table. In many_to_many relations, all
+  foreign key fields for both modules exist in a separate table named
+  [Table1]_[Table2], where Table1 &lt; Table2 by alphabetical ordering.</p>
+ 
+  <p>Starting from v0.4, ErlyDB has special logic to handle the case where a
+  module has a
+  many-to-many relation to itself. In such a case, the relation table
+  would be called [TableName]_[TableName], and its fields would be the
+  table's primary key corresponding foreign key fields,
+  first with the postfix "1", and
+  then with the postfix "2". For example, if the 'person' module defined
+  the relation <code>{many_to_many, [person]}</code> (and the table name were 'person',  
+i.e., the default), then there should exist a  
+'person_person' relation table with the following fields: person_name1,  
+person_name2, person_age1, and person_age2.</p>
+ 
+  <p>(In addition to using a different foreign key naming convention, ErlyDB uses  
+different query construction rules when working with self-referencing  
+many-to-many relations.)</p>
+ 
+  In a future version, ErlyDB may allow users to customize the foreign
+  key field names as well as many_to_many relation table names.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1"><tr><td valign="top"><a href="#code_gen-2">code_gen/2</a></td><td>Generate ErlyDB code for the list of modules using the default
+  options for the provided driver.</td></tr>
+<tr><td valign="top"><a href="#code_gen-3">code_gen/3</a></td><td>Generate code for the list of modules using user-defined options for
+  the provided driver.</td></tr>
+<tr><td valign="top"><a href="#start-1">start/1</a></td><td>Start an ErlyDB session for the driver using the driver's default
+  options.</td></tr>
+<tr><td valign="top"><a href="#start-2">start/2</a></td><td>Start an ErlyDB sessions for the driver using the list of
+  user-defined options.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3><a name="code_gen-2">code_gen/2</a></h3>
+<p><tt>code_gen(Driver::atom(), Modules::[Module::atom()]) -&gt; ok | {error, Err}</tt></p>
+<p>Generate ErlyDB code for the list of modules using the default
+  options for the provided driver. This doesn't work for all drivers.
+  For more information,
+  refer to the driver's documentation.
+ </p>
+
+<h3><a name="code_gen-3">code_gen/3</a></h3>
+<p><tt>code_gen(Driver::atom(), Modules::[Module::atom()], Options::<a href="#type-proplist">proplist()</a>) -&gt; ok | {error, Err}</tt></p>
+<p>Generate code for the list of modules using user-defined options for
+  the provided driver. For example,
+  the MySQL driver accepts the {pool_id, Id::atom()} and
+  {allow_unsafe_statements, Val::bool()} options.
+  For more details refer to the driver's documentation.
+ </p>
+
+<h3><a name="start-1">start/1</a></h3>
+<p><tt>start(Driver::atom()) -&gt; ok | {error, Err}</tt></p>
+<p>Start an ErlyDB session for the driver using the driver's default
+  options.
+  This only works for some drivers. For more details, refer to the driver's
+  documentation.
+ </p>
+
+<h3><a name="start-2">start/2</a></h3>
+<p><tt>start(Driver::atom(), Options::<a href="#type-proplist">proplist()</a>) -&gt; ok | {error, Err}</tt></p>
+<p>Start an ErlyDB sessions for the driver using the list of
+  user-defined options. For information on which options are available for
+  a driver, refer to the driver's documentation.
+ </p>
+</body>
+</html>

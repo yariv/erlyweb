@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Module erlyweb</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css">
+</head>
+<body bgcolor="white">
+
+<h1>Module erlyweb</h1>
+ErlyWeb: The Erlang Twist on Web Framworks.
+<p>Copyright © Yariv Sadan 2006
+ </p>
+<ul><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+<p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivsblog@gmail.com"><tt>yarivsblog@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com" target="_top">http://yarivsblog.com</a></tt>].</p>
+
+<h2><a name="description">Description</a></h2><p>ErlyWeb: The Erlang Twist on Web Framworks.</p>
+ 
+  This module contains a few functions for creating and using ErlyWeb
+  applications and components. It is also the module set as the YAWS
+  appmod for ErlyWeb applications.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1"><tr><td valign="top"><a href="#compile-1">compile/1</a></td><td>Compile all the files for an application.</td></tr>
+<tr><td valign="top"><a href="#compile-2">compile/2</a></td><td>Compile all the files for an application using the compilation
+   options as described in the 'compile' module in the Erlang
+   documentation (<a href="http://erlang.org" target="_top"><tt>http://erlang.org</tt></a>).</td></tr>
+<tr><td valign="top"><a href="#create_app-2">create_app/2</a></td><td>Create a new ErlyWeb application in the directory AppDir.</td></tr>
+<tr><td valign="top"><a href="#create_component-2">create_component/2</a></td><td>Create all the files (model, view and controller) for a component   
+that implements basic CRUD features for a database table.</td></tr>
+<tr><td valign="top"><a href="#get_app_name-1">get_app_name/1</a></td><td>Get the name for the application as specified in the opaque
+  'appname' field in the YAWS configuration.</td></tr>
+<tr><td valign="top"><a href="#get_app_root-1">get_app_root/1</a></td><td>Get the relative URL for the application's root path.</td></tr>
+<tr><td valign="top"><a href="#out-1">out/1</a></td><td>This is the 'out' function that Yaws calls when passing
+   HTTP requests to the ErlyWeb appmod.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3><a name="compile-1">compile/1</a></h3>
+<p><tt>compile(DocRoot::string()) -&gt; ok | {error, Err}</tt></p>
+<p><p>Compile all the files for an application. Files with the '.et'    
+extension are compiled with ErlTL.</p>
+ 
+    This function returns {ok, Now}, where Now is
+    the result of calendar:local_time().
+    You can pass the second value in the options for the next call to
+    compile/2 to telling ErlyWeb to avoid recompiling files that haven't
+    changed (ErlyWeb does this automatically when the auto-compilation
+    is turned on).
+ </p>
+
+<h3><a name="compile-2">compile/2</a></h3>
+<p><tt>compile(AppDir::string(), Options::[<a href="#type-option">option()</a>]) -&gt; {ok, Now::<a href="#type-datetime">datetime()</a>} | {error, Err}</tt></p>
+<p><p>Compile all the files for an application using the compilation
+   options as described in the 'compile' module in the Erlang
+   documentation (<a href="http://erlang.org" target="_top"><tt>http://erlang.org</tt></a>).   
+ErlyWeb also lets you define the following options:</p>
+ 
+   <p>- {last_compile_time, LocalTime}: Tells ErlyWeb to not compile files     
+that haven't changed since LocalTime.</p>
+ 
+   <p>- {erlydb_driver, Name}: Tells ErlyWeb which ErlyDB driver to use     
+when calling erlydb:code_gen on models that are placed in src/components.     
+If you aren't using ErlyDB, i.e., you don't have any model files in     
+src/components, you can omit this option.</p>
+ 
+   <p>- {auto_compile, Val}, where Val is 'true', or 'false'.     
+This option tells ErlyWeb whether it should turn on auto-compilation.     
+Auto-compilation is helpful during development because it spares you     
+from having to call erlyweb:compile every time you make a code change     
+to your app. Just remember to turn this option off when you are in     
+production mode because it will slow your app down (to turn auto_compile     
+off, just call erlyweb:compile without the auto_compile option).</p>
+ 
+  - 'suppress_warnings' and 'suppress_errors' tell ErlyWeb to not pass the
+    'report_warnings' and 'report_errors' to compile:file/2.
+ </p>
+
+<h3><a name="create_app-2">create_app/2</a></h3>
+<p><tt>create_app(AppName::string(), AppDir::string()) -&gt; ok | {error, Err}</tt></p>
+<p>Create a new ErlyWeb application in the directory AppDir.
+  This function creates the standard ErlyWeb directory structure as well as
+  a few basic files for a rudimantary application.
+ </p>
+
+<h3><a name="create_component-2">create_component/2</a></h3>
+<p><tt>create_component(Component::atom(), AppDir::string()) -&gt; ok | {error, Err}</tt></p>
+<p><p>Create all the files (model, view and controller) for a component   
+that implements basic CRUD features for a database table.   
+'Component' is the name of the component and 'AppDir' is the application's   
+root directory.</p>
+ 
+  To disable the build-in CRUD features, remove the '-erlyweb_magic(on).'
+  lines in the view and the model.
+ </p>
+
+<h3><a name="get_app_name-1">get_app_name/1</a></h3>
+<p><tt>get_app_name(A::<a href="#type-arg">arg()</a>) -&gt; AppName::string() | <a href="#type-exit">exit(Err)</a></tt></p>
+<p>Get the name for the application as specified in the opaque
+  'appname' field in the YAWS configuration.
+ </p>
+
+<h3><a name="get_app_root-1">get_app_root/1</a></h3>
+<p><tt>get_app_root(A::<a href="#type-arg">arg()</a>) -&gt; string()</tt></p>
+<p>Get the relative URL for the application's root path.
+ </p>
+
+<h3><a name="out-1">out/1</a></h3>
+<p><tt>out(A::<a href="#type-yaws_arg">yaws_arg()</a>) -&gt; <a href="#type-ret_val">ret_val()</a></tt></p>
+<p>This is the 'out' function that Yaws calls when passing
+   HTTP requests to the ErlyWeb appmod.
+ </p>
+</body>
+</html>
