@@ -1,4 +1,4 @@
-{"src/erlyweb/*", [{outdir, "ebin"}, {i,"/Users/yariv/yaws/include"}]}.
+{"src/erlyweb/*", [{outdir, "ebin"}, {i,"/usr/local/src/yaws/include"}]}.
 {"src/erlydb/*", [{outdir, "ebin"}]}.
 {"src/erlsql/*", [{outdir, "ebin"}]}.
 {"src/erltl/*", [{outdir, "ebin"}]}.
