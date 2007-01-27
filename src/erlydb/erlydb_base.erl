@@ -1091,7 +1091,8 @@ make_join_table_expr(Rec, OtherRec) ->
 get_join_table_fields(Rec, OtherRec) -> 
     Mod = get_module(Rec),
     OtherMod = get_module(OtherRec),
-    if Mod == OtherMod ->
+    case db_table(Mod) == db_table(OtherMod) of
+	true ->
 	    lists:foldl(
 	      fun({PkField, FkField1, FkField2}, Acc) ->
 		      [Val1, Val2] = lists:sort([Mod:PkField(Rec),
@@ -1099,7 +1100,7 @@ get_join_table_fields(Rec, OtherRec) ->
 		      [{FkField1, Val1},
 		       {FkField2, Val2} | Acc]
 	      end, [], Mod:get_pk_fk_fields2());
-       true ->
+       _ ->
 	    Fields1 = [{FkField, Mod:PkField(Rec)} ||
 			  {PkField, FkField} <-
 			      Mod:get_pk_fk_fields()],
@@ -1137,7 +1138,8 @@ make_find_related_many_to_many_query(OtherModule, JoinTable, Rec, Fields,
     OtherTable = db_table(OtherModule),
     Module = get_module(Rec),
     Cond =
-	if OtherModule == Module ->
+	case OtherTable == db_table(Module) of
+	    true->
 		PkFks = Module:get_pk_fk_fields2(),
 		{'or', 
 		 [{'and',
@@ -1154,7 +1156,7 @@ make_find_related_many_to_many_query(OtherModule, JoinTable, Rec, Fields,
 		   [{{JoinTable, FkField1},'=',
 		     Module:PkField(Rec)} ||
 		       {PkField, FkField1, _FkField2} <- PkFks]}]};
-	   true->
+	   _ ->
 		{'and',
 		 [{{OtherTable, PkField},'=',{JoinTable, FkField}} ||
 		     {PkField, FkField} <- OtherModule:get_pk_fk_fields()] ++

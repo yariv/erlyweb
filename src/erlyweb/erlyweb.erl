@@ -343,7 +343,8 @@ compile_file(FileName, BaseName, Type, Options) ->
 
 add_forms(controller, BaseName, MetaMod) ->
     M1 = add_func(MetaMod, private, 0, "private() -> false."),
-    M2 = add_func(M1, before_return, 3, "before_return(_FuncName, _Params, Response) -> Response."),
+    M2 = add_func(M1, before_return, 3,
+		  "before_return(_FuncName, _Params, Response) -> Response."),
     case smerl:get_attribute(M2, erlyweb_magic) of
 	{ok, on} ->
 	    {ModelNameStr, _} = lists:split(length(BaseName) - 11, BaseName),
@@ -573,39 +574,28 @@ try_func(Module, FuncName, Params, Default) ->
     end.
 
 get_ewc({ewc, A}, AppData) ->
-    {Tokens, UseFallback} = 
-	case proplists:get_value(erlyweb_rpc_request, yaws_arg:opaque(A)) of
-	    undefined -> 
-		{string:tokens(yaws_arg:appmoddata(A), "/"), true};
-	    [] -> exit(empty_request);
-	    Other -> {Other, false}
-	end,
-    case Tokens of
+    case string:tokens(yaws_arg:appmoddata(A), "/") of
 	[] -> {page, "/"};
 	[ComponentStr]->
 	    get_ewc(ComponentStr, "index", [A],
-		    AppData, UseFallback);
+		    AppData);
 	[ComponentStr, FuncStr | Params] ->
 	    get_ewc(ComponentStr, FuncStr, [A | Params],
-		    AppData, UseFallback)
+		    AppData)
     end.
 
 get_ewc(ComponentStr, FuncStr, [A | _] = Params,
-		      AppData, UseFallback) ->
+		      AppData) ->
     Controllers = AppData:components(),
     case gb_trees:lookup(ComponentStr, Controllers) of
 	none ->
-	    if UseFallback ->
-		    %% if the request doesn't match a controller's name,
-		    %% redirect it to /path
-		    Path = case yaws_arg:appmoddata(A) of
-			       [$/ | _ ] = P -> P;
-			       Other -> [$/ | Other]
-			   end,
-		    {page, Path};
-	       true ->
-		    exit({illegal_request, {ComponentStr, FuncStr, Params}})
-	    end;
+	    %% if the request doesn't match a controller's name,
+	    %% redirect it to /path
+	    Path = case yaws_arg:appmoddata(A) of
+		       [$/ | _ ] = P -> P;
+		       Other -> [$/ | Other]
+		   end,
+	    {page, Path};
 	{value, {Controller, Exports}} ->
 	    Arity = length(Params),
 	    get_ewc1(Controller, FuncStr, Arity,

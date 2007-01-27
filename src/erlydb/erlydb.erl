@@ -231,8 +231,13 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
 
 
     %% create the constructor
-    {ok, M70} = smerl:add_func(M60,
-			      make_new_func(Module, Fields)),
+    M70 = case make_new_func(Module, Fields) of
+	      undefined ->
+		  M60;
+	      NewFunc ->
+		  {ok, Temp} = smerl:add_func(M60, NewFunc),
+		  Temp
+	  end,
     
     %% inject the driver configuration into the driver/1 function
     {ok, M80} = smerl:curry_replace(M70, driver, 1, [{DriverMod, Options}]),
@@ -354,15 +359,17 @@ make_new_func(Module, Fields) ->
 			  {Params1, Vals1}
 		  end
 	  end, {[], []}, Fields),
-
-    Func =
-	{function,L,new,length(Params2),
-	 [{clause,L,lists:reverse(Params2),[],
-	   [{tuple,L,
-	     [{atom,L,Module},{atom,L,true} | lists:reverse(Vals2)]}
-	   ]}
-	 ]},
-    Func.			
+    NumParams = length(Params2),
+    if NumParams > 0 ->
+	    {function,L,new,length(Params2),
+	     [{clause,L,lists:reverse(Params2),[],
+	       [{tuple,L,
+		 [{atom,L,Module},{atom,L,true} | lists:reverse(Vals2)]}
+	       ]}
+	     ]};
+       true ->
+	    undefined
+    end.
 
 %% Return the following expression:
 %%
