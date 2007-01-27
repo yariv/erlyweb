@@ -118,9 +118,14 @@ compile(AppDir, Options) ->
 		   true -> Options1;
 		   false -> [report_errors | Options1]
 	       end,
+
+    Options3 = case lists:member(no_debug_info, Options2) of
+		   true -> Options2;
+		   false -> [debug_info | Options2]
+	       end,
     
-    {Options3, OutDir} =
-	get_option(outdir, AppDir1 ++ "ebin", Options2),
+    {Options4, OutDir} =
+	get_option(outdir, AppDir1 ++ "ebin", Options3),
 
     file:make_dir(OutDir),
 
@@ -132,8 +137,8 @@ compile(AppDir, Options) ->
 	    LastControllers -> {LastControllers, []}
 	end,
 
-    {Options4, LastCompileTime} =
-	get_option(last_compile_time, {{1980,1,1},{0,0,0}}, Options3),
+    {Options5, LastCompileTime} =
+	get_option(last_compile_time, {{1980,1,1},{0,0,0}}, Options4),
     LastCompileTime1 = case LastCompileTime of
 			   {{1980,1,1},{0,0,0}} -> undefined;
 			   OtherTime -> OtherTime
@@ -146,7 +151,7 @@ compile(AppDir, Options) ->
     AppControllerFile = AppControllerStr ++ ".erl",
     case compile_file(AppDir ++ "/src/" ++ AppControllerFile,
 		      AppControllerStr, ".erl", undefined,
-		      LastCompileTimeInSeconds, Options4) of
+		      LastCompileTimeInSeconds, Options5) of
 	{ok, _} -> ok;
 	ok -> ok;
 	Err -> ?Error("Error compiling app controller", []),
@@ -154,7 +159,6 @@ compile(AppDir, Options) ->
     end,
 
     AppController = list_to_atom(AppControllerStr),
-    ?Debug("Trying to invoke ~s:before_compile/1", [AppControllerStr]),
     try_func(AppController, before_compile, [LastCompileTime1], ok),
     
     {ComponentTree1, Models} =
@@ -163,7 +167,7 @@ compile(AppDir, Options) ->
 	  fun(FileName, Acc) ->
 		  compile_component_file(
 		    AppDir1 ++ "src/components", FileName,
-		    LastCompileTimeInSeconds, Options4, Acc)
+		    LastCompileTimeInSeconds, Options5, Acc)
 	  end, InitialAcc),
 
     ErlyDBResult =
@@ -173,10 +177,10 @@ compile(AppDir, Options) ->
 			[lists:flatten(
 			  [[filename:basename(Model), " "] ||
 			      Model <- Models])]),
-		 case lists:keysearch(erlydb_driver, 1, Options) of
+		 case lists:keysearch(erlydb_driver, 1, Options5) of
 		     {value, {erlydb_driver, Driver}} ->
 			 erlydb:code_gen(Driver, lists:reverse(Models),
-					 Options4);
+					 Options5);
 		     false -> {error, missing_erlydb_driver_option}
 		 end
 	end,
@@ -186,14 +190,12 @@ compile(AppDir, Options) ->
 		AppDataModule = make_app_data_module(
 				     AppData, AppName,
 				     ComponentTree1,
-				     Options4),
-		smerl:compile(AppDataModule, Options4);
+				     Options5),
+		smerl:compile(AppDataModule, Options5);
 	   true -> ErlyDBResult
 	end,
 
     if Result == ok ->
-	    ?Debug("Trying to invoke ~s:after_compile/1",
-		   [AppControllerStr]),
 	    try_func(AppController, after_compile, [LastCompileTime1],
 		     ok),
 	    {ok, calendar:local_time()};
@@ -341,7 +343,8 @@ compile_file(FileName, BaseName, Type, Options) ->
 
 add_forms(controller, BaseName, MetaMod) ->
     M1 = add_func(MetaMod, private, 0, "private() -> false."),
-    M2 = add_func(M1, before_return, 3, "before_return(_FuncName, _Params, Response) -> Response."),
+    M2 = add_func(M1, before_return, 3,
+		  "before_return(_FuncName, _Params, Response) -> Response."),
     case smerl:get_attribute(M2, erlyweb_magic) of
 	{ok, on} ->
 	    {ModelNameStr, _} = lists:split(length(BaseName) - 11, BaseName),
@@ -571,8 +574,7 @@ try_func(Module, FuncName, Params, Default) ->
     end.
 
 get_ewc({ewc, A}, AppData) ->
-    Tokens = string:tokens(yaws_arg:appmoddata(A), "/"),
-    case Tokens of
+    case string:tokens(yaws_arg:appmoddata(A), "/") of
 	[] -> {page, "/"};
 	[ComponentStr]->
 	    get_ewc(ComponentStr, "index", [A],
@@ -584,21 +586,21 @@ get_ewc({ewc, A}, AppData) ->
 
 get_ewc(ComponentStr, FuncStr, [A | _] = Params,
 		      AppData) ->
-  Controllers = AppData:components(),
-  case gb_trees:lookup(ComponentStr, Controllers) of
-      none ->
-	  %% if the request doesn't match a controller's name,
-	  %% redirect it to /path
-	  Path = case yaws_arg:appmoddata(A) of
-		     [$/ | _ ] = P -> P;
-		     Other -> [$/ | Other]
-		 end,
-	  {page, Path};
-      {value, {Controller, Exports}} ->
-	  Arity = length(Params),
-	  get_ewc1(Controller, FuncStr, Arity,
-			  Params, Exports)
-  end.
+    Controllers = AppData:components(),
+    case gb_trees:lookup(ComponentStr, Controllers) of
+	none ->
+	    %% if the request doesn't match a controller's name,
+	    %% redirect it to /path
+	    Path = case yaws_arg:appmoddata(A) of
+		       [$/ | _ ] = P -> P;
+		       Other -> [$/ | Other]
+		   end,
+	    {page, Path};
+	{value, {Controller, Exports}} ->
+	    Arity = length(Params),
+	    get_ewc1(Controller, FuncStr, Arity,
+		     Params, Exports)
+    end.
 
 
 get_ewc1(Controller, FuncStr, Arity, _Params, []) ->

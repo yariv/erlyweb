@@ -1,3 +1,15 @@
+v0.4.1
+
+- Added compiler debug_info to ebin files.
+
+- Added a make script for Windows.
+
+- Fixed a bug that where ErlyDB was using module names instead of table
+  names to construct queries for self-referencing many-to-many relations.
+
+- Fixed a bug preventing an ErlyDB module for defining a single field which
+  is also the 'identity' primary key field.
+
 v0.4
 
 - Added support for arbitrary primary key fields. ErlyDB now gets its primary key information from the database and everything 'just works.' Note that foreign key fields now have a more general naming convention: instead of [TableName]_id, they are called [TableName]_[PrimaryKeyField].
@@ -31,3 +43,10 @@ v0.4
 - Made several documentation updates.
 
 - Updated the ErlyDB test code.
+
+- Added the debug_info flag to ErlyWeb app compilation.
+
+- Added a make script and a create app script.
+
+- Added the MySQL driver code as an external repository resource.
+

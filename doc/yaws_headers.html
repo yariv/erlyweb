@@ -1,0 +1,204 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Module yaws_headers</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css">
+</head>
+<body bgcolor="white">
+
+<h1>Module yaws_headers</h1>
+This module provides functions for getting and setting  
+values of the Yaws 'headers' record.
+<ul><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+<p><b>Authors:</b> Roberto Saccon (<a href="mailto:rsaccon@gmail.com"><tt>rsaccon@gmail.com</tt></a>).</p>
+
+<h2><a name="description">Description</a></h2><p>This module provides functions for getting and setting  
+values of the Yaws 'headers' record. You can use these functions  
+instead of using the record access syntax, and without  
+having to include yaws_api.hrl.</p>
+ 
+  As with <a href="yaws_arg.html"><code>yaws_arg</code></a>, most functions have 2 variations: if it takes
+  1 parameter, it returns the record's value for the field, and if it
+  takes two parameters, it returns a new record with the field having the
+  new value.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1"><tr><td valign="top"><a href="#accept-1">accept/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#accept-2">accept/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#accept_ranges-1">accept_ranges/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#accept_ranges-2">accept_ranges/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#authorization-1">authorization/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#authorization-2">authorization/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#connection-1">connection/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#connection-2">connection/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#content_length-1">content_length/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#content_length-2">content_length/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#cookie-1">cookie/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#cookie-2">cookie/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#host-1">host/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#host-2">host/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#if_match-1">if_match/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#if_match-2">if_match/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#if_modified_since-1">if_modified_since/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#if_modified_since-2">if_modified_since/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#if_none_match-1">if_none_match/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#if_none_match-2">if_none_match/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#if_range-1">if_range/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#if_range-2">if_range/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#if_unmodified_since-1">if_unmodified_since/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#if_unmodified_since-2">if_unmodified_since/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#keep_alive-1">keep_alive/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#keep_alive-2">keep_alive/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#new-0">new/0</a></td><td>Create a new 'headers' record.</td></tr>
+<tr><td valign="top"><a href="#other-1">other/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#other-2">other/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#range-1">range/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#range-2">range/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#referer-1">referer/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#referer-2">referer/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#user_agent-1">user_agent/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#user_agent-2">user_agent/2</a></td><td/></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3><a name="accept-1">accept/1</a></h3>
+<tt>accept(Arg) -&gt; term()
+</tt>
+
+<h3><a name="accept-2">accept/2</a></h3>
+<tt>accept(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="accept_ranges-1">accept_ranges/1</a></h3>
+<tt>accept_ranges(Arg) -&gt; term()
+</tt>
+
+<h3><a name="accept_ranges-2">accept_ranges/2</a></h3>
+<tt>accept_ranges(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="authorization-1">authorization/1</a></h3>
+<tt>authorization(Arg) -&gt; term()
+</tt>
+
+<h3><a name="authorization-2">authorization/2</a></h3>
+<tt>authorization(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="connection-1">connection/1</a></h3>
+<tt>connection(Arg) -&gt; term()
+</tt>
+
+<h3><a name="connection-2">connection/2</a></h3>
+<tt>connection(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="content_length-1">content_length/1</a></h3>
+<tt>content_length(Arg) -&gt; term()
+</tt>
+
+<h3><a name="content_length-2">content_length/2</a></h3>
+<tt>content_length(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="cookie-1">cookie/1</a></h3>
+<tt>cookie(Arg) -&gt; term()
+</tt>
+
+<h3><a name="cookie-2">cookie/2</a></h3>
+<tt>cookie(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="host-1">host/1</a></h3>
+<tt>host(Arg) -&gt; term()
+</tt>
+
+<h3><a name="host-2">host/2</a></h3>
+<tt>host(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="if_match-1">if_match/1</a></h3>
+<tt>if_match(Arg) -&gt; term()
+</tt>
+
+<h3><a name="if_match-2">if_match/2</a></h3>
+<tt>if_match(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="if_modified_since-1">if_modified_since/1</a></h3>
+<tt>if_modified_since(Arg) -&gt; term()
+</tt>
+
+<h3><a name="if_modified_since-2">if_modified_since/2</a></h3>
+<tt>if_modified_since(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="if_none_match-1">if_none_match/1</a></h3>
+<tt>if_none_match(Arg) -&gt; term()
+</tt>
+
+<h3><a name="if_none_match-2">if_none_match/2</a></h3>
+<tt>if_none_match(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="if_range-1">if_range/1</a></h3>
+<tt>if_range(Arg) -&gt; term()
+</tt>
+
+<h3><a name="if_range-2">if_range/2</a></h3>
+<tt>if_range(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="if_unmodified_since-1">if_unmodified_since/1</a></h3>
+<tt>if_unmodified_since(Arg) -&gt; term()
+</tt>
+
+<h3><a name="if_unmodified_since-2">if_unmodified_since/2</a></h3>
+<tt>if_unmodified_since(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="keep_alive-1">keep_alive/1</a></h3>
+<tt>keep_alive(Arg) -&gt; term()
+</tt>
+
+<h3><a name="keep_alive-2">keep_alive/2</a></h3>
+<tt>keep_alive(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="new-0">new/0</a></h3>
+<tt>new() -&gt; term()
+</tt><p>Create a new 'headers' record.</p>
+
+<h3><a name="other-1">other/1</a></h3>
+<tt>other(Arg) -&gt; term()
+</tt>
+
+<h3><a name="other-2">other/2</a></h3>
+<tt>other(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="range-1">range/1</a></h3>
+<tt>range(Arg) -&gt; term()
+</tt>
+
+<h3><a name="range-2">range/2</a></h3>
+<tt>range(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="referer-1">referer/1</a></h3>
+<tt>referer(Arg) -&gt; term()
+</tt>
+
+<h3><a name="referer-2">referer/2</a></h3>
+<tt>referer(Arg, Val) -&gt; term()
+</tt>
+
+<h3><a name="user_agent-1">user_agent/1</a></h3>
+<tt>user_agent(Arg) -&gt; term()
+</tt>
+
+<h3><a name="user_agent-2">user_agent/2</a></h3>
+<tt>user_agent(Arg, Val) -&gt; term()
+</tt>
+</body>
+</html>

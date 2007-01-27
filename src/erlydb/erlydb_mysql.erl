@@ -208,7 +208,7 @@ q(Statement, Options) when is_binary(Statement); is_list(Statement) ->
 %% ErlyDB doesn't use this function, but it's sometimes convenient for
 %% testing.
 %%
-%% @spec q2(Statement::string() | binary(), Options::proplist()) ->
+%% @spec q2(Statement::string() | binary()) ->
 %%   mysql_result()
 q2(Statement) ->
     q2(Statement, undefined).

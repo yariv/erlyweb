@@ -1,0 +1,212 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Module erlydb_mysql</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css">
+</head>
+<body bgcolor="white">
+
+<h1>Module erlydb_mysql</h1>
+This module implements the MySQL driver for ErlyDB.
+<p>Copyright © Yariv Sadan 2006
+ </p>
+<ul><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+<p><b>Authors:</b> <a href="mailto:Yariv Sadan (yarivvv@gmail.com) (http://yarivsblog.com)"><tt>Yariv Sadan (yarivvv@gmail.com) (http://yarivsblog.com)</tt></a>.</p>
+
+<h2><a name="description">Description</a></h2><p>This module implements the MySQL driver for ErlyDB.</p>
+ 
+  This is an internal ErlyDB module that you normally shouldn't have to
+  use directly. For most situations, all you have to know
+  about this module is the options you can pass to <a href="#start-1"><code>start/1</code></a>, which
+  is called by <a href="erlydb.html#start-2"><code>erlydb:start/2</code></a>.
+ 
+<h2><a name="types">Data Types</a></h2>
+
+<h3><a name="type-esql">esql()</a></h3>
+<p><tt>esql() = {esql, term()}</tt></p>
+<p>An ErlSQL expression.</p>
+
+<h3><a name="type-statement">statement()</a></h3>
+<p><tt>statement() = <a href="#type-esql">esql()</a> | binary() | string()</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1"><tr><td valign="top"><a href="#connect-5">connect/5</a></td><td>Call connect/7 with Port set to 3306 and Reconnect set to 'true'.</td></tr>
+<tr><td valign="top"><a href="#connect-7">connect/7</a></td><td>Add a connection to the connection pool.</td></tr>
+<tr><td valign="top"><a href="#execute-2">execute/2</a></td><td>Execute a statement that was previously prepared with
+   prepare/2.</td></tr>
+<tr><td valign="top"><a href="#execute-3">execute/3</a></td><td>Execute a prepared statement with the list of parameters.</td></tr>
+<tr><td valign="top"><a href="#execute_select-2">execute_select/2</a></td><td>Execute a prepared statement and return the result as the select()
+    function.</td></tr>
+<tr><td valign="top"><a href="#execute_select-3">execute_select/3</a></td><td>Execute a prepared statement with the list of parameters
+    and return the result as the select() function.</td></tr>
+<tr><td valign="top"><a href="#execute_update-2">execute_update/2</a></td><td>Execute a prepared statement and return the result as the the
+    update() function.</td></tr>
+<tr><td valign="top"><a href="#execute_update-3">execute_update/3</a></td><td>Execute a prepared statement with the list of parameters and
+    and return the result as the the update() function.</td></tr>
+<tr><td valign="top"><a href="#get_last_insert_id-1">get_last_insert_id/1</a></td><td>Get the id of the last inserted record.</td></tr>
+<tr><td valign="top"><a href="#get_metadata-1">get_metadata/1</a></td><td>Get the table names and fields for the database.</td></tr>
+<tr><td valign="top"><a href="#prepare-2">prepare/2</a></td><td>Register a prepared statement with the MySQL dispatcher.</td></tr>
+<tr><td valign="top"><a href="#q-1">q/1</a></td><td>Execute a statement against the MySQL driver with the default options.</td></tr>
+<tr><td valign="top"><a href="#q-2">q/2</a></td><td>Execute a statement directly against the MySQL driver.</td></tr>
+<tr><td valign="top"><a href="#q2-1">q2/1</a></td><td>Execute a (binary or string) statement against the MySQL driver
+  using the default options.</td></tr>
+<tr><td valign="top"><a href="#q2-2">q2/2</a></td><td>Execute a (binary or string) statement against the MySQL driver.</td></tr>
+<tr><td valign="top"><a href="#select-2">select/2</a></td><td>Execute a raw SELECT statement.</td></tr>
+<tr><td valign="top"><a href="#select_as-3">select_as/3</a></td><td>Execute a SELECT statements for records belonging to the given module,
+    returning all rows with additional data to support
+    higher-level ErlyDB features.</td></tr>
+<tr><td valign="top"><a href="#start-1">start/1</a></td><td>Start the MySQL driver using the options property list.</td></tr>
+<tr><td valign="top"><a href="#transaction-2">transaction/2</a></td><td>Execute a group of statements in a transaction.</td></tr>
+<tr><td valign="top"><a href="#update-2">update/2</a></td><td>Execute a DELETE or UPDATE statement.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3><a name="connect-5">connect/5</a></h3>
+<p><tt>connect(PoolId::atom(), Hostname::string(), Username::string(), Password::string(), Database::string()) -&gt; ok</tt></p>
+<p>Call connect/7 with Port set to 3306 and Reconnect set to 'true'.
+ </p>
+
+<h3><a name="connect-7">connect/7</a></h3>
+<p><tt>connect(PoolId::atom(), Hostname::string, Port::integer(), Username::string(), Password::string(), Database::string(), Reconnect::<a href="#type-boolean">boolean()</a>) -&gt; ok</tt></p>
+<p>Add a connection to the connection pool. If PoolId is
+    'undefined', the default pool, 'erlydb_mysql', is used.
+ </p>
+
+<h3><a name="execute-2">execute/2</a></h3>
+<p><tt>execute(Name::atom(), Options::<a href="#type-proplist">proplist()</a>) -&gt; <a href="#type-mysql_result">mysql_result()</a></tt></p>
+<p>Execute a statement that was previously prepared with
+   prepare/2.
+ </p>
+
+<h3><a name="execute-3">execute/3</a></h3>
+<p><tt>execute(Name::atom(), Params::[term()], Options::<a href="#type-options">options()</a>) -&gt; <a href="#type-mysql_result">mysql_result()</a></tt></p>
+<p>Execute a prepared statement with the list of parameters.
+ </p>
+
+<h3><a name="execute_select-2">execute_select/2</a></h3>
+<p><tt>execute_select(Name::atom(), Options::<a href="#type-options">options()</a>) -&gt; {ok, [row]} | {error, Err}</tt></p>
+<p>Execute a prepared statement and return the result as the select()
+    function.
+ </p>
+
+<h3><a name="execute_select-3">execute_select/3</a></h3>
+<p><tt>execute_select(Name::atom(), Params::[term()], Options::<a href="#type-options">options()</a>) -&gt; {ok, [Row::tuple()]} | {error, Err}</tt></p>
+<p>Execute a prepared statement with the list of parameters
+    and return the result as the select() function.
+ </p>
+
+<h3><a name="execute_update-2">execute_update/2</a></h3>
+<p><tt>execute_update(Name::atom(), Options::<a href="#type-options">options()</a>) -&gt; {ok, NumUpdated::integer()} | {error, Err}</tt></p>
+<p>Execute a prepared statement and return the result as the the
+    update() function.
+ </p>
+
+<h3><a name="execute_update-3">execute_update/3</a></h3>
+<p><tt>execute_update(Name::atom(), Params::[term()], Options::<a href="#type-options">options()</a>) -&gt; {ok, NumUpdated::integer()} | {error, Err}</tt></p>
+<p>Execute a prepared statement with the list of parameters and
+    and return the result as the the update() function.
+ </p>
+
+<h3><a name="get_last_insert_id-1">get_last_insert_id/1</a></h3>
+<p><tt>get_last_insert_id(PoolId::atom()) -&gt; term()</tt></p>
+<p>Get the id of the last inserted record.
+ </p>
+
+<h3><a name="get_metadata-1">get_metadata/1</a></h3>
+<p><tt>get_metadata(PoolId::atom()) -&gt; <a href="#type-gb_trees">gb_trees()</a></tt></p>
+<p>Get the table names and fields for the database.
+ </p>
+
+<h3><a name="prepare-2">prepare/2</a></h3>
+<p><tt>prepare(Name::atom(), Stmt::<a href="#type-iolist">iolist()</a>) -&gt; ok | {error, Err}</tt></p>
+<p>Register a prepared statement with the MySQL dispatcher.
+    If the dispatcher has a prepared statement with the same name,
+    the old statement is overwritten and the statement's version
+    is incremented.
+ </p>
+
+<h3><a name="q-1">q/1</a></h3>
+<p><tt>q(Statement::<a href="#type-statement">statement()</a>) -&gt; <a href="#type-mysql_result">mysql_result()</a></tt></p>
+<p>Execute a statement against the MySQL driver with the default options.
+  The connection pool named 'erlydb_mysql' is used.
+ </p>
+
+<h3><a name="q-2">q/2</a></h3>
+<p><tt>q(Statement::<a href="#type-statement">statement()</a>, Options::<a href="#type-options">options()</a>) -&gt; <a href="#type-mysql_result">mysql_result()</a> | <a href="#type-exit">exit({unsafe_statement, Statement})</a></tt></p>
+<p>Execute a statement directly against the MySQL driver. If
+    Options contains the value {allow_unsafe_sql, true}, binary
+    and string queries as well as ErlSQL queries with binary and/or
+    string expressions are accepted. Otherwise, this function exits.
+ </p>
+
+<h3><a name="q2-1">q2/1</a></h3>
+<p><tt>q2(Statement::string() | binary()) -&gt; <a href="#type-mysql_result">mysql_result()</a></tt></p>
+<p>Execute a (binary or string) statement against the MySQL driver
+  using the default options.
+  ErlyDB doesn't use this function, but it's sometimes convenient for
+  testing.
+ </p>
+
+<h3><a name="q2-2">q2/2</a></h3>
+<p><tt>q2(Statement::string() | binary(), Options::<a href="#type-proplist">proplist()</a>) -&gt; <a href="#type-mysql_result">mysql_result()</a></tt></p>
+<p>Execute a (binary or string) statement against the MySQL driver.
+  ErlyDB doesn't use this function, but it's sometimes convenient for testing.
+ </p>
+
+<h3><a name="select-2">select/2</a></h3>
+<p><tt>select(PoolId::atom(), Statement::<a href="#type-statement">statement()</a>) -&gt; {ok, Rows::list()} | {error, Error}</tt></p>
+<p>Execute a raw SELECT statement.
+ </p>
+
+<h3><a name="select_as-3">select_as/3</a></h3>
+<p><tt>select_as(Module::atom(), Statement::<a href="#type-statement">statement()</a>, FixedCols::tuple()) -&gt; {ok, Rows} | {error, Error}</tt></p>
+<p>Execute a SELECT statements for records belonging to the given module,
+    returning all rows with additional data to support
+    higher-level ErlyDB features.
+ </p>
+
+<h3><a name="start-1">start/1</a></h3>
+<p><tt>start(StartOptions::<a href="#type-proplist">proplist()</a>) -&gt; ok | {error, Error}</tt></p>
+<p><p>Start the MySQL driver using the options property list.   
+The available options are:</p>
+ 
+   <p><code>pool_id</code> (optional): an atom identifying the connection pool id.      
+An 'undefined' value indicates that the default connection      
+pool, i.e. 'erlydb_mysql', should be used.</p>
+ 
+   <p><code>hostname</code>: a string indicating the database host name.</p>
+ 
+   <p><code>port</code> (optional): an integer indicating the database port       
+('undefined' indicates the default MySQL port, 3306).</p>
+ 
+   <p><code>username</code>: a string indicating the username.</p>
+ 
+   <p><code>password</code>: a string indicating the password.</p>
+ 
+   <p><code>database</code>: a string indicating the database name.</p>
+ 
+   <code>allow_unsafe_sql</code>: a boolean value indicating whether the driver should
+   accept string and/or binary SQL queries and query fragments. If you
+   set this value to
+   'true', ErlyDB lets you use string or binary Where and Extras expressions
+   in generated functions. For more information, see <a href="erlydb.html"><code>erlydb</code></a>.
+ </p>
+
+<h3><a name="transaction-2">transaction/2</a></h3>
+<p><tt>transaction(Fun::function(), Options::<a href="#type-options">options()</a>) -&gt; {atomic, Result} | {aborted, Reason}</tt></p>
+<p>Execute a group of statements in a transaction.
+    Fun is the function that implements the transaction.
+    Fun can contain an arbitrary sequence of calls to
+    the erlydb_mysql's query functions. If Fun crashes or returns
+    or throws 'error' or {error, Err}, the transaction is automatically
+    rolled back.
+ </p>
+
+<h3><a name="update-2">update/2</a></h3>
+<p><tt>update(Statement::<a href="#type-statement">statement()</a>, Options::<a href="#type-options">options()</a>) -&gt; {ok, NumAffected} | {error, Err}</tt></p>
+<p>Execute a DELETE or UPDATE statement.
+ </p>
+</body>
+</html>

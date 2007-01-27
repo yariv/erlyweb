@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Module erltl</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css">
+</head>
+<body bgcolor="white">
+
+<h1>Module erltl</h1>
+ErlTL is a simple Erlang template language.
+<p>Copyright © 2006 Yariv Sadan
+ </p>
+<ul><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+<p><b>Version:</b> 0.9.3</p>
+<p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivsblog@gmail.com"><tt>yarivsblog@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com" target="_top">http://yarivsblog.com</a></tt>].</p>
+
+<h2><a name="description">Description</a></h2><p>ErlTL is a simple Erlang template language.</p>
+ 
+  <h3><a name="Introduction">Introduction</a></h3><p>  
+ErlTL is a template language used for creating Erlang modules that  
+programatically generate iolists (nested lists of strings and/or binaries)  
+whose contents are mostly known at compile time.  
+ErlTL templates are generally less verbose and more readable than  
+the equivalent hand-written Erlang code.  
+A common use-case for ErlTL is the generation of  
+dynamic HTML in web applications.</p>
+ 
+  <p>ErlTL emphasizes speed, simplicity, reusability and good error reporting.  
+The ErlTL compiler transforms template files into Erlang modules whose  
+whose functions are exported so they can be used in other modules.  
+By compiling to BEAM, ErlTL doesn't add any overhead to writing a template's  
+logic in pure Erlang.</p>
+ 
+  <h3><a name="Tag_Reference">Tag Reference</a></h3>
+ 
+  <p>An ErlTL template can be composed of the following tags:</p>
+ 
+  <p><code>&lt;% [Exprs] %&gt;</code> <br>Erlang expression tag. This tag contains one or more  
+Erlang expressions that are evaluated in runtime.  
+For the template to return a valid iolist, the results of embedded Erlang  
+expressions must be strings or binaries.</p>
+ 
+  <p><code>&lt;%@ [FuncDecl] %&gt;</code> <br>Function declaration tag.  
+An ErlTL template compiles into an Erlang module containing one or more  
+functions. This module always contains a function named 'render'  
+that accepts a single parameter called 'Data'. The 'render' function  
+corresponds to the area at the top of an ErlTL file, above all other  
+function declarations.</p>
+ 
+  <p>You can use the function declaration tag to add more functions to  
+an ErlTL template.  
+ErlTL functions return the iolist described by to the template region  
+between its declaration and the next function declaration, or the end of  
+the file. To facilitate pattern-matching, ErlTL translates consecutive  
+function declarations with the same name and arity into a single function  
+declaration with multiple clauses, as in the following example:</p>
+ 
+  <pre>  &lt;%@ volume_desc(Val) when Val &gt;= 20 %&gt; Big
+  &lt;%@ volume_desc(Val) when Val &gt;= 10 %&gt; Medium
+  &lt;%@ volume_desc(Val) %&gt; Small</pre>
+ 
+  <p>Function declarations have 2 possible forms: basic and full.
+  A full function declaration contains a complete Erlang function
+  declaration up to the '-&gt;' symbol, e.g.
+  <code>"&lt;%@ my_func(A, B = [1,2 | _]) when is_integer(A) %&gt;"</code>.</p>
+ 
+  <p>A basic function declaration contains only the name of the function,
+  e.g. "<code>&lt;%@ my_func %&gt;</code>". This declaration is equivalent to
+  <code>"&lt;%@ my_func(Data) %&gt;"</code>.</p>
+ 
+  <p><code>&lt;%~ [TopForms] %&gt;</code> <br>Top-level forms tag.  
+This tag, which may appear only at the very top of an ErlTL file, can  
+contain any legal top-level Erlang form. This includes module attributes,  
+compiler directives, and even complete functions.</p>
+ 
+  <p><code>&lt;%? [TopExprs] %&gt;</code> <br>Top-level expressions tag.  
+This tag, which may appear only at the top of ErlTL functions, contains  
+Erlang expressions whose result isn't part of the function's return value.  
+This is used primarily for "unpacking" the Data parameter and binding  
+its elements to local variables prior to using them in the body of a  
+function.</p>
+ 
+  <p><code>&lt;%! [Comment] %&gt;</code> <br>Comment tag. The contents of this tag are  
+used for documentation only. They are discarded in compile-time.</p>
+ 
+  <p>Following is an sample ErlTL template that uses the ErlTL tags above  
+(you can find this code under test/erltl):</p>
+ 
+  <pre>  &lt;%~
+  %% date: 10/21/2006
+  -author("Yariv Sadan").
+  -import(widgets, [foo/1, bar/2, baz/3]).
+  %&gt;
+  &lt;%! This is a sample ErlTL template that renders a list of albums %&gt;
+  &lt;html&gt;
+  &lt;body&gt;
+  &lt;% [album(A) || A &lt;- Data] %&gt;
+  &lt;/body&gt;
+  &lt;/html&gt;
+ 
+  &lt;%@ album({Title, Artist, Songs}) %&gt;
+  Title: &lt;b&gt;&lt;% Title %&gt;&lt;/b&gt;&lt;br&gt;
+  Artist: &lt;b&gt;&lt;% Artist %&gt;&lt;/b&gt;&lt;br&gt;
+  Songs: &lt;br&gt;
+  &lt;table&gt;
+  &lt;% [song(Number, Name) || {Number, Name} &lt;- Songs] %&gt;
+  &lt;/table&gt;
+ 
+  &lt;%@ song(Number, Name) when size(Name) &gt; 15 %&gt;
+  &lt;%? &lt;&lt;First:13/binary, Rest/binary&gt;&gt; = Name %&gt;
+  &lt;% song(Number, [First, &lt;&lt;"..."&gt;&gt;]) %&gt;
+ 
+  &lt;%@ song(Number, Name) %&gt;
+  &lt;%?
+  Class =
+    case Number rem 2 of
+      0 -&gt; &lt;&lt;"even"&gt;&gt;;
+      1 -&gt; &lt;&lt;"odd"&gt;&gt;
+    end
+  %&gt;
+  &lt;tr&gt;
+    &lt;td class="&lt;% Class %&gt;"&gt;&lt;% integer_to_list(Number) %&gt;&lt;/td&gt;
+    &lt;td class="&lt;% Class %&gt;"&gt;&lt;% Name %&gt;&lt;/td&gt;
+  &lt;/tr&gt;</pre>
+ 
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1"><tr><td valign="top"><a href="#compile-1">compile/1</a></td><td>Compile the ErlTL file with the default options:
+   <code>[{outdir, FileDir}, report_errors, report_warnings, nowarn_unused_vars]</code>.</td></tr>
+<tr><td valign="top"><a href="#compile-2">compile/2</a></td><td>Compile the ErlTL file with user-defined options.</td></tr>
+<tr><td valign="top"><a href="#forms_for_data-2">forms_for_data/2</a></td><td>Parse the raw text of an ErlTL template and return its
+    representation in abstract forms.</td></tr>
+<tr><td valign="top"><a href="#forms_for_file-1">forms_for_file/1</a></td><td>Parse the ErlTL file and return its representation in Erlang
+    abstract forms.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3><a name="compile-1">compile/1</a></h3>
+<p><tt>compile(FileName::string()) -&gt; ok | {error, Err}</tt></p>
+<p><p>Compile the ErlTL file with the default options:
+   <code>[{outdir, FileDir}, report_errors, report_warnings, nowarn_unused_vars]</code>.   
+(FileDir is the directory of the source file.)</p>
+ 
+   After compilation, the resulting BEAM is loaded into the VM
+   (the old code is purged if necessary).
+ </p>
+
+<h3><a name="compile-2">compile/2</a></h3>
+<p><tt>compile(FileName::string(), Options::[<a href="#type-option">option()</a>]) -&gt; ok | {error, Err}</tt></p>
+<p>Compile the ErlTL file with user-defined options. The options are
+  described in the documentation for the 'compile' module.
+  For more information, visit
+  <a href="http://erlang.org/doc/doc-5.5.1/lib/compiler-4.4.1/doc/html/compile.html" target="_top"><tt>http://erlang.org/doc/doc-5.5.1/lib/compiler-4.4.1/doc/html/compile.html</tt></a>
+ </p>
+
+<h3><a name="forms_for_data-2">forms_for_data/2</a></h3>
+<p><tt>forms_for_data(FileName::string(), ModuleName::atom()) -&gt; {ok, [<a href="#type-form">form()</a>]} | {error, Err}</tt></p>
+<p>Parse the raw text of an ErlTL template and return its
+    representation in abstract forms.</p>
+
+<h3><a name="forms_for_file-1">forms_for_file/1</a></h3>
+<p><tt>forms_for_file(FileName::string()) -&gt; {ok, [<a href="#type-form">form()</a>]} | {error, Err}</tt></p>
+<p>Parse the ErlTL file and return its representation in Erlang
+    abstract forms.</p>
+</body>
+</html>

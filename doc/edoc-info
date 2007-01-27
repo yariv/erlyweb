@@ -1,0 +1,12 @@
+{application,'ErlyWeb'}.
+{packages,[]}.
+{modules,[erlsql,
+          erltl,
+          erlydb,
+          erlydb_base,
+          erlydb_field,
+          erlydb_mysql,
+          erlyweb,
+          smerl,
+          yaws_arg,
+          yaws_headers]}.
