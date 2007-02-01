@@ -109,6 +109,16 @@ compile(AppDir, Options) ->
 		   [$/ | _] -> AppDir;
 		   Other -> lists:reverse([$/ | Other])
 	       end,
+
+    IncludePaths =
+	lists:foldl(
+	  fun({i, [$/ | _] = Path}, Acc) ->
+		  [Path | Acc];
+	     ({i, Path}, Acc) ->    
+		  [AppDir1 ++ "src/" ++ Path | Acc];
+	     (_Opt, Acc) ->
+		  Acc
+	  end, [], Options),
     
     Options1 = case lists:member(suppress_warnings, Options) of
 		   true -> Options;
@@ -123,7 +133,7 @@ compile(AppDir, Options) ->
 		   true -> Options2;
 		   false -> [debug_info | Options2]
 	       end,
-    
+
     {Options4, OutDir} =
 	get_option(outdir, AppDir1 ++ "ebin", Options3),
 
@@ -149,9 +159,9 @@ compile(AppDir, Options) ->
 
     AppControllerStr = AppName ++ "_app_controller",
     AppControllerFile = AppControllerStr ++ ".erl",
-    case compile_file(AppDir ++ "/src/" ++ AppControllerFile,
+    case compile_file(AppDir1 ++ "src/" ++ AppControllerFile,
 		      AppControllerStr, ".erl", undefined,
-		      LastCompileTimeInSeconds, Options5) of
+		      LastCompileTimeInSeconds, Options5, IncludePaths) of
 	{ok, _} -> ok;
 	ok -> ok;
 	Err -> ?Error("Error compiling app controller", []),
@@ -165,9 +175,8 @@ compile(AppDir, Options) ->
 	filelib:fold_files(
 	  AppDir1 ++ "src", "\.(erl|et)$", true,
 	  fun(FileName, Acc) ->
-		  compile_component_file(
-		    AppDir1 ++ "src/components", FileName,
-		    LastCompileTimeInSeconds, Options5, Acc)
+		  compile_component_file(AppDir1 ++ "src/components", FileName,
+		    LastCompileTimeInSeconds, Options5, IncludePaths, Acc)
 	  end, InitialAcc),
 
     ErlyDBResult =
@@ -262,7 +271,7 @@ make_app_data_module(AppData, AppName, ComponentTree, Options) ->
 
 
 compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
-		       Options, {ComponentTree, Models} = Acc) ->
+		       Options, IncludePaths, {ComponentTree, Models} = Acc) ->
     BaseName = filename:rootname(filename:basename(FileName)),
     Extension = filename:extension(FileName),
     BaseNameTokens = string:tokens(BaseName, "_"),
@@ -278,7 +287,7 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
 		   other
 	   end,
     case {compile_file(FileName, BaseName, Extension, Type,
-		       LastCompileTimeInSeconds, Options),
+		       LastCompileTimeInSeconds, Options, IncludePaths),
 	  Type} of
 	{{ok, Module}, controller} ->
 	    %% Convert atom to strings so they can be compared
@@ -304,7 +313,7 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
 
 
 compile_file(FileName, BaseName, Extension, Type,
-	     LastCompileTimeInSeconds, Options) ->
+	     LastCompileTimeInSeconds, Options, IncludePaths) ->
     case file:read_file_info(FileName) of
 	{ok, FileInfo} ->
 	    ModifyTime =
@@ -317,18 +326,18 @@ compile_file(FileName, BaseName, Extension, Type,
 			    erltl:compile(FileName, Options);
 			".erl" ->
 			    ?Debug("Compiling Erlang file ~p", [BaseName]),
-			    compile_file(FileName, BaseName, Type, Options)
+			    compile_file(FileName, BaseName, Type, Options,
+					 IncludePaths)
 		    end;
 	       true -> 
-%		    ?Debug("Skipping compilation of ~p", [BaseName]),
 		    ok
 	    end;
 	{error, _} = Err1 ->
 	    Err1
     end.
 
-compile_file(FileName, BaseName, Type, Options) ->
-    case smerl:for_file(FileName) of
+compile_file(FileName, BaseName, Type, Options, IncludePaths) ->
+    case smerl:for_file(FileName, IncludePaths) of
 	{ok, M1} ->
 	    M2 = add_forms(Type, BaseName, M1),
 	    case smerl:compile(M2, Options) of

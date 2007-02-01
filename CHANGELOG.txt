@@ -1,3 +1,16 @@
+v0.4.2
+
+- erlyweb:compile() now obey relative include paths passed as {i, Path} options. It treats the base directory as [AppDir]/src. Absolute paths also work now.
+
+- Fixed the SELECT statement generation for self-referencing many-to-many relations when find_related_many_to_many() includes a custom Where clause (this is a fix in erlsql.erl, which didn't add enough parens around the conditions).
+
+- Removed the if_saved() checks in erlydb_base.erl for the following functions: find_related_many_to_many(), aggregate_related_many_to_many(), find_related_many_to_one(), aggregate_related_many_to_one(), and delete(). This means these functions no longer call exit({no_such_record, Rec}) if is_new(Rec) returns true.
+
+- Changed the return value of erlydb_base:delete/1 to return the number of rows deleted. Previously, if the number of rows deleted was zero or greater than one, this function crashed.
+
+- Related to the last item, erlydb_base:after_delete/1 changed from "after_delete(Rec) -> ok." to "after_delete({Rec, NumDeleted}) -> NumDeleted.".
+
+
 v0.4.1
 
 - Added compiler debug_info to ebin files.

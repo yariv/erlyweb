@@ -443,12 +443,12 @@ expr({Expr1, Op, Expr2}, Safe)  ->
 expr({list, Vals}, _Safe) ->
     [$(, make_list(Vals, fun encode/1), $)];
 expr({Op, Exprs}, Safe) when is_list(Exprs) ->
-    lists:foldl(
-      fun(Expr, []) ->
-	      expr(Expr, Safe);
-	 (Expr, Acc) ->
-	      [expr(Expr, Safe), 32, op(Op), 32, Acc]
-      end, [], lists:reverse(Exprs));
+    [$(, lists:foldl(
+	   fun(Expr, []) ->
+		   expr(Expr, Safe);
+	      (Expr, Acc) ->
+		   [expr(Expr, Safe), 32, op(Op), 32, Acc]
+	   end, [], lists:reverse(Exprs)), $)];
 expr('?', _Safe) -> $?;
 expr(null, _Safe) -> <<"NULL">>;
 expr(Val, _Safe) when is_atom(Val) -> convert(Val);

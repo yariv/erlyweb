@@ -572,20 +572,15 @@ field_from_string(ErlyDbField, Str) ->
 save(Rec) ->
     hook(Rec, do_save, before_save, after_save).
 
-%% @doc Delete the record from the database. This function
-%% returns 'ok' or crashes if the number of deleted records isn't equal
-%% to 1 (one of this function's preconditions is that the record must
-%% have been saved in the database).
+%% @doc Delete the record from the database. To facilitate the after_delete
+%% hook, this function expects a single record to be deleted. 
 %%
 %% You can override the return value by implementing the after_delete
 %% hook.
 %%
 %% @spec delete(Rec::record()) -> ok | exit(Err)
 delete(Rec) ->
-    if_saved(Rec,
-	     fun() ->
-		     hook(Rec, do_delete, before_delete, after_delete)
-	     end).
+    hook(Rec, do_delete, before_delete, after_delete).
 
 %% @equiv delete_where(Module, {id,'=',Id})
 %% @spec delete_id(Module::atom(), Id::integer()) -> NumDeleted::integer()
@@ -669,13 +664,15 @@ before_delete(Rec) ->
 
 %% @doc A hook that gets called after a record is deleted. 
 %%
-%% By default, this function returns 'ok', indicating the deletion succeeded.
+%% By default, this function returns an integer indicating the number of rows
+%% deleted.
+%%
 %% You can implement
 %% this function in the target module to override the default behavior.
 %%
-%% @spec after_delete(Rec::record()) -> ok
-after_delete(_Rec) ->
-    ok.
+%% @spec after_delete({Rec::record(), NumDeleted::integer()}) -> integer()
+after_delete({_Rec, Num}) ->
+    Num.
 
 
 %% @doc A hook that gets called after a record is fetched from the database.
@@ -946,8 +943,6 @@ find_related_one_to_many(OtherModule, Rec) ->
 %% dog:bones_range(Dog, First, Max, Where, Extras)
 %% '''
 %%
-%% If 'Dog' isn't saved in the database, these functions would exit.
-%%
 %% @see find/3
 %% @see find_first/3
 %% @see find_max/4
@@ -956,11 +951,8 @@ find_related_one_to_many(OtherModule, Rec) ->
 %%    Where::where_expr(), Extras::extras_expr()) -> [record()] | exit(Err)
 find_related_many_to_one(OtherModule, Rec, Where,
 			Extras) ->
-    if_saved(Rec,
-      fun() ->
-	      OtherModule:find(
-		make_fk_expr(Rec, Where), Extras)
-      end).
+    OtherModule:find(
+      make_fk_expr(Rec, Where), Extras).
 
 %% @doc Get aggregate statistics about fields from related records in
 %% one-to-many relations.
@@ -985,8 +977,6 @@ find_related_many_to_one(OtherModule, Rec, Where,
 %% ErlyDB generates similar derivatives for all aggregate functions listed in
 %% {@link aggregate/5}.
 %%
-%% If 'Dog' isn't saved in the database, these functions would exit.
-%%
 %% @see aggregate/5
 %% @spec aggregate_related_many_to_one(OtherModule::atom(), AggFunc::atom(),
 %% Rec::record(), Field::atom(),
@@ -994,11 +984,8 @@ find_related_many_to_one(OtherModule, Rec, Where,
 %%   exit(Err)
 aggregate_related_many_to_one(OtherModule, AggFunc, Rec, Field, Where,
 			      Extras) ->
-    if_saved(Rec,
-	     fun() ->
-		     OtherModule:AggFunc(Field,
-					 make_fk_expr(Rec, Where), Extras)
-	     end).
+    OtherModule:AggFunc(Field,
+			make_fk_expr(Rec, Where), Extras).
 
 %% many-to-many functions
 
@@ -1125,13 +1112,10 @@ find_related_many_to_many(OtherModule, JoinTable, Rec, Where, Extras) ->
 
 find_related_many_to_many2(OtherModule, JoinTable, Rec, Fields,
 			   Where, Extras, AsModule) ->
-    if_saved(Rec,
-	     fun() ->
-		     Query = {esql, make_find_related_many_to_many_query(
-				      OtherModule, JoinTable, Rec, Fields,
-				      Where, Extras)},
-		     select(OtherModule, Query, AsModule)
-	     end).
+    Query = {esql, make_find_related_many_to_many_query(
+		     OtherModule, JoinTable, Rec, Fields,
+		     Where, Extras)},
+    select(OtherModule, Query, AsModule).
 
 make_find_related_many_to_many_query(OtherModule, JoinTable, Rec, Fields,
 				     Where, Extras) ->
@@ -1289,31 +1273,21 @@ make_save_statement(Rec) ->
 
 %% @hidden
 do_delete(Rec) ->
-    if_saved(
-      Rec,
-      fun() ->
-	      {DriverMod, Options} = get_driver(Rec),
-	      Stmt = make_delete_stmt(Rec),
-	      Res = DriverMod:transaction(
-		      fun() ->
-			      case DriverMod:update(Stmt, Options) of
-				  {ok, 1} ->
-				      Rec;
-				  {ok, 0} ->
-				      {error, {delete_failed, Rec}};
-				  {ok, Num} ->
-				      {error,
-				       {too_many_rows_deleted, Num,
-					Rec}};
-				  Err ->
-				      Err
-			      end
-		      end, Options),
-	      case Res of
-		  {atomic, Result} -> Result;
-		  {aborted, Err} -> exit(Err)
-	      end
-      end).
+    {DriverMod, Options} = get_driver(Rec),
+    Stmt = make_delete_stmt(Rec),
+    Res = DriverMod:transaction(
+	    fun() ->
+		    case DriverMod:update(Stmt, Options) of
+			{ok, Num} ->
+			    {Rec, Num};
+			Err ->
+			    Err
+		    end
+	    end, Options),
+    case Res of
+	{atomic, Result} -> Result;
+	{aborted, Err} -> exit(Err)
+    end.
 
 make_delete_stmt(Rec) ->
     {esql, {delete, get_table(Rec),

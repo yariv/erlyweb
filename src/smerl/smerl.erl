@@ -69,6 +69,7 @@
 -export([new/1,
 	 for_module/1,
 	 for_file/1,
+	 for_file/2,
          get_module/1,
 	 set_module/2,
          get_forms/1,
@@ -165,7 +166,11 @@ for_module(ModuleName) when is_atom(ModuleName) ->
 %% @spec for_file(SrcFilePath::string()) -> {ok, meta_mod()} |
 %%   {error, invalid_module}
 for_file(SrcFilePath) ->
-    case epp:parse_file(SrcFilePath, [filename:dirname(SrcFilePath)], []) of
+    for_file(SrcFilePath, []).
+
+for_file(SrcFilePath, ExtraPaths) ->
+    case epp:parse_file(SrcFilePath, [filename:dirname(SrcFilePath) |
+				      ExtraPaths], []) of
 	{ok, Forms} ->
 	    mod_for_forms(Forms);
 	_err ->
@@ -282,7 +287,7 @@ get_attribute(MetaMod, AttName) ->
 %% 1) Try to get the abstract code from the module if it's compiled
 %%    with debug_info.
 %% 2) Look for the source file in the beam file's directory.
-%% 3) If the beam file's directory ends with 'ebin', then search in
+%% 3) If the file's directory ends with 'ebin', then search in
 %%    [beamdir]/../src
 get_forms(Module, Path) ->
     case beam_lib:chunks(Path, [abstract_code]) of
