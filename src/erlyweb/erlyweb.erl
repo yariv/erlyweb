@@ -296,10 +296,12 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
 	    [{exports, Exports} | _] =
 		Module:module_info(),
 	    Exports1 =
-		lists:map(
-		  fun({Name, Arity}) ->
-			  {atom_to_list(Name), Arity, Name}
-		  end, Exports),
+		lists:foldl(
+		  fun({before_return, _}, Acc1) ->
+			  Acc1;
+		     ({Name, Arity}, Acc1) ->
+			  [{atom_to_list(Name), Arity, Name} | Acc1]
+		  end, [], Exports),
 	    {ActionName, _} = lists:split(length(BaseName) - 11, BaseName),
 	    {gb_trees:enter(
 	       ActionName, {list_to_atom(BaseName), Exports1}, ComponentTree),
@@ -414,7 +416,7 @@ out(A) ->
      end.
 
 app_controller_hook(AppController, A, AppData) ->
-    HookRes = try_func(AppController, hook, [A], {ewc, A}),
+    HookRes = AppController:hook(A),
     Ewc = get_initial_ewc(HookRes, AppData),
     Response = ewc(Ewc, AppData),
     process_response(Response, AppData).
@@ -467,13 +469,30 @@ get_initial_ewc({ewc, _A} = Ewc, AppData) ->
 	    end;
 	Other -> Other
     end;
+get_initial_ewc(List, AppData) when is_list(List) ->
+    [get_initial_ewc(Ewc, AppData) || Ewc <- List];
 get_initial_ewc(Ewc, _AppData) -> Ewc.
 	    
-ewc(Ewc, AppData) when is_list(Ewc) ->
-    [ewc(Child, AppData) || Child <- Ewc];
+ewc(List, AppData) when is_list(List) ->
+    {AllRendered, AllOthers} =
+	lists:foldl(
+	  fun(Ewc, {RenderedAcc, ElemAcc}) ->
+		  case ewc(Ewc, AppData) of
+		      {response, Elems} ->
+			  lists:foldl(
+			    fun({rendered, Rendered},
+				{RenderedAcc1, ElemAcc1}) ->
+				    {[Rendered | RenderedAcc1], ElemAcc1};
+			       (Elem, {RenderedAcc1, ElemAcc1}) ->
+				    {RenderedAcc1, [Elem | ElemAcc1]}
+			    end, {RenderedAcc, ElemAcc}, Elems);
+		      Other ->
+			  {RenderedAcc, [Other | ElemAcc]}
+		  end
+	  end, {[], []}, List),
+    {response, AllOthers ++ [{rendered, lists:reverse(AllRendered)}]};
 
-
-ewc({data, Data}, _AppData) -> Data;
+ewc({data, Data}, _AppData) -> {response, [{rendered, Data}]};
 
 ewc({ewc, A}, AppData) ->
     Ewc = get_ewc({ewc, A}, AppData),
@@ -539,38 +558,34 @@ render_response(A, {response, Elems}, View, FuncName, AppData) ->
 					      Output], View)
 			      end
 		      end,
-		  Rendered = render_ewc(BodyEwc, View, FuncName, AppData,
-				       RenderFun),
-		  {Config1, [{rendered, Rendered} | Elems1]};
+		  Elems2 = render_ewc(BodyEwc, View, FuncName, AppData,
+					RenderFun, Elems1),
+		  {Config1, Elems2};
 	     (Elem, {Config1, Elems1}) ->
 		  {Config1, [ewr(A, Elem) | Elems1]}
 	  end, {[], []}, Elems),
     {response, lists:reverse(Elems2)};
 render_response(_A, Ewc, View, FuncName, AppData) ->
-    Output1 = render_ewc(Ewc, View, FuncName, AppData),
-    {response, [{rendered, Output1}]}.
+    Elems = render_ewc(Ewc, View, FuncName, AppData,
+			 fun(Output) ->
+				 render(Output, View)
+			 end, []),
+    {response, lists:reverse(Elems)}.
 
-render_ewc(Ewc, View, FuncName, AppData) ->
-    render_ewc(Ewc, View, FuncName, AppData, undefined).
-
-render_ewc(Ewc, View, FuncName, AppData, RenderFun) ->
-    %% in nested components, we ignore all response elements except for
-    %% 'body' and 'view_param'
-    Output = case ewc(Ewc, AppData) of
-		 {response, Elems} ->
-		     proplists:get_value(rendered, Elems);
-		 Other -> Other
-	     end,
-    case catch View:FuncName(Output) of
-	{'EXIT', {undef, [{View, FuncName, _} | _]}} -> Output;
-	{'EXIT', Err} -> exit(Err);
-	Output1 -> case RenderFun of
-		       undefined-> render(Output1, View);
-		       _ -> RenderFun(Output1)
-		   end
+render_ewc(Ewc, View, FuncName, AppData, RenderFun, Acc) ->
+    case ewc(Ewc, AppData) of
+	{response, Elems1} ->
+	    lists:foldl(
+	      fun({rendered, Rendered}, Elems2) ->
+		      Output = RenderFun(View:FuncName(Rendered)),
+		      [{rendered, Output} | Elems2];
+		 (Elem, Elems2) ->
+		      [Elem | Elems2]
+	      end, Acc, Elems1);
+	Other ->
+	    [Other | Acc]
     end.
-
-
+    
 render(Output, _View) when is_tuple(Output) -> Output;
 render(Output, View) -> try_func(View, render, [Output], Output).
 
