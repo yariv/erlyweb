@@ -445,8 +445,9 @@ process_response({response, Elems}, AppData) ->
 				  undefined ->
 				      render(Rendered, AppView);
 				  AppViewParam ->
-				      render([ewc(AppViewParam,
-						  AppView),
+				      Param = get_rendered(ewc(AppViewParam,
+							       AppData)),
+				      render([Param,
 					      Rendered], AppView)
 			      end
 		      end,
@@ -554,7 +555,8 @@ render_response(A, {response, Elems}, View, FuncName, AppData) ->
 				  undefined ->
 				      render(Output, View);
 				  ViewParam ->
-				      render([ewc(ViewParam, AppData),
+				      render([get_rendered(
+						ewc(ViewParam, AppData)),
 					      Output], View)
 			      end
 		      end,
@@ -589,6 +591,10 @@ render_ewc(Ewc, View, FuncName, AppData, RenderFun, Acc) ->
 render(Output, _View) when is_tuple(Output) -> Output;
 render(Output, View) -> try_func(View, render, [Output], Output).
 
+get_rendered({response, Elems}) ->
+    proplists:get_value(rendered, Elems);
+get_rendered(Resp) ->
+    Resp.
 
 try_func(Module, FuncName, Params, Default) ->
     case catch apply(Module, FuncName, Params) of
