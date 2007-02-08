@@ -545,8 +545,8 @@ process_response({response, Elems}, AppData) ->
 				  AppViewParam ->
 				      Param = get_rendered(ewc(AppViewParam,
 							       AppData)),
-				      render({Param,
-					      Rendered}, AppView)
+				      render([Param,
+					      Rendered], AppView)
 			      end
 		      end,
 		  {Config, [tag_output(Rendered1) | Output]};
@@ -643,9 +643,9 @@ render_response(A, {response, Elems}, View, FuncName, AppData) ->
 				  undefined ->
 				      render(Output, View);
 				  ViewParam ->
-				      render({get_rendered(
+				      render([get_rendered(
 						ewc(ViewParam, AppData)),
-					      Output}, View)
+					      Output], View)
 			      end
 		      end,
 		  Elems2 = render_ewc(BodyEwc, View, FuncName, AppData,
