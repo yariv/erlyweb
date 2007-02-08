@@ -29,6 +29,8 @@ that implements basic CRUD features for a database table.</td></tr>
 <tr><td valign="top"><a href="#get_app_name-1">get_app_name/1</a></td><td>Get the name for the application as specified in the opaque
   'appname' field in the YAWS configuration.</td></tr>
 <tr><td valign="top"><a href="#get_app_root-1">get_app_root/1</a></td><td>Get the relative URL for the application's root path.</td></tr>
+<tr><td valign="top"><a href="#get_ewc-2">get_ewc/2</a></td><td>Get the expanded ewc tuple for the request.</td></tr>
+<tr><td valign="top"><a href="#get_initial_ewc-2">get_initial_ewc/2</a></td><td>Get the expanded ewc tuple for the request.</td></tr>
 <tr><td valign="top"><a href="#out-1">out/1</a></td><td>This is the 'out' function that Yaws calls when passing
    HTTP requests to the ErlyWeb appmod.</td></tr>
 </table>
@@ -103,6 +105,23 @@ root directory.</p>
 <p><tt>get_app_root(A::<a href="#type-arg">arg()</a>) -&gt; string()</tt></p>
 <p>Get the relative URL for the application's root path.
  </p>
+
+<h3><a name="get_ewc-2">get_ewc/2</a></h3>
+<p><tt>get_ewc(X1::{ewc, A::<a href="#type-arg">arg()</a>}, AppDataModule::atom()) -&gt; {page, Path::string()} | {ewc, Controller::atom(), View::atom(), Function::atom(), Params::[string()]} | <a href="#type-exit">exit({no_such_function, Err})</a></tt></p>
+<p><p>Get the expanded ewc tuple for the request.</p>
+ 
+  The second parameter is the name of the application's erlyweb data
+  module, i.e. [AppName]_erlyweb_data.
+ </p>
+
+<h3><a name="get_initial_ewc-2">get_initial_ewc/2</a></h3>
+<tt>get_initial_ewc(Ewc, AppData) -&gt; term()
+</tt><p><p>Get the expanded ewc tuple for the request.</p>
+ 
+  This function is similar to <a href="#get_ewc-2"><code>get_ewc/2</code></a> but it crashes
+  if the Arg represents a request for a private component
+  (i.e. if its controller has the function 'private() -&gt; true.').</p>
+<p><b>See also:</b> <a href="#get_ewc-2">get_ewc/2</a>.</p>
 
 <h3><a name="out-1">out/1</a></h3>
 <p><tt>out(A::<a href="#type-yaws_arg">yaws_arg()</a>) -&gt; <a href="#type-ret_val">ret_val()</a></tt></p>

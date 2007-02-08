@@ -10,6 +10,25 @@ v0.4.2
 
 - Related to the last item, erlydb_base:after_delete/1 changed from "after_delete(Rec) -> ok." to "after_delete({Rec, NumDeleted}) -> NumDeleted.".
 
+- Fixed a bug in the accumulation of rendered iolists and other response elements for components having multiple subcomponents.
+
+- Fixed a bug in the auto-compilation feature causing an internal data-structure to grow indefinitely upon automatic recompilations.
+
+- Added the validate/3 function to erlyweb_util.
+
+- Introduced a new return type, 'ewr', to redirect to the application's root url.
+
+- Introduced a new return type, {ewc, ControllerModule, ViewModule, Func, Params} to enable fine-grained control over ErlyWeb's rendering of components.
+
+- Exposed 2 new functions: erlyweb:get_ewc/2 and erlyweb:get_initial_ewc/2. These functions are useful primarily in the app controller for expanding an {ewc, A} tuple to its full representation, i.e. {ewc, ControllerModule, ViewModule, Func, Param}.
+
+- Optimized the generated code for mapping incoming requests and nested components to their controller/view modules.
+
+- Removed the before_return() and module_info() functions from the list of controller functions exposed to incoming requests.
+
+- Made a few small internal optimizations.
+
+- Updated the documentation.
 
 v0.4.1
 

@@ -18,6 +18,8 @@
 	 compile/1,
 	 compile/2,
 	 out/1,
+	 get_initial_ewc/2,
+	 get_ewc/2,
 	 get_app_name/1,
 	 get_app_root/1
 	]).
@@ -120,19 +122,9 @@ compile(AppDir, Options) ->
 		  Acc
 	  end, [], Options),
     
-    Options1 = case lists:member(suppress_warnings, Options) of
-		   true -> Options;
-		   false -> [report_warnings | Options]
-	       end,
-    Options2 = case lists:member(suppress_errors, Options1) of
-		   true -> Options1;
-		   false -> [report_errors | Options1]
-	       end,
-
-    Options3 = case lists:member(no_debug_info, Options2) of
-		   true -> Options2;
-		   false -> [debug_info | Options2]
-	       end,
+    Options1 = set_default_option(report_warnings, suppress_warnings, Options),
+    Options2 = set_default_option(report_errors, suppress_errors, Options1),
+    Options3 = set_default_option(debug_info, no_debug_info, Options2),
 
     {Options4, OutDir} =
 	get_option(outdir, AppDir1 ++ "ebin", Options3),
@@ -159,7 +151,8 @@ compile(AppDir, Options) ->
 
     AppControllerStr = AppName ++ "_app_controller",
     AppControllerFile = AppControllerStr ++ ".erl",
-    case compile_file(AppDir1 ++ "src/" ++ AppControllerFile,
+    AppControllerFilePath = AppDir1 ++ "src/" ++ AppControllerFile,
+    case compile_file(AppControllerFilePath,
 		      AppControllerStr, ".erl", undefined,
 		      LastCompileTimeInSeconds, Options5, IncludePaths) of
 	{ok, _} -> ok;
@@ -175,8 +168,15 @@ compile(AppDir, Options) ->
 	filelib:fold_files(
 	  AppDir1 ++ "src", "\.(erl|et)$", true,
 	  fun(FileName, Acc) ->
-		  compile_component_file(AppDir1 ++ "src/components", FileName,
-		    LastCompileTimeInSeconds, Options5, IncludePaths, Acc)
+		  if FileName =/= AppControllerFilePath ->
+			  compile_component_file(
+			    AppDir1 ++
+			    "src/components", FileName,
+			    LastCompileTimeInSeconds, Options5, IncludePaths,
+			    Acc);
+		     true ->
+			  Acc
+		  end
 	  end, InitialAcc),
 
     ErlyDBResult =
@@ -211,6 +211,13 @@ compile(AppDir, Options) ->
        true -> Result
     end.
 
+set_default_option(Option, Override, Options) ->
+    case lists:member(Override, Options) of
+	true -> Options;
+	false -> [Option | lists:delete(Option,
+					Options)]
+    end.
+
 get_option(Name, Default, Options) ->
     case lists:keysearch(Name, 1, Options) of
 	{value, {_Name, Val}} -> {Options, Val};
@@ -225,28 +232,19 @@ make_app_data_module(AppData, AppName, ComponentTree, Options) ->
 	  {function,1,components,0,
 	   [{clause,1,[],[],
 	     [erl_parse:abstract(ComponentTree)]}]}),
-    M2,
+    
     {ok, M4} = smerl:add_func(
 		 M2, "get_view() -> " ++ AppName ++ "_app_view."),
     {ok, M5} = smerl:add_func(
 		 M4, "get_controller() -> " ++
 		 AppName ++ "_app_controller."),
-    
-    ViewsTree = lists:foldl(
-		  fun(Component, Acc) ->
-			  gb_trees:enter(
-			    list_to_atom(Component ++ "_controller"),
-			    list_to_atom(
-			      Component ++ "_view"),
-			    Acc)
-		  end, gb_trees:empty(),
-		  gb_trees:keys(ComponentTree)),
+
+    AbsFunc =
+	make_get_component_function(ComponentTree),
 
     {ok, M6} = smerl:add_func(
-		 M5, {function,1,get_views,0,
-		      [{clause,1,[],[],
-			[erl_parse:abstract(ViewsTree)]}]}),
-
+		 M5, AbsFunc),
+    
     {_Options1, AutoCompile} =
 	get_option(auto_compile, false, Options),
 
@@ -255,8 +253,7 @@ make_app_data_module(AppData, AppName, ComponentTree, Options) ->
     AutoCompileVal =
 	case AutoCompile of
 	    false -> false;
-	    true -> {true, [LastCompileTimeOpt | Options]};
-	    {true, Options} when is_list(Options) ->
+	    true -> 
 		Options1 = lists:keydelete(last_compile_time, 1, Options),
 		Options2 = [LastCompileTimeOpt | Options1],
 		{true, Options2}
@@ -267,7 +264,87 @@ make_app_data_module(AppData, AppName, ComponentTree, Options) ->
 	  M6, {function,1,auto_compile,0,
 	       [{clause,1,[],[],
 		 [erl_parse:abstract(AutoCompileVal)]}]}),
+
     M7.
+
+%% This function generates the abstract form for the
+%% AppData:get_component/3 function.
+%%
+%% This function's signature is:
+%% get_component(ComponentName::string() | atom(), FuncName::string() | atom(),
+%%  Params::list()) ->
+%%    {ok, {component, Controller::atom(), View::atom(), Params::list()}} |
+%%    {error, no_such_component} |
+%%    {error, no_such_function}
+make_get_component_function(ComponentTree) ->
+    Clauses1 =
+	lists:foldl(
+	  fun(ComponentStr, Acc) ->
+		  Exports = gb_trees:get(ComponentStr, ComponentTree),
+		  Clauses = make_clauses_for_component(ComponentStr, Exports),
+		  Clauses ++ Acc
+	  end, [], gb_trees:keys(ComponentTree)),
+    Clauses2 = [{clause,1,
+		 [{var,1,'_'},
+		  {var,1,'_'},
+		  {var,1,'_'}],
+		 [],
+		 [{tuple,1,
+		   [{atom,1,error},
+		    {atom,1,no_such_component}]}]} | Clauses1],
+    %exit(lists:reverse(Clauses2)),
+    {function,1,get_component,3,lists:reverse(Clauses2)}.
+
+
+%% This function generates the abstract form for the AppData:get_component/3
+%% function clauses that apply to a the given component.
+make_clauses_for_component(ComponentStr, Exports) ->
+    Clauses =
+	lists:foldl(
+	  fun({Func, Arity}, Acc) ->
+		  Guards =
+		      [[{op,1,'==',
+			 {call,1,{atom,1,length},
+			  [{var,1,'Params'}]},
+			 {integer,1,Arity}}]],
+		  Body = 
+		      [{tuple,1,
+			[{atom,1,ok},
+			 {tuple,1,
+			  [{atom,1,ewc},
+			   {atom,1,
+			    list_to_atom(ComponentStr ++
+					 "_controller")},
+			   {atom,1,
+			    list_to_atom(ComponentStr ++ "_view")},
+			   {atom,1, Func},
+			   {var,1,'Params'}]}]}],
+
+		  Clause1 = 
+		      {clause,1,
+		       [{string,1,ComponentStr},
+			{string,1,atom_to_list(Func)},
+			{var,1,'Params'}],
+		       Guards, Body},
+		  Clause2 = 
+		      {clause,1,
+		       [{atom,1,list_to_atom(ComponentStr)},
+			{atom,1,Func},
+			{var,1,'Params'}],
+		       Guards, Body},
+		  [Clause1, Clause2 | Acc]
+	  end, [], Exports),
+    LastClause = 
+	{clause,1,
+	 [{string,1,ComponentStr},
+	  {var,1,'_'},
+	  {var,1,'_'}],
+	 [],
+	 [{tuple,1,
+	   [{atom,1,error},
+	    {atom,1,no_such_function}]}]},
+    [LastClause | Clauses].
+
 
 
 compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
@@ -290,21 +367,22 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
 		       LastCompileTimeInSeconds, Options, IncludePaths),
 	  Type} of
 	{{ok, Module}, controller} ->
-	    %% Convert atom to strings so they can be compared
-	    %% against values from incoming requests
-	    %% (see out/1 for more details).
 	    [{exports, Exports} | _] =
 		Module:module_info(),
 	    Exports1 =
 		lists:foldl(
 		  fun({before_return, _}, Acc1) ->
 			  Acc1;
+		     ({module_info, _}, Acc1) ->
+			  Acc1;
+		     ({_, 0}, Acc1) ->
+			  Acc1;
 		     ({Name, Arity}, Acc1) ->
-			  [{atom_to_list(Name), Arity, Name} | Acc1]
+			  [{Name, Arity} | Acc1]
 		  end, [], Exports),
 	    {ActionName, _} = lists:split(length(BaseName) - 11, BaseName),
 	    {gb_trees:enter(
-	       ActionName, {list_to_atom(BaseName), Exports1}, ComponentTree),
+	       ActionName, Exports1, ComponentTree),
 	     Models};
 	{{ok, _Module}, model} ->
 	    {ComponentTree, [FileName | Models]};
@@ -421,6 +499,26 @@ app_controller_hook(AppController, A, AppData) ->
     Response = ewc(Ewc, AppData),
     process_response(Response, AppData).
 
+
+%% @doc Get the expanded ewc tuple for the request.
+%%
+%% This function is similar to {@link get_ewc/2} but it crashes
+%% if the Arg represents a request for a private component
+%% (i.e. if its controller has the function 'private() -> true.').
+%% @see get_ewc/2.
+get_initial_ewc({ewc, _A} = Ewc, AppData) ->
+    case get_ewc(Ewc, AppData) of
+	{ewc, Controller, _View, _FuncName, _Params} = Ewc1 ->
+	    case Controller:private() of
+		true -> exit({illegal_request, Controller});
+		false -> Ewc1
+	    end;
+	Other -> Other
+    end;
+get_initial_ewc(List, AppData) when is_list(List) ->
+    [get_initial_ewc(Ewc, AppData) || Ewc <- List];
+get_initial_ewc(Ewc, _AppData) -> Ewc.
+	    
 process_response({response, Elems}, AppData) ->
     {_Config1, Output1} =
 	lists:foldl(
@@ -447,8 +545,8 @@ process_response({response, Elems}, AppData) ->
 				  AppViewParam ->
 				      Param = get_rendered(ewc(AppViewParam,
 							       AppData)),
-				      render([Param,
-					      Rendered], AppView)
+				      render({Param,
+					      Rendered}, AppView)
 			      end
 		      end,
 		  {Config, [tag_output(Rendered1) | Output]};
@@ -461,19 +559,6 @@ process_response({response, Elems}, AppData) ->
 process_response(Other, _AppData) ->
     Other.
 
-get_initial_ewc({ewc, _A} = Ewc, AppData) ->
-    case get_ewc(Ewc, AppData) of
-	{controller, Controller, _FuncName, _Params} = Ewc1 ->
-	    case Controller:private() of
-		true -> exit({illegal_request, Controller});
-		false -> Ewc1
-	    end;
-	Other -> Other
-    end;
-get_initial_ewc(List, AppData) when is_list(List) ->
-    [get_initial_ewc(Ewc, AppData) || Ewc <- List];
-get_initial_ewc(Ewc, _AppData) -> Ewc.
-	    
 ewc(List, AppData) when is_list(List) ->
     {AllRendered, AllOthers} =
 	lists:foldl(
@@ -491,7 +576,12 @@ ewc(List, AppData) when is_list(List) ->
 			  {RenderedAcc, [Other | ElemAcc]}
 		  end
 	  end, {[], []}, List),
-    {response, AllOthers ++ [{rendered, lists:reverse(AllRendered)}]};
+    case AllRendered of
+	[] ->
+	    {response, AllOthers};
+	_ ->
+	    {response, AllOthers ++ [{rendered, lists:reverse(AllRendered)}]}
+    end;
 
 ewc({data, Data}, _AppData) -> {response, [{rendered, Data}]};
 
@@ -503,29 +593,27 @@ ewc({ewc, Component, Params}, AppData) ->
     ewc({ewc, Component, index, Params}, AppData);
 
 ewc({ewc, Component, FuncName, Params}, AppData) ->
-    Result =
-	case gb_trees:lookup(atom_to_list(Component),
-			     AppData:components()) of
-	    {value, {Controller, _Exports}} ->
-		{controller, Controller, FuncName, Params};
-	    none ->
-		exit({no_such_component, Component})
-	end,
-    ewc(Result, AppData);
+    case AppData:get_component(Component, FuncName, Params) of
+	{error, no_such_component} ->
+	    exit({no_such_component, Component});
+	{error, no_such_function} ->
+	    exit({no_such_function, Component, FuncName, length(Params)});
+	{ok, Ewc} ->
+	    ewc(Ewc, AppData)
+    end;
 
-ewc({controller, Controller, FuncName, [A | _] = Params}, AppData) ->
+ewc({ewc, Controller, View, FuncName, [A | _] = Params}, AppData) ->
     Response = apply(Controller, FuncName, Params),
     case ewr(A, Response) of
 	{redirect_local, _} = Res -> Res;
 	_ ->
 	    Response1 = Controller:before_return(FuncName, Params, Response),
-	    Views = AppData:get_views(),
-	    {value, View} = gb_trees:lookup(Controller, Views),
 	    render_response(A, Response1, View, FuncName, AppData)
     end;
 
 ewc(Other, _AppData) -> Other.
 
+ewr(A, ewr) -> ewr2(A, []);
 ewr(A, {ewr, Component}) -> ewr2(A, [Component]);
 ewr(A, {ewr, Component, FuncName}) -> ewr2(A, [Component, FuncName]);
 ewr(A, {ewr, Component, FuncName, Params}) ->
@@ -555,9 +643,9 @@ render_response(A, {response, Elems}, View, FuncName, AppData) ->
 				  undefined ->
 				      render(Output, View);
 				  ViewParam ->
-				      render([get_rendered(
+				      render({get_rendered(
 						ewc(ViewParam, AppData)),
-					      Output], View)
+					      Output}, View)
 			      end
 		      end,
 		  Elems2 = render_ewc(BodyEwc, View, FuncName, AppData,
@@ -588,8 +676,7 @@ render_ewc(Ewc, View, FuncName, AppData, RenderFun, Acc) ->
 	    [Other | Acc]
     end.
     
-render(Output, _View) when is_tuple(Output) -> Output;
-render(Output, View) -> try_func(View, render, [Output], Output).
+render(Output, View) -> View:render(Output).
 
 get_rendered({response, Elems}) ->
     proplists:get_value(rendered, Elems);
@@ -603,6 +690,16 @@ try_func(Module, FuncName, Params, Default) ->
 	Val -> Val
     end.
 
+%% @doc Get the expanded ewc tuple for the request.
+%%
+%% The second parameter is the name of the application's erlyweb data
+%% module, i.e. [AppName]_erlyweb_data.
+%%
+%% @spec get_ewc({ewc, A::arg()}, AppDataModule::atom()) ->
+%%   {page, Path::string()} |
+%%   {ewc, Controller::atom(), View::atom(), Function::atom(),
+%%     Params::[string()]} |
+%%   exit({no_such_function, Err})
 get_ewc({ewc, A}, AppData) ->
     case string:tokens(yaws_arg:appmoddata(A), "/") of
 	[] -> {page, "/"};
@@ -615,10 +712,9 @@ get_ewc({ewc, A}, AppData) ->
     end.
 
 get_ewc(ComponentStr, FuncStr, [A | _] = Params,
-		      AppData) ->
-    Controllers = AppData:components(),
-    case gb_trees:lookup(ComponentStr, Controllers) of
-	none ->
+	AppData) ->
+    case AppData:get_component(ComponentStr, FuncStr, Params) of
+	{error, no_such_component} ->
 	    %% if the request doesn't match a controller's name,
 	    %% redirect it to /path
 	    Path = case yaws_arg:appmoddata(A) of
@@ -626,24 +722,14 @@ get_ewc(ComponentStr, FuncStr, [A | _] = Params,
 		       Other -> [$/ | Other]
 		   end,
 	    {page, Path};
-	{value, {Controller, Exports}} ->
-	    Arity = length(Params),
-	    get_ewc1(Controller, FuncStr, Arity,
-		     Params, Exports)
+	{error, no_such_function} ->
+	    exit({no_such_function,
+		  {ComponentStr, FuncStr, length(Params),
+		   "You tried to invoke a controller function that doesn't "
+		   "exist or that isn't exported"}});
+	{ok, Component} ->
+	    Component
     end.
-
-
-get_ewc1(Controller, FuncStr, Arity, _Params, []) ->
-    exit({no_such_function,
-	  {Controller, FuncStr, Arity,
-	   "You tried to invoke a controller function that doesn't exist or "
-	   "that isn't exported"}});
-get_ewc1(Controller, FuncStr, Arity, Params,
-	  [{FuncStr1, Arity1, FuncName} | _Rest]) when FuncStr1 == FuncStr,
-						       Arity1 == Arity->
-    {controller, Controller, FuncName, Params};
-get_ewc1(Controller, FuncStr, Arity, Params, [_First | Rest]) ->
-    get_ewc1(Controller, FuncStr, Arity, Params, Rest).
 
 %% Helps sending Yaws a properly tagged output when the output comes from
 %% an ErlTL template. ErlyWeb currently only supports ehtml in up to one

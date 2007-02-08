@@ -181,10 +181,12 @@ and the second column is 'student_id'.</p>
  </p>
 
 <h3><a name="after_delete-1">after_delete/1</a></h3>
-<p><tt>after_delete(Rec::<a href="#type-record">record()</a>) -&gt; ok</tt></p>
+<p><tt>after_delete(X1::{Rec::<a href="#type-record">record()</a>, NumDeleted::integer()}) -&gt; integer()</tt></p>
 <p><p>A hook that gets called after a record is deleted.</p>
  
-  By default, this function returns 'ok', indicating the deletion succeeded.
+  <p>By default, this function returns an integer indicating the number of rows  
+deleted.</p>
+ 
   You can implement
   this function in the target module to override the default behavior.
  </p>
@@ -255,10 +257,8 @@ functions to the 'dog' module:</p>
  
   <p>where 'Field' is the name of the field in the 'bone' module (e.g. 'size').</p>
  
-  <p>ErlyDB generates similar derivatives for all aggregate functions listed in
-  <a href="#aggregate-5"><code>aggregate/5</code></a>.</p>
- 
-  If 'Dog' isn't saved in the database, these functions would exit.
+  ErlyDB generates similar derivatives for all aggregate functions listed in
+  <a href="#aggregate-5"><code>aggregate/5</code></a>.
  </p>
 <p><b>See also:</b> <a href="#aggregate-5">aggregate/5</a>.</p>
 
@@ -346,10 +346,8 @@ fields for the module.</p>
 
 <h3><a name="delete-1">delete/1</a></h3>
 <p><tt>delete(Rec::<a href="#type-record">record()</a>) -&gt; ok | <a href="#type-exit">exit(Err)</a></tt></p>
-<p><p>Delete the record from the database. This function  
-returns 'ok' or crashes if the number of deleted records isn't equal  
-to 1 (one of this function's preconditions is that the record must  
-have been saved in the database).</p>
+<p><p>Delete the record from the database. To facilitate the after_delete  
+hook, this function expects a single record to be deleted.</p>
  
   You can override the return value by implementing the after_delete
   hook.
@@ -568,8 +566,6 @@ functions to the 'dog' module:</p>
   dog:bones_range(Dog, First, Max, Where)
   dog:bones_range_with(Dog, First, Max, Extras)
   dog:bones_range(Dog, First, Max, Where, Extras)</pre>
- 
-  If 'Dog' isn't saved in the database, these functions would exit.
  </p>
 <p><b>See also:</b> <a href="#find-3">find/3</a>, <a href="#find_first-3">find_first/3</a>, <a href="#find_max-4">find_max/4</a>, <a href="#find_range-5">find_range/5</a>.</p>
 

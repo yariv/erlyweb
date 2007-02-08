@@ -20,7 +20,7 @@
 <a href="#Views">Views</a><br>
 <a href="#The_App_View">The App View</a><br>
 <a href="#Advanced_Controller_Topics">Advanced Controller Topics</a><br>
-<a href="#YAWS_Configuration">YAWS Configuration</a><br></p>
+<a href="#Yaws_Configuration">Yaws Configuration</a><br></p>
 
 <h3><a name="Introduction">Introduction</a></h3>
 
@@ -31,8 +31,8 @@ enjoy all the benefits of Erlang/OTP while
 creating web applications with simplicity, productivity and
 fun.</p>
 
-<p>ErlyWeb is designed to work with YAWS, a
-high-performance Erlang web server. For more information on YAWS, visit
+<p>ErlyWeb is designed to work with Yaws, a
+high-performance Erlang web server. For more information on Yaws, visit
 <a href="http://yaws.hyber.org" target="_top"><tt>http://yaws.hyber.org</tt></a>.</p>
 
 
@@ -81,7 +81,7 @@ for the component's 'index' function and with no parameters (i.e.
 <p>If the module 'foo_controller' exists and it exports the function
 'bar/4', ErlyWeb invokes the function foo_controller:bar/4
 with the parameters <code>[A, "1", "2", "3"]</code>, where A is the Arg record
-that YAWS passes into the appmod's out/1 function. (For more information,
+that Yaws passes into the appmod's out/1 function. (For more information,
 visit <a href="http://yaws.hyber.org/" target="_top"><tt>http://yaws.hyber.org/</tt></a>.)</p>
 
 <h3><a name="Models">Models</a></h3>
@@ -101,15 +101,18 @@ models in 'src/components' and then you won't have to call erlydb:start().</p>
 <h3><a name="Controllers">Controllers</a></h3>
 
 <p>Controllers contain most of your application's logic. They are the glue
-between YAWS and your applications models and views.</p>
+between Yaws and your applications models and views.</p>
 
-<p>Controller functions always accept the YAWS Arg as the first parameter, and
-they may return any of the values that YAWS appmods may return (please read
-the paragraph below concerning returning standard YAWS tuples to avoid
+<p>Controller functions always accept the Yaws Arg as the first parameter, and
+they may return any of the values that Yaws appmods may return (please read
+the paragraph below concerning returning standard Yaws tuples to avoid
 running into trouble). In addition, they may return a few special values,
 which are listed below with their meanings
 (note: 'ewr' stands for 'ErlyWeb redirect' and 'ewc' stands for 'ErlyWeb
 Component.').</p>
+
+<p><code>ewr</code><br>
+Redirect the browser to the application's root url.</p>
 
 <p><code>{ewr, ComponentName}</code><br>
 Redirect the browser to the component's default ('index')
@@ -126,7 +129,7 @@ the given component/function/parameters combination.</p>
 Call the view function, passing into it the Data variable as a parameter.</p>
 
 <p><code>{ewc, A}</code><br>
-Analyze the YAWS Arg record 'A'. If the request matches a component,
+Analyze the Yaws Arg record 'A'. If the request matches a component,
 render the component and send the result to the browser.
 Otherwise, return <code>{page, Path}</code>, where Path is the Arg's appmoddata field.</p>
 
@@ -138,11 +141,17 @@ and send the result to the view function.</p>
 Render the component's function with the given parameters, and send
 the result to the view function.</p>
 
+<p><code>{ewc, ControllerModule, ViewModule, FuncName, Params}</code><br>
+This tuple lets you specify exacly which controller and
+view modules ErlyWeb uses to render the sub-component. You should only use
+it if you need very fine-grained control over the rendering
+sub-components. This tuple is considered for advanced uses only.</p>
+
 <p>Controller functions may also return (nested) lists of
 'ewc' and 'data' tuples, telling ErlyWeb to render the items
 in their order of appearance and then send the list of their results to
 the view function.
-This lets you build components that are composed of a mix of
+This feature lets you build components that are composed of a mix of
 dynamic data and one or more sub-components.</p>
 
 <p>If a component is only supposed to exist as a subcomponent, you can
@@ -150,13 +159,12 @@ implement the function "<code>private() -&gt; true.</code>" in its controller to
 prevent web clients from accessing the component by requesting
 its corresponding URL.</p>
 
-
 <p>If a controller function doesn't have a corresponding view function,
 ErlyWeb calls the controller function, processes the result (if necessary),
-and then sends the output back to YAWS. When you wish to bypass the
-view layer and return a standard YAWS tuple such as {html, ...} or
+and then sends the output back to Yaws. When you wish to bypass the
+view layer and return a standard Yaws tuple such as {html, ...} or
 {ehtml, ..}, you should avoid defining a view function. Otherwise,
-YAWS may fail to understand the response and crash the process.</p>
+Yaws may fail to understand the response and crash the process.</p>
 
 <h3><a name="The_App_Controller">The App Controller</a></h3>
 
@@ -189,7 +197,7 @@ processing of the controller function's return value.</p>
 
 <p>Views may implement the special function render/1. If this function exists,
 ErlyWeb passes into it the results of other functions in the
-same view module and then returns the result of render/1 back to YAWS.
+same view module and then returns the result of render/1 back to Yaws.
 This feature simplifies creating view elements,
 such as headers and footers, that are common to all component functions.</p>
 
@@ -203,7 +211,7 @@ elements, you should at least have the following line at the top of the file
 
 <p>This line tells ErlTL to not dismiss the values that ErlyWeb passes into
 render/1. Without this line,
-ErlyWeb would return an empty response back to YAWS.
+ErlyWeb would return an empty response back to Yaws.
 (The reason is that ErlTL would compile the view's render/1 function as
 "<code>render(Data) -&gt; [].</code>" instead of "<code>render(Data) -&gt; [Data].</code>".)</p>
 
@@ -211,10 +219,10 @@ ErlyWeb would return an empty response back to YAWS.
 
 <p>ErlyWeb applications normally have a view module called
 [AppName]_app_view, whose source file is in the 'src' directory.
-Before returning to YAWS a rendered iolist, ErlyWeb checks
+Before returning to Yaws a rendered iolist, ErlyWeb checks
 if this module exists and if it exports the function render/1.
 If it does, ErlyWeb passes the iolist to render/1 and then
-returns the result back to YAWS.</p>
+returns the result back to Yaws.</p>
 
 <p>This feature allows you to easily create global view elements, such as headers
 and footers, for your application.</p>
@@ -286,7 +294,7 @@ Note: this value must appear after all of the tuples above (for performance
 reasons).</p>
 
 <p>In addition to these values, Elems may include any value that
-YAWS accepts, such as <code>{header, Header}</code>, <code>{html, Html}</code>, etc. ErlyWeb
+Yaws accepts, such as <code>{header, Header}</code>, <code>{html, Html}</code>, etc. ErlyWeb
 returns these values, as well as the rendered component,
 in their order of appearance.</p>
 
@@ -312,8 +320,8 @@ before_return(_FuncName, _Params, Body) -&gt;
   {response, [{app_view, undefined}, {body, Body}]}.</pre>
 
 
-<h3><a name="YAWS_Configuration">YAWS Configuration</a></h3>
-To use ErlyWeb, you need to configure YAWS to use the erlyweb module
+<h3><a name="Yaws_Configuration">Yaws Configuration</a></h3>
+To use ErlyWeb, you need to configure Yaws to use the erlyweb module
 as an appmod (for more information, visit <a href="http://yaws.hyber.org" target="_top"><tt>http://yaws.hyber.org</tt></a>)
 for your application. You can do this by adding the the following lines
 to your yaws.conf file:
@@ -323,9 +331,9 @@ appmods = &lt;[UrlPrefix], erlyweb&gt;
   appname = [AppName]
 &lt;/opaque&gt;</pre><p>
 where AppName is the name of your application and 
-UrlPrefix is the URL prefix that YAWS uses to identify requests for this
+UrlPrefix is the URL prefix that Yaws uses to identify requests for this
 application (common values are '/[AppName]', for deploying multiple
 applications on the same server, or '/', for deploying a single application).</p>
 
-Note: It is recommended to use ErlyWeb with YAWS v1.66 and above.</body>
+Note: It is recommended to use ErlyWeb with Yaws v1.66 and above.</body>
 </html>

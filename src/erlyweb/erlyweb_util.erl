@@ -8,7 +8,7 @@
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
 -export([log/5, create_app/2, create_component/2, get_appname/1,
-	 get_app_root/1]).
+	 get_app_root/1, validate/3]).
 
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
 -define(Info(Msg, Params), log(?MODULE, ?LINE, info, Msg, Params)).
@@ -167,3 +167,26 @@ get_appname(A) ->
 %% @deprecated Please use erlyweb:get_app_root instead
 get_app_root(A)->
     erlyweb:get_app_root(A).
+
+
+validate(A, Fields, Fun) when is_tuple(A), element(1, A) == arg ->
+    validate(yaws_api:parse_post(A), Fields, Fun);
+validate(Params, Fields, Fun) ->
+    lists:foldl(
+      fun(Field, {Vals, Errs}) ->
+	      case proplists:lookup(Field, Params) of
+		  none -> exit({missing_param, Field});
+		  {_, Val} ->
+		      Val1 = case Val of undefined -> ""; _ -> Val end,
+		      case Fun(Field, Val1) of
+			  ok ->
+			      {[Val1 | Vals], Errs};
+			  {ok, Val2} ->
+			      {[Val2 | Vals], Errs};
+			  {error, Err, Val2} ->
+			      {[Val2 | Vals], [Err | Errs]};
+			  {error, Err} ->
+			      {[Val1 | Vals], [Err | Errs]}
+		      end
+	      end
+      end, {[], []}, lists:reverse(Fields)).

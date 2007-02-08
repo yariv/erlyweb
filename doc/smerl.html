@@ -104,6 +104,7 @@ resulting BEAM into the emulator.</td></tr>
   generate based on the modules' exports.</td></tr>
 <tr><td valign="top"><a href="#for_file-1">for_file/1</a></td><td>Create a meta_mod for a module from its source
   file.</td></tr>
+<tr><td valign="top"><a href="#for_file-2">for_file/2</a></td><td/></tr>
 <tr><td valign="top"><a href="#for_module-1">for_module/1</a></td><td>Create a meta_mod tuple for an existing module.</td></tr>
 <tr><td valign="top"><a href="#get_attribute-2">get_attribute/2</a></td><td>Get the value a the module's attribute.</td></tr>
 <tr><td valign="top"><a href="#get_export_all-1">get_export_all/1</a></td><td>Get the export_all value for the module.</td></tr>
@@ -266,6 +267,10 @@ described in the 'compile' module in the Erlang documentation.</p>
 <p>Create a meta_mod for a module from its source
   file.
  </p>
+
+<h3><a name="for_file-2">for_file/2</a></h3>
+<tt>for_file(SrcFilePath, ExtraPaths) -&gt; term()
+</tt>
 
 <h3><a name="for_module-1">for_module/1</a></h3>
 <p><tt>for_module(ModuleName::atom() | string()) -&gt; {ok, <a href="#type-meta_mod">meta_mod()</a>} | {error, Error}</tt></p>
