@@ -1,6 +1,5 @@
 %% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com)]
 %%
-%% @hidden
 %% @doc This module contains utility functions for ErlyWeb.
 
 %% For license information see LICENSE.txt
@@ -8,20 +7,18 @@
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
 -export([log/5, create_app/2, create_component/2, get_appname/1,
-	 get_app_root/1, validate/3]).
+	 get_app_root/1, validate/3, get_cookie/2]).
 
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
 -define(Info(Msg, Params), log(?MODULE, ?LINE, info, Msg, Params)).
 -define(Error(Msg, Params), log(?MODULE, ?LINE, error, Msg, Params)).
 
+%% @hidden
 log(Module, Line, Level, Msg, Params) ->
     io:format("~p:~p:~p: " ++ Msg, [Level, Module, Line] ++ Params),
     io:format("~n").
 
-%% @doc Create a new ErlyWeb application in the given directory. This
-%% function isn't meant to be used directly. Instead, use erlyweb:create_app().
-%%
-%% @spec create_app(AppName::string(), Dir::string()) -> ok | exit(Err)
+%% @hidden
 create_app(AppName, Dir) ->
     case filelib:is_dir(Dir) of
 	true ->
@@ -138,12 +135,7 @@ css() ->
 	"H1 {font-size: 1.5em;}",
     iolist_to_binary(Text).
 
-%% @doc Create a new ErlyWeb component exposing CRUD functions for a
-%% database table. This function isn't meant to be used directly. Instead,
-%% use erlyweb:create_component.
-%%
-%% @spec create_component(ComponentName::string(), AppDir::string()) -> ok
-%%  | exit(Err)
+%% @hidden
 create_component(ComponentName, AppDir) ->
     Files =
 	[{ComponentName ++ ".erl",
@@ -160,15 +152,43 @@ create_component(ComponentName, AppDir) ->
 			  FileName, iolist_to_binary(Text))
       end, Files).
 
-%% @deprecated Please use erlyweb:get_app_name instead.
+%% @hidden
 get_appname(A) ->
     erlyweb:get_app_name(A).
 
-%% @deprecated Please use erlyweb:get_app_root instead
+%% @hidden
 get_app_root(A)->
     erlyweb:get_app_root(A).
 
 
+%% @doc This function helps with form validation. It takes a Yaws arg
+%% (or the arg's POST data in the form of a name-value property list), a
+%% list of parameter names to validate, and a validation function, and returns
+%% a tuple of the form {Values, Errors}.
+%% 'Values' contains the list of values for the checked parameters
+%% and Erros is a list of errors returned from the validation function.
+%% If no validation errors occured, this list is empty.
+%%
+%% If the name of a field is missing from the arg's POST data, this function
+%% calls exit({missing_param, Name}).
+%%
+%% The validation function takes two parameters: the parameter name and
+%% its value, and it may return one of the following values:
+%%
+%% - `ok' means the parameter's value is valid
+%%
+%% - `{ok, Val}' means the parameter's value is valid, and it also lets you
+%%   set the value inserted into 'Values' for this parameter.
+%%
+%% - `{error, Err}' indicates the parameter didn't validate. Err is inserted
+%%   into 'Errors'.
+%%
+%% - `{error, Err, Val}' indicates the parameter didn't validate. Err is
+%%   inserted into 'Errors' and Val is inserted into 'Values' instead of
+%%   the parameter's original value.
+%%
+%% @spec validate(A::arg() | Params::proplist(), Fields::[string()],
+%%   Fun::function()) -> {Values::[term()], Errors::[term()]}.
 validate(A, Fields, Fun) when is_tuple(A), element(1, A) == arg ->
     validate(yaws_api:parse_post(A), Fields, Fun);
 validate(Params, Fields, Fun) ->
@@ -190,3 +210,12 @@ validate(Params, Fields, Fun) ->
 		      end
 	      end
       end, {[], []}, lists:reverse(Fields)).
+
+
+%% @doc Get the cookie's value from the arg.
+%% @equiv yaws_api:find_cookie_val(Name, yaws_headers:cookie(A)).
+%%
+%% @spec get_cookie(Name::string(), A::arg()) -> string()
+get_cookie(Name, A) ->
+    yaws_api:find_cookie_val(
+      Name, yaws_headers:cookie(A)).

@@ -94,7 +94,8 @@
    [start/1,
     start/2,
     code_gen/2,
-    code_gen/3]).
+    code_gen/3,
+    code_gen/4]).
 
 %% useful for debugging
 -define(L(Obj), io:format("LOG ~w ~p\n", [?LINE, Obj])).
@@ -148,6 +149,9 @@ code_gen(Driver, Modules) ->
 %% @spec code_gen(Driver::atom(), [Module::atom()], Options::proplist())
 %%   -> ok | {error, Err}
 code_gen(Driver, Modules, Options) ->
+    code_gen(Driver, Modules, Options, []).
+
+code_gen(Driver, Modules, Options, IncludePaths) ->
     DriverMod = driver_mod(Driver),
     case DriverMod:get_metadata(Options) of
 	{error, _Err}  = Res ->
@@ -156,7 +160,7 @@ code_gen(Driver, Modules, Options) ->
 	    lists:foreach(
 	      fun(Module) ->
 		      case process_module(DriverMod, Module, Metadata,
-					  Options) of
+					  Options, IncludePaths) of
 			  ok ->
 			      ok;
 			  Err ->
@@ -165,8 +169,8 @@ code_gen(Driver, Modules, Options) ->
 	      end, Modules)
     end.
 
-process_module(DriverMod, Module, Metadata, Options) ->
-    case smerl:for_module(Module) of
+process_module(DriverMod, Module, Metadata, Options, IncludePaths) ->
+    case smerl:for_module(Module, IncludePaths) of
 	{ok, C1} ->
 	    ModName = smerl:get_module(C1),
 	    case gb_trees:lookup(get_table(ModName), Metadata) of

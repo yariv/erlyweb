@@ -30,6 +30,17 @@ v0.4.2
 
 - Updated the documentation.
 
+- Removed support for app views and component views' render() function. Their functionality is now attained with containers.
+
+- Added the {phased, Ewc, Fun(ExpandedEwc, Data)} response tuple to the app controller to support conditional containers.
+
+- Refactored the compilation logic to a new file called 'erlyweb_compile.erl'.
+
+- Added the get_cookie/2 function to erlyweb_util.
+
+- Fixed the include paths support for files compiled with ErlyDB.
+
+
 v0.4.1
 
 - Added compiler debug_info to ebin files.
