@@ -46,7 +46,7 @@ v0.5
 
 - Added is_new/2 to erlydb_base.
 
-- erlydb_base:remove_related_many_to_many() and erlydb_base:add_related_many_to_many() now return {ok, NumRowsDeleted} instead of 'ok' or crashing if the number of rows deleted isn't 1.
+- erlydb_base:remove_related_many_to_many() and erlydb_base:add_related_many_to_many() now return NumRowsDeleted::integer() instead of 'ok' or crashing if the number of rows deleted isn't 1.
 
 - ErlTL enhacement: expressions in <% .. %> tags are now treated as a single block, which means you can write multiple expressions separated by commas and the value of the last expression will be returned.
 
@@ -55,6 +55,8 @@ v0.5
 - erlydb_base:add_related_many_to_many now accepts a list of related records to add in a single SQL statement for efficiency.
 
 - Made a fix in the handling of self-referencing many-to-many relations for tables with multiple primary keys.
+
+- Added the client_ip_port field to yaws_arg.erl.
 
 v0.4.1
 

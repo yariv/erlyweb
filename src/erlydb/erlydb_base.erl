@@ -1026,7 +1026,9 @@ add_related_many_to_many(JoinTable, Rec, OtherRec) ->
 		  DriverMod:update(Query, Options)
 	  end, Options),
     case Res of
-	{atomic, Res1} -> Res1;
+	{atomic, {ok, 1}} when is_tuple(OtherRec) ->
+	    ok;
+	{atomic, Other} -> Other;
 	{aborted, Err} -> exit(Err)
     end.
 
@@ -1099,7 +1101,7 @@ make_add_related_many_to_many_query(JoinTable, Rec, OtherRecs) ->
 %% This function expects a single record to be removed. 
 %%
 %% @spec remove_related_many_to_many(JoinTable::atom(), Rec::record(),
-%%   OtherRec::record()) -> ok |
+%%   OtherRec::record()) -> NumRemoved::interger() |
 %%   exit(Err)
 remove_related_many_to_many(JoinTable, Rec, OtherRec) ->
     do_remove(Rec, make_remove_related_many_to_many_query(
@@ -1113,7 +1115,7 @@ do_remove(Rec, Query) ->
 		  DriverMod:update({esql, Query}, Options)
 	  end, Options),
     case Res of
-	{atomic, Res1} -> Res1;
+	{atomic, {ok, Num}} -> Num;
 	{aborted, Err} -> exit(Err)
     end.
 
