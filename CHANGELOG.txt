@@ -26,7 +26,7 @@ v0.5
 
 - Removed the before_return() and module_info() functions from the list of controller functions exposed to incoming requests.
 
-- Made a few small internal optimizations.
+- Made a few internal optimizations.
 
 - Updated the documentation.
 
@@ -42,15 +42,19 @@ v0.5
 
 - Added support for USING clauses in DELETE statmenets in ErlSQL
 
-- Added the remove_related_many_to_many_all function to erlydb_base together with new a few variants in generated modules.
+- Added the remove_related_many_to_many_all function to erlydb_base together with new a few variants in generated modules. Some of those variants are capable of automatically generating proper USING clauses when provided WHERE expressions.
 
 - Added is_new/2 to erlydb_base.
 
-- erlydb_base:remove_related_many_to_many() now returns {ok, NumRowsDeleted} instead of 'ok' or crashing if the number of rows deleted isn't 1.
+- erlydb_base:remove_related_many_to_many() and erlydb_base:add_related_many_to_many() now return {ok, NumRowsDeleted} instead of 'ok' or crashing if the number of rows deleted isn't 1.
 
 - ErlTL enhacement: expressions in <% .. %> tags are now treated as a single block, which means you can write multiple expressions separated by commas and the value of the last expression will be returned.
 
 - Made a fix in the handling of nested calls to mysql:transaction() in the MySQL driver.
+
+- erlydb_base:add_related_many_to_many now accepts a list of related records to add in a single SQL statement for efficiency.
+
+- Made a fix in the handling of self-referencing many-to-many relations for tables with multiple primary keys.
 
 v0.4.1
 

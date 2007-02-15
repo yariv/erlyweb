@@ -1015,7 +1015,7 @@ aggregate_related_many_to_one(OtherModule, AggFunc, Rec, Field, Where,
 %% mapped to foreign keys in the many-to-many relation table.
 %%
 %% @spec add_related_many_to_many(JoinTable::atom(), Rec::record(),
-%%   OtherRec::record()) -> ok | exit(Err)
+%%   OtherRec::record() | [record()]) -> {ok, NumAdded} | exit(Err)
 add_related_many_to_many(JoinTable, Rec, OtherRec) ->
     {DriverMod, Options} = get_driver(Rec),
     Query = {esql, make_add_related_many_to_many_query(
@@ -1023,17 +1023,64 @@ add_related_many_to_many(JoinTable, Rec, OtherRec) ->
     Res =
 	DriverMod:transaction(
 	  fun() ->
-		  Res = DriverMod:update(Query, Options),
-		  as_single_update(Res)
+		  DriverMod:update(Query, Options)
 	  end, Options),
     case Res of
-	{atomic, ok} -> ok;
+	{atomic, Res1} -> Res1;
 	{aborted, Err} -> exit(Err)
     end.
 
-make_add_related_many_to_many_query(JoinTable, Rec, OtherRec) ->
+make_add_related_many_to_many_query(JoinTable, Rec, [OtherRec]) ->
+    make_add_related_many_to_many_query(JoinTable, Rec, OtherRec);
+make_add_related_many_to_many_query(JoinTable, Rec, OtherRec)
+  when not is_list(OtherRec) ->
     Fields = get_join_table_fields(Rec, OtherRec),
-    {insert, JoinTable, Fields}.
+    {insert, JoinTable, Fields};
+make_add_related_many_to_many_query(JoinTable, Rec, OtherRecs) ->
+    Mod = get_module(Rec),
+    OtherMod = get_module(hd(OtherRecs)),
+    Table = db_table(Mod),
+    OtherTable = db_table(OtherMod),
+    if OtherTable == Table ->
+	    Fields = Mod:get_pk_fk_fields2(),
+	    Rows1 = 
+		lists:foldl(
+		  fun(OtherRec, Rows) ->
+			  [R1, R2] = 
+			      sort_records(Mod, Rec, OtherRec, Fields),
+			  Row =
+			      lists:foldl(
+				fun({PkField, _FkField1, _FkField2}, Acc) ->
+					[Mod:PkField(R1), Mod:PkField(R2) | Acc]
+				end, [], Fields),
+			  [Row | Rows]
+		  end, [], OtherRecs),
+	    FkFields =
+		lists:foldl(
+		  fun({_PkField, FkField1, FkField2}, Acc) ->
+			  [FkField1, FkField2 | Acc]
+		  end, [], Fields),
+	    {insert, JoinTable, FkFields, Rows1};
+       true ->
+	    Fields = Mod:get_pk_fk_fields(),
+	    OtherFields = OtherMod:get_pk_fk_fields(),
+	    FkFields = lists:map(fun({_Pk, Fk}) -> Fk end,
+				 Fields ++ OtherFields),
+	    Rows = lists:foldl(
+		     fun(OtherRec, Rows) ->
+			     OtherVals =
+				 lists:foldl(
+				   fun({PkField, _}, Acc1) ->
+					   [OtherMod:PkField(OtherRec) | Acc1]
+				   end, [], OtherFields),
+			     Row = lists:foldl(
+				      fun({PkField, _}, Acc2) ->
+					      [Mod:PkField(Rec) | Acc2]
+				      end, OtherVals, Fields),
+			     [Row | Rows]
+		     end, [], OtherRecs),
+	    {insert, JoinTable, FkFields, Rows}
+    end.
 
 %% @doc Remove a related record in a many-to-many relation.
 %%
@@ -1106,8 +1153,9 @@ remove_related_many_to_many_all(JoinTable, OtherTable,
 	      JoinTable, OtherTable, Rec, Where, Extras),
     do_remove(Rec, Query).
 
-make_remove_related_many_to_many_all_query(JoinTable, OtherTable, Rec,
+make_remove_related_many_to_many_all_query(JoinTable, OtherMod, Rec,
 					   Where, Extras) ->
+    OtherTable = db_table(OtherMod),
     Mod = get_module(Rec),
     Table = db_table(Mod),
     Expr =
@@ -1116,32 +1164,42 @@ make_remove_related_many_to_many_all_query(JoinTable, OtherTable, Rec,
 		Conds1 =
 		    lists:foldl(
 		      fun({PkField, FkField1, _FkField2}, Acc) ->
-			      [{FkField1, '=', Mod:PkField(Rec)} | Acc]
+			      [{{JoinTable, FkField1}, '=', Mod:PkField(Rec)} |
+			       Acc]
 		      end, [], Fields),
 		Conds2 =
 		    lists:foldl(
 		      fun({PkField, _FkField1, FkField2}, Acc) ->
-			      [{FkField2, '=', Mod:PkField(Rec)} | Acc]
+			      [{{JoinTable, FkField2}, '=', Mod:PkField(Rec)}
+			       | Acc]
 		      end, [], Fields),
 		{'or', [{'and', Conds1}, {'and', Conds2}]};
 	   true ->
 		Conds =
 		    lists:foldl(
 		      fun({PkField, FkField}, Acc) ->
-			      [{FkField, '=', Mod:PkField(Rec)} | Acc]
+			      [{{JoinTable, FkField}, '=', Mod:PkField(Rec)}
+			       | Acc]
 		      end, [], Mod:get_pk_fk_fields()),
 		{'and', Conds}
 	end,
     if Where == undefined ->
 	    {delete, JoinTable, undefined, Expr, Extras};
        true ->
-	    Using = if Table == OtherTable ->
-			    undefined;
-		       true ->
-			    [JoinTable, OtherTable]
-		    end,
-	    {delete, JoinTable, Using,
-	     {'and', [Expr, Where]}, Extras}
+	    {Using, Where1} = 
+		if Table == OtherTable ->
+			{undefined, Expr};
+		   true ->
+			Fields1 = OtherMod:get_pk_fk_fields(),
+			Where2 =
+			     lists:foldl(
+			       fun({PkField, FkField}, Acc) ->
+				       [{{OtherTable, PkField}, '=',
+					 {JoinTable, FkField}} | Acc]
+			       end, [Where, Expr], Fields1),
+			{[JoinTable, OtherTable], {'and', Where2}}
+		end,
+	    {delete, JoinTable, Using, Where1, Extras}
     end.
 	    
 
@@ -1157,13 +1215,13 @@ get_join_table_fields(Rec, OtherRec) ->
     OtherMod = get_module(OtherRec),
     case db_table(Mod) == db_table(OtherMod) of
 	true ->
+	    Fields = Mod:get_pk_fk_fields2(),
+	    [Rec1, Rec2] = sort_records(Mod, Rec, OtherRec, Fields),
 	    lists:foldl(
 	      fun({PkField, FkField1, FkField2}, Acc) ->
-		      [Val1, Val2] = lists:sort([Mod:PkField(Rec),
-						 Mod:PkField(OtherRec)]),
-		      [{FkField1, Val1},
-		       {FkField2, Val2} | Acc]
-	      end, [], Mod:get_pk_fk_fields2());
+		      [{FkField1, Mod:PkField(Rec1)},
+		       {FkField2, Mod:PkField(Rec2)} | Acc]
+	      end, [], Fields);
        _ ->
 	    Fields1 = [{FkField, Mod:PkField(Rec)} ||
 			  {PkField, FkField} <-
@@ -1173,6 +1231,21 @@ get_join_table_fields(Rec, OtherRec) ->
 		      [{FkField, OtherMod:PkField(OtherRec)} | Acc]
 	      end, Fields1, OtherMod:get_pk_fk_fields())
     end.
+
+sort_records(_Mod, R1, R2, []) -> [R1, R2];
+sort_records(Mod, R1, R2, [{PkField, _, _} | Rest]) ->
+    case Mod:PkField(R1) < Mod:PkField(R2) of
+	true ->
+	    [R1, R2];
+	_ ->
+	    case Mod:PkField(R1) == Mod:PkField(R2) of
+		true ->
+		    sort_records(Mod, R1, R2, Rest);
+		false ->
+		    [R2, R1]
+	    end
+    end.
+
 
 %% @doc This function works as {@link find_related_many_to_one/4}, but
 %% for modules defining many-to-many relations.
@@ -1533,10 +1606,6 @@ make_where_expr(Module, Expr1, Expr2) ->
 and_expr(undefined, Expr2) -> Expr2;
 and_expr(Expr1, undefined) -> Expr1;
 and_expr(Expr1, Expr2) -> {Expr1, 'and', Expr2}.
-
-as_single_update({ok, 1}) -> ok;
-as_single_update({ok, Num}) -> exit({expected_single_update, Num});
-as_single_update({error, _} = Err) -> exit(Err).
 
 as_single_val(Res) -> as_single_val(Res, false).
 

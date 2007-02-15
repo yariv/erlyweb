@@ -537,7 +537,7 @@ make_many_to_many_forms(OtherModule, MetaMod) ->
 	  append(["add_", OtherModule])},
 	 {remove_related_many_to_many, 3, [],
 	  append(["remove_", OtherModule])},
-	 {remove_related_many_to_many_all, 5, [get_table(OtherModule)],
+	 {remove_related_many_to_many_all, 5, [OtherModule],
 	  RemoveAllFuncName}],
     
     M3 = lists:foldl(
