@@ -1,10 +1,10 @@
-v0.4.2
+v0.5
 
 - erlyweb:compile() now obey relative include paths passed as {i, Path} options. It treats the base directory as [AppDir]/src. Absolute paths also work now.
 
 - Fixed the SELECT statement generation for self-referencing many-to-many relations when find_related_many_to_many() includes a custom Where clause (this is a fix in erlsql.erl, which didn't add enough parens around the conditions).
 
-- Removed the if_saved() checks in erlydb_base.erl for the following functions: find_related_many_to_many(), aggregate_related_many_to_many(), find_related_many_to_one(), aggregate_related_many_to_one(), and delete(). This means these functions no longer call exit({no_such_record, Rec}) if is_new(Rec) returns true.
+- Removed the if_saved() checks in erlydb_base.erl for the following functions: find_related_many_to_many(), aggregate_related_many_to_many(), find_related_many_to_one(), aggregate_related_many_to_one(), remove_related_many_to_many(), and delete(). This means these functions no longer call exit({no_such_record, Rec}) if is_new(Rec) returns true.
 
 - Changed the return value of erlydb_base:delete/1 to return the number of rows deleted. Previously, if the number of rows deleted was zero or greater than one, this function crashed.
 
@@ -40,6 +40,17 @@ v0.4.2
 
 - Fixed the include paths support for files compiled with ErlyDB.
 
+- Added support for USING clauses in DELETE statmenets in ErlSQL
+
+- Added the remove_related_many_to_many_all function to erlydb_base together with new a few variants in generated modules.
+
+- Added is_new/2 to erlydb_base.
+
+- erlydb_base:remove_related_many_to_many() now returns {ok, NumRowsDeleted} instead of 'ok' or crashing if the number of rows deleted isn't 1.
+
+- ErlTL enhacement: expressions in <% .. %> tags are now treated as a single block, which means you can write multiple expressions separated by commas and the value of the last expression will be returned.
+
+- Made a fix in the handling of nested calls to mysql:transaction() in the MySQL driver.
 
 v0.4.1
 
