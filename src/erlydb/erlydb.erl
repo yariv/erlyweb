@@ -233,7 +233,6 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
 			      Count+1}
 		     end, {M42, 3}, FieldNames),
 
-
     %% create the constructor
     M70 = case make_new_func(Module, Fields) of
 	      undefined ->
@@ -242,13 +241,13 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
 		  {ok, Temp} = smerl:add_func(M60, NewFunc),
 		  Temp
 	  end,
-    
+
     %% inject the driver configuration into the driver/1 function
     {ok, M80} = smerl:curry_replace(M70, driver, 1, [{DriverMod, Options}]),
-
+    
     %% make the relations function forms
     M90 = make_rel_funcs(M80),
-
+    
     %% make the aggregate function forms
     M100 = make_aggregate_forms(M90, aggregate, 5, [Module],
 			     undefined),
@@ -532,27 +531,40 @@ make_many_to_many_forms(OtherModule, MetaMod) ->
 	lists:sort([ModuleName, OtherModule]),
     JoinTableName = append([get_table(Module1), "_", get_table(Module2)]),
 
+    RemoveAllFuncName = append(["remove_all_", pluralize(OtherModule)]),
     CurryFuncs =
-	[{add_related_many_to_many,
+	[{add_related_many_to_many, 3, [],
 	  append(["add_", OtherModule])},
-	 {remove_related_many_to_many,
-	  append(["remove_", OtherModule])}],
+	 {remove_related_many_to_many, 3, [],
+	  append(["remove_", OtherModule])},
+	 {remove_related_many_to_many_all, 5, [get_table(OtherModule)],
+	  RemoveAllFuncName}],
     
     M3 = lists:foldl(
-	   fun({FuncName,NewName}, M1) ->
+	   fun({FuncName, Arity, ExtraParams, NewName}, M1) ->
 		   {ok, M2} = smerl:curry_add(
-				M1, FuncName, 3, [JoinTableName],
+				M1, FuncName, Arity,
+				[JoinTableName | ExtraParams],
 				NewName),
 		   M2
-	   end, MetaMod, CurryFuncs), 
+	   end, MetaMod, CurryFuncs),
+    
+    M4 = add_find_configs(M3, RemoveAllFuncName, 3),
 
-	   
-    M4 = make_some_to_many_forms(
-	   M3, OtherModule, [JoinTableName],
+    M6 = case get_table(Module1) == get_table(Module2) of
+	     true ->
+		 M5 = smerl:remove_func(M4, RemoveAllFuncName, 2),
+		 smerl:remove_func(M5, RemoveAllFuncName, 3);
+	     _ ->
+		 M4
+	 end,
+
+    M7 = make_some_to_many_forms(
+	   M6, OtherModule, [JoinTableName],
 	   find_related_many_to_many, 5,
 	   aggregate_related_many_to_many, 7),
 				 
-    M4.
+    M7.
 
 
 %% TODO There are probably a bunch of additional cases, but this is good

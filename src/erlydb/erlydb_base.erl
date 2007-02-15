@@ -87,6 +87,7 @@
 
     %% functions for getting information about a record
     is_new/1,
+    is_new/2,
     get_module/1,
 
     %% functions for converting a record to an iolist
@@ -147,6 +148,7 @@
     %% many-to-many functions
     add_related_many_to_many/3,
     remove_related_many_to_many/3,
+    remove_related_many_to_many_all/5,
     find_related_many_to_many/5,
     aggregate_related_many_to_many/7,
     
@@ -300,6 +302,12 @@ db_pk_fields(Fields) ->
 %% @spec is_new(Rec::record()) -> boolean()
 is_new(Rec) ->
     element(2, Rec).
+
+%% @doc Set the record's 'is_new' field to the given value.
+%%
+%% @spec is_new(Rec::record(), Val::boolean()) -> NewRec::record()
+is_new(Rec, Val) ->
+    setelement(2, Rec, Val).
 
 %% @doc Get the name of the module to which the record belongs.
 %%
@@ -1009,23 +1017,19 @@ aggregate_related_many_to_one(OtherModule, AggFunc, Rec, Field, Where,
 %% @spec add_related_many_to_many(JoinTable::atom(), Rec::record(),
 %%   OtherRec::record()) -> ok | exit(Err)
 add_related_many_to_many(JoinTable, Rec, OtherRec) ->
-    if_saved(
-      [Rec,OtherRec],
-      fun() ->
-	      {DriverMod, Options} = get_driver(Rec),
-	      Query = {esql, make_add_related_many_to_many_query(
-			       JoinTable, Rec, OtherRec)},
-	      Res =
-		  DriverMod:transaction(
-		    fun() ->
-			    Res = DriverMod:update(Query, Options),
-			    as_single_update(Res)
-		    end, Options),
-	      case Res of
-		  {atomic, ok} -> ok;
-		  {aborted, Err} -> exit(Err)
-	      end
-      end).
+    {DriverMod, Options} = get_driver(Rec),
+    Query = {esql, make_add_related_many_to_many_query(
+		     JoinTable, Rec, OtherRec)},
+    Res =
+	DriverMod:transaction(
+	  fun() ->
+		  Res = DriverMod:update(Query, Options),
+		  as_single_update(Res)
+	  end, Options),
+    case Res of
+	{atomic, ok} -> ok;
+	{aborted, Err} -> exit(Err)
+    end.
 
 make_add_related_many_to_many_query(JoinTable, Rec, OtherRec) ->
     Fields = get_join_table_fields(Rec, OtherRec),
@@ -1051,22 +1055,95 @@ make_add_related_many_to_many_query(JoinTable, Rec, OtherRec) ->
 %%   OtherRec::record()) -> ok |
 %%   exit(Err)
 remove_related_many_to_many(JoinTable, Rec, OtherRec) ->
-    if_saved(
-      [Rec, OtherRec],
-      fun() ->
-	      {DriverMod, Options} = get_driver(Rec),
-	      Query = make_remove_related_many_to_many_query(
-			JoinTable, Rec, OtherRec),
-	      Res =
-		  DriverMod:transaction(
-		    fun() ->
-			    DriverMod:update({esql, Query}, Options)
-		    end, Options),
-	      case Res of
-		  {atomic, Res1} -> as_single_update(Res1);
-		  {aborted, Err} -> exit(Err)
-	      end
-      end).
+    do_remove(Rec, make_remove_related_many_to_many_query(
+		     JoinTable, Rec, OtherRec)).
+
+do_remove(Rec, Query) ->
+    {DriverMod, Options} = get_driver(Rec),
+    Res =
+	DriverMod:transaction(
+	  fun() ->
+		  DriverMod:update({esql, Query}, Options)
+	  end, Options),
+    case Res of
+	{atomic, Res1} -> Res1;
+	{aborted, Err} -> exit(Err)
+    end.
+
+%% @doc Remove all related recorded according to a Where and Extras clause
+%% in a many-to-many relation.
+%%
+%% This function isn't meant to be used directly; ErlyDB uses this function
+%% to generate special remove_all_[RelatedModuleAsPlural] functions in
+%% modules that define many-to-many relations.
+%%
+%% For instance, if you had a module 'student' that defined the relation
+%% `{many_to_many, [class]}', and module 'class' and 'student' had a single
+%% primary key field called 'id', ErlyDB would add the function
+%% `student:remove_all_classes(Student, Where, Extras)' to the 'student'
+%% module. This function would remove [class:id(Class), student:id(Student)]
+%% rows from the class_student table according to the Where and Extras clauses.
+%%
+%% In addition to student:remove_all_classes/3, ErlyDB would generate
+%% additional variations. This would be the full list:
+%%
+%% ```
+%% student:remove_all_classes(Student)
+%% student:remove_all_classes(Student, Where)
+%% student:remove_all_classes_with(Student, Extras)
+%% student:remove_all_classes(Student, Where, Extras)
+%% '''
+%%
+%% Limitation: for self-referencing many-to-many relations, all variations
+%% accepting a Where clause are currently not generated.
+%% 
+%% @spec remove_related_many_to_many_all(JoinTable::atom(), OtherTable::atom(),
+%%   Rec::record(), Where::where_clause(), Extras::extras_clause()) ->
+%%     {ok,NumDeleted}  | exit(Err)
+remove_related_many_to_many_all(JoinTable, OtherTable,
+				Rec, Where, Extras) ->
+    Query = make_remove_related_many_to_many_all_query(
+	      JoinTable, OtherTable, Rec, Where, Extras),
+    do_remove(Rec, Query).
+
+make_remove_related_many_to_many_all_query(JoinTable, OtherTable, Rec,
+					   Where, Extras) ->
+    Mod = get_module(Rec),
+    Table = db_table(Mod),
+    Expr =
+	if Table == OtherTable ->
+		Fields = Mod:get_pk_fk_fields2(),
+		Conds1 =
+		    lists:foldl(
+		      fun({PkField, FkField1, _FkField2}, Acc) ->
+			      [{FkField1, '=', Mod:PkField(Rec)} | Acc]
+		      end, [], Fields),
+		Conds2 =
+		    lists:foldl(
+		      fun({PkField, _FkField1, FkField2}, Acc) ->
+			      [{FkField2, '=', Mod:PkField(Rec)} | Acc]
+		      end, [], Fields),
+		{'or', [{'and', Conds1}, {'and', Conds2}]};
+	   true ->
+		Conds =
+		    lists:foldl(
+		      fun({PkField, FkField}, Acc) ->
+			      [{FkField, '=', Mod:PkField(Rec)} | Acc]
+		      end, [], Mod:get_pk_fk_fields()),
+		{'and', Conds}
+	end,
+    if Where == undefined ->
+	    {delete, JoinTable, undefined, Expr, Extras};
+       true ->
+	    Using = if Table == OtherTable ->
+			    undefined;
+		       true ->
+			    [JoinTable, OtherTable]
+		    end,
+	    {delete, JoinTable, Using,
+	     {'and', [Expr, Where]}, Extras}
+    end.
+	    
 
 make_remove_related_many_to_many_query(JoinTable, Rec, OtherRec) ->
     {delete, JoinTable, make_join_table_expr(Rec, OtherRec)}.
@@ -1243,8 +1320,7 @@ do_save(Rec) ->
 	end,
     case Res of
 	{atomic, NewRec} -> NewRec;
-	{aborted, Err} -> exit(Err);
-	Other -> Other
+	{aborted, Err} -> exit(Err)
     end.
 
 make_save_statement(Rec) ->
