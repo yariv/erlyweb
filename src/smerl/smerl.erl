@@ -206,8 +206,8 @@ mod_for_forms([{attribute,_,file,{FileName,_FileNum}},
 		   forms = OtherForms,
 		   export_all = ExportAll
 		  }};
-mod_for_forms(_) ->
-    {error, invalid_module}.
+mod_for_forms(Mod) ->
+    {error, {invalid_module, Mod}}.
 
 %% @doc Return the module name for the meta_mod.
 %%
