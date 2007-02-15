@@ -200,11 +200,15 @@ sql2({delete, {from, Table}}, Safe) ->
 sql2({delete, Table}, Safe) ->
     delete(Table, Safe);
 sql2({delete, {from, Table}, {where, Where}}, Safe) ->
-    delete(Table, Where, Safe);
+    delete(Table, undefined, Where, Safe);
 sql2({delete, Table, {where, Where}}, Safe) ->
-    delete(Table, Where, Safe);
+    delete(Table, undefined, Where, Safe);
 sql2({delete, Table, Where}, Safe) ->
-    delete(Table, Where, Safe).
+    delete(Table, undefined, Where, Safe);
+sql2({delete, Table, Using, Where}, Safe) ->
+    delete(Table, Using, Where, Safe);
+sql2({delete, Table, Using, Where, Extras}, Safe) ->
+    delete(Table, Using, Where, Extras, Safe).
 
 %% Internal functions
 
@@ -369,15 +373,28 @@ update(Table, Params, WhereExpr, Safe) ->
     [S1, S2, where(WhereExpr, Safe)].
 
 delete(Table, Safe) ->
-    delete(Table, undefined, Safe).
+    delete(Table, undefined, undefined, undefined, Safe).
 
-delete(Table, WhereExpr, Safe) ->
+delete(Table, Using, WhereExpr, Safe) ->
+    delete(Table, Using, WhereExpr, undefined, Safe).
+
+delete(Table, Using, WhereExpr, Extras, Safe) ->
     S1 = [<<"DELETE FROM ">>, convert(Table)],
-    case where(WhereExpr, Safe) of
-	undefined ->
-	    S1;
-	WhereClause ->
-	    [S1, WhereClause]
+    S2 = if Using == undefined ->
+		 S1;
+	    true ->
+		 [S1, <<" USING ">>, make_list(Using, fun convert/1)]
+	 end,
+    S3 = case where(WhereExpr, Safe) of
+	     undefined ->
+		 S2;
+	     WhereClause ->
+		 [S2, WhereClause]
+	 end,
+    if Extras == undefined ->
+	    S3;
+       true ->
+	    [S3, extra_clause(Extras, Safe)]
     end.
 
 convert(Val) when is_atom(Val)->
