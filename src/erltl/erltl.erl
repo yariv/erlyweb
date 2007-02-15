@@ -400,7 +400,7 @@ parse_exprs(Fragments) ->
 	    end, [{dot,1}], Fragments),
     Tokens1 = Tokens,
     case erl_parse:parse_exprs(Tokens1) of
-	{ok, Exprs} -> Exprs;
+	{ok, Exprs} -> [{block,1, Exprs}];
 	{error, Msg} -> exit({parse_error, Msg})
     end.
 
