@@ -58,6 +58,8 @@ v0.5
 
 - Added the client_ip_port field to yaws_arg.erl.
 
+- Added the function erlydb_base:insert/1, which lets you insert a list of records into the database in a single statement.
+
 v0.4.1
 
 - Added compiler debug_info to ebin files.

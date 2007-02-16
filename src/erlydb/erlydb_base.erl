@@ -108,6 +108,7 @@
 
     %% CRUD functions
     save/1,
+    insert/1,
     delete/1,
     delete_where/2,
     delete_id/2,
@@ -573,12 +574,64 @@ field_from_string(ErlyDbField, Str) ->
 %% This function returns a modified tuple representing
 %% the saved record or throws an exception if an error occurs.
 %%
+%% With MySQL, for INSERT statements for records with identity primary keys,
+%% this function sets the primary key field to the value returned from 
+%% calling "SELECT last_insert_id()".
+%%
 %% You can override the return value by implementing the after_save
 %% hook.
 %%
-%% @spec save(Rec::record()) -> record() | exit(Err)
+%% @spec save(Rec::record()) -> record() | exit(Err)    
 save(Rec) ->
     hook(Rec, do_save, before_save, after_save).
+
+%% @doc Insert one or more records into the database.
+%%
+%% If you don't need to get the saved records' auto-generated ids, this
+%% function is much more
+%% efficient than calling save/1 on each record as this function saves
+%% the entire list of records in one INSERT statement.
+%%
+%% @spec insert(Rec::record() | [record()]) -> NumInserts::integer() | exit(Err)
+insert(Recs) ->
+    case Recs of 
+	[] -> 0;
+	Rec when is_tuple(Rec) ->
+	    insert1([Rec]);
+	Recs ->
+	    insert1(Recs)
+    end.
+
+insert1(Recs) ->
+    Mod = get_module(hd(Recs)),
+    Fields = Mod:db_fields(),
+    Fields1 = [erlydb_field:name(Field) ||
+		  Field <- Fields, erlydb_field:extra(Field) =/= identity],
+    Rows1 = lists:foldr(
+	      fun(Rec, Rows) ->
+		      case is_new(Rec) of
+			  true ->
+			      Rec1 = Mod:before_save(Rec),
+			      Row = 
+				  lists:map(
+				    fun(Field) ->
+					    Mod:Field(Rec1)
+				    end, Fields1),
+			      [Row | Rows];
+			  _ ->
+			      exit({record_already_inserted, Rec})
+		      end
+	      end, [], Recs),
+    {Driver, Options} = Mod:driver(),
+    case Driver:transaction(
+	   fun() ->
+		   Driver:update({esql, {insert, db_table(Mod), Fields1,
+					 Rows1}}, Options)
+	   end, Options) of
+	{atomic, {ok, Num}} -> Num;
+	{aborted, Err} -> exit(Err)
+    end.
+
 
 %% @doc Delete the record from the database. To facilitate the after_delete
 %% hook, this function expects a single record to be deleted. 
@@ -1017,19 +1070,24 @@ aggregate_related_many_to_one(OtherModule, AggFunc, Rec, Field, Where,
 %% @spec add_related_many_to_many(JoinTable::atom(), Rec::record(),
 %%   OtherRec::record() | [record()]) -> {ok, NumAdded} | exit(Err)
 add_related_many_to_many(JoinTable, Rec, OtherRec) ->
-    {DriverMod, Options} = get_driver(Rec),
-    Query = {esql, make_add_related_many_to_many_query(
-		     JoinTable, Rec, OtherRec)},
-    Res =
-	DriverMod:transaction(
-	  fun() ->
+    case OtherRec of
+	[] ->
+	    {ok, 0};
+	_ ->
+	    {DriverMod, Options} = get_driver(Rec),
+	    Query = {esql, make_add_related_many_to_many_query(
+			     JoinTable, Rec, OtherRec)},
+	    Res =
+		DriverMod:transaction(
+		  fun() ->
 		  DriverMod:update(Query, Options)
-	  end, Options),
-    case Res of
-	{atomic, {ok, 1}} when is_tuple(OtherRec) ->
-	    ok;
-	{atomic, Other} -> Other;
-	{aborted, Err} -> exit(Err)
+		  end, Options),
+	    case Res of
+		{atomic, {ok, 1}} when is_tuple(OtherRec) ->
+		    ok;
+		{atomic, Other} -> Other;
+		{aborted, Err} -> exit(Err)
+	    end
     end.
 
 make_add_related_many_to_many_query(JoinTable, Rec, [OtherRec]) ->
@@ -1046,7 +1104,7 @@ make_add_related_many_to_many_query(JoinTable, Rec, OtherRecs) ->
     if OtherTable == Table ->
 	    Fields = Mod:get_pk_fk_fields2(),
 	    Rows1 = 
-		lists:foldl(
+		lists:foldr(
 		  fun(OtherRec, Rows) ->
 			  [R1, R2] = 
 			      sort_records(Mod, Rec, OtherRec, Fields),
@@ -1068,14 +1126,14 @@ make_add_related_many_to_many_query(JoinTable, Rec, OtherRecs) ->
 	    OtherFields = OtherMod:get_pk_fk_fields(),
 	    FkFields = lists:map(fun({_Pk, Fk}) -> Fk end,
 				 Fields ++ OtherFields),
-	    Rows = lists:foldl(
+	    Rows = lists:foldr(
 		     fun(OtherRec, Rows) ->
 			     OtherVals =
-				 lists:foldl(
-				   fun({PkField, _}, Acc1) ->
-					   [OtherMod:PkField(OtherRec) | Acc1]
-				   end, [], OtherFields),
-			     Row = lists:foldl(
+				 lists:map(
+				   fun({PkField, _}) ->
+					   OtherMod:PkField(OtherRec)
+				   end, OtherFields),
+			     Row = lists:foldr(
 				      fun({PkField, _}, Acc2) ->
 					      [Mod:PkField(Rec) | Acc2]
 				      end, OtherVals, Fields),
@@ -1481,12 +1539,11 @@ make_pk_expr2(Rec, WhereExpr, UseFk) ->
 	    _ -> [WhereExpr]
 	end,
     Mod = get_module(Rec),
-    case UseFk of
-	false ->
+    if not UseFk ->
 	    {'and', WhereList ++
 	     [{PkField, '=', Mod:PkField(Rec)} ||
 		 {PkField, _FkField} <- Mod:get_pk_fk_fields()]};
-	true ->
+       true ->
 	    {'and', WhereList ++
 	     [{FkField, '=', Mod:PkField(Rec)} ||
 		 {PkField, FkField} <- Mod:get_pk_fk_fields()]}
