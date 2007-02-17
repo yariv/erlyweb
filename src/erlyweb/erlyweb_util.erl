@@ -241,7 +241,7 @@ indexify1(Str, [Prefix | Others]) ->
     end.
 
 indexify2([], []) -> stop;
-indexify2(Postfix, []) -> {stop, Postfix};
-indexify2([C1 | Rest1], [C2 | Rest2]) when C1 == C2 ->
+indexify2([$/ | _] = Postfix, []) -> {stop, Postfix};
+indexify2([C1 | Rest1], [C1 | Rest2]) ->
     indexify2(Rest1, Rest2);
 indexify2(_, _) -> next.
