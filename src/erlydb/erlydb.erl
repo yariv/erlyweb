@@ -492,7 +492,7 @@ make_some_to_many_forms(MetaMod, OtherModule, ExtraCurryParams,
 		     [OtherModule | ExtraCurryParams], FindFuncName),
 
     M2 = add_find_configs(M1, FindFuncName, BaseFindFuncArity -
-			  (1+ length(ExtraCurryParams))),
+			  (1 + length(ExtraCurryParams))),
 
     AggPostFix = "_of_" ++ atom_to_list(pluralize(OtherModule)),
     M3 = make_aggregate_forms(M2, AggregateFuncName, AggregateFuncArity,

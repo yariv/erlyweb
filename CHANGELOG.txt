@@ -60,6 +60,17 @@ v0.5
 
 - Added the function erlydb_base:insert/1, which lets you insert a list of records into the database in a single statement.
 
+- Added erlydb_base:update/2 and erlydb_base:update/3 to simplify executing hand-crafted UPDATE statements against the model's table.
+
+- Added erlyweb_util:indexify/2 to translate requests such as "/foo/bar/" to "/foo/index/bar".
+
+- Added erlyweb_html:a/3, which adds additional attributes to anchor tags.
+
+- Removed support for {parens, Expr} in ErlSQL expressions. Instead, use {list, [Expr]}.
+
+- Added support for using complete expressions rather than just constants in the RHS of ErlSQL UPDATE statements.
+
+
 v0.4.1
 
 - Added compiler debug_info to ebin files.

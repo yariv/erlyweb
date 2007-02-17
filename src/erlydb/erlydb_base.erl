@@ -109,6 +109,8 @@
     %% CRUD functions
     save/1,
     insert/1,
+    update/2,
+    update/3,
     delete/1,
     delete_where/2,
     delete_id/2,
@@ -632,6 +634,45 @@ insert1(Recs) ->
 	{aborted, Err} -> exit(Err)
     end.
 
+%% @equiv update(Module, Propss, undefined).
+update(Module, Props) ->
+    update(Module, Props, undefined).
+
+%% @doc Execute an UPDATE statement against the module's database table
+%% and return the number of rows updated.
+%%
+%% 'Props' is a list of 2 element tuples, where the first element is an
+%% atom representing the field's name, and the second value is an ErlSQL
+%% expression representing its value.
+%%
+%% 'Where' is an ErlSQL 'where' expression.
+%%
+%% In generated modules, the 'Module' parameter is omitted.
+%%
+%% Example:
+%% Calling `person:update([{name,<<"Jane">>}, {age, {age, '+', 1}}],
+%% {id,'=',7})'
+%% would yield the statement `UPDATE person SET name='Jane', age=age+1
+%% WHERE id=7'.
+%%
+%% The UPDATE statement is executed in a transactional context.
+%%
+%% @spec update(Module::atom(), Props::proplist(), Where::where_expr()) ->
+%%  NumUpdated::integer() | exit(Err)
+update(Module, Props, Where) ->
+    {Driver, Options} = Module:driver(),
+    case Driver:transaction(
+	   fun() ->
+		   Driver:update(
+		     {esql,
+		      {update, db_table(Module), Props, Where}},
+		     Options)
+	   end, Options) of 
+	{atomic, {ok, Num}} ->
+	    Num;
+	{aborted, Err} ->
+	    exit(Err)
+    end.
 
 %% @doc Delete the record from the database. To facilitate the after_delete
 %% hook, this function expects a single record to be deleted. 
@@ -1458,24 +1499,21 @@ do_save(Rec) ->
 
 make_save_statement(Rec) ->
     Module = get_module(Rec),
-    Fields = field_names_for_query(Module),
-    PkField = hd(Module:db_pk_fields()),
-    Fields1 = case erlydb_field:extra(PkField) == identity of
-	true -> lists:delete(erlydb_field:name(PkField), Fields);
-	false -> Fields
-    end,
-
+    Fields = [erlydb_field:name(Field) ||
+		 Field <- Module:db_fields(),
+		 erlydb_field:extra(Field) =/= identity,
+		 erlydb_field:type(Field) =/= timestamp],
     case is_new(Rec) of
 	false ->
-	    Vals = [{Field, Module:Field(Rec)} || Field <- Fields1],
+	    Vals = [{Field, Module:Field(Rec)} || Field <- Fields],
 	    {update, {update, get_table(Rec), Vals,
 		      {where, make_pk_expr(Rec)}}};
 	true ->
-	    Vals = [Module:Field(Rec) || Field <- Fields1],
+	    Vals = [Module:Field(Rec) || Field <- Fields],
 	    {Fields2, Vals1} = 
 		case Module:type_field() of
-		    undefined -> {Fields1, Vals};
-		    TypeField -> {[TypeField | Fields1], [Module | Vals]}
+		    undefined -> {Fields, Vals};
+		    TypeField -> {[TypeField | Fields], [Module | Vals]}
 		end,
 	    {insert, {insert, get_table(Rec), Fields2, [Vals1]}}
     end.

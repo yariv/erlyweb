@@ -185,16 +185,19 @@ sql2({Select1, union, Select2, Extras}, Safe) ->
     [sql2({Select1, union, Select2}, Safe), extra_clause(Extras, Safe)];
 sql2({Select1, union, Select2, {where, _} = Where, Extras}, Safe) ->
     [sql2({Select1, union, Select2, Where}, Safe), extra_clause(Extras, Safe)];
+
 sql2({insert, Table, Params}, _Safe) ->
     insert(Table, Params);
 sql2({insert, Table, Fields, Values}, _Safe) ->
     insert(Table, Fields, Values);
-sql2({update, Table, Params}, Safe) ->
-    update(Table, Params, Safe);
-sql2({update, Table, Params, {where, Where}}, Safe) ->
-    update(Table, Params, Where, Safe);
-sql2({update, Table, Params, Where}, Safe) ->
-    update(Table, Params, Where, Safe);
+
+sql2({update, Table, Props}, Safe) ->
+    update(Table, Props, Safe);
+sql2({update, Table, Props, {where, Where}}, Safe) ->
+    update(Table, Props, Where, Safe);
+sql2({update, Table, Props, Where}, Safe) ->
+    update(Table, Props, Where, Safe);
+
 sql2({delete, {from, Table}}, Safe) ->
     delete(Table, Safe);
 sql2({delete, Table}, Safe) ->
@@ -361,16 +364,18 @@ make_insert_query(Table, Names, Values) ->
     [<<"INSERT INTO ">>, convert(Table),
      $(, Names, <<") VALUES ">>, Values].
 
-update(Table, Params, Safe) ->
-    update(Table, Params, undefined, Safe).
+update(Table, Props, Safe) ->
+    update(Table, Props, undefined, Safe).
 
-update(Table, Params, WhereExpr, Safe) ->
+update(Table, Props, Where, Safe) when not is_list(Props) ->
+    update(Table, [Props], Where, Safe);
+update(Table, Props, Where, Safe) ->
     S1 = [<<"UPDATE ">>, convert(Table), <<" SET ">>],
-    S2 = make_list(Params,
-			  fun({Field, Val}) ->
-				  [convert(Field), $=, encode(Val)]
-			  end),
-    [S1, S2, where(WhereExpr, Safe)].
+    S2 = make_list(Props,
+		   fun({Field, Val}) ->
+			   [convert(Field), <<" = ">>, expr(Val, Safe)]
+		   end),
+    [S1, S2, where(Where, Safe)].
 
 delete(Table, Safe) ->
     delete(Table, undefined, undefined, undefined, Safe).
@@ -413,10 +418,9 @@ make_list(Vals, ConvertFun) when is_list(Vals) ->
 make_list(Val, ConvertFun) ->
     ConvertFun(Val).
 
+expr(undefined, _Safe) -> <<"NULL">>;
 expr({Not, Expr}, Safe) when (Not == 'not' orelse Not == '!') ->
     [<<"NOT ">>, check_expr(Expr, Safe)];
-expr({parens, Expr}, Safe) ->
-    [$(, expr(Expr, Safe), $)];
 expr({Table, Field}, _Safe) when is_atom(Table), is_atom(Field) ->
     [convert(Table), $., convert(Field)];
 expr({Expr1, as, Alias}, Safe) when is_atom(Alias) ->
@@ -457,7 +461,7 @@ expr({Expr1, Op, Expr2}, Safe)  ->
 	end,
     [$(, B1, 32, op(Op), 32, B2, $)];
 
-expr({list, Vals}, _Safe) ->
+expr({list, Vals}, _Safe) when is_list(Vals) ->
     [$(, make_list(Vals, fun encode/1), $)];
 expr({Op, Exprs}, Safe) when is_list(Exprs) ->
     [$(, lists:foldl(

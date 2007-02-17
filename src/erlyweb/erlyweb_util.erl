@@ -7,7 +7,7 @@
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
 -export([log/5, create_app/2, create_component/2, get_appname/1,
-	 get_app_root/1, validate/3, get_cookie/2]).
+	 get_app_root/1, validate/3, get_cookie/2, indexify/2]).
 
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
 -define(Info(Msg, Params), log(?MODULE, ?LINE, info, Msg, Params)).
@@ -219,3 +219,29 @@ validate(Params, Fields, Fun) ->
 get_cookie(Name, A) ->
     yaws_api:find_cookie_val(
       Name, yaws_headers:cookie(A)).
+
+%% @doc Translate requests such as '/foo/bar' to '/foo/index/bar' for the given
+%% list of components. This function is useful for rewriting the Arg in the
+%% app controller prior to handling incoming requests.
+%%
+%% @spec indexify(A::arg(), ComponentNames::[string()]) -> arg()
+indexify(A, ComponentNames) ->
+    Str = indexify1(yaws_arg:appmoddata(A), ComponentNames),
+    yaws_arg:appmoddata(A, Str).
+
+indexify1(Str, []) -> Str;
+indexify1(Str, [Prefix | Others]) ->
+    case indexify2(Str, [$/ | Prefix]) of
+	stop ->
+	    Str;
+	{stop, Postfix} ->
+	    [$/ | Prefix] ++ "/index" ++ Postfix;
+	next ->
+	    indexify1(Str, Others)
+    end.
+
+indexify2([], []) -> stop;
+indexify2(Postfix, []) -> {stop, Postfix};
+indexify2([C1 | Rest1], [C2 | Rest2]) when C1 == C2 ->
+    indexify2(Rest1, Rest2);
+indexify2(_, _) -> next.
