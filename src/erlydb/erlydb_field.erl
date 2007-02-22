@@ -216,7 +216,9 @@ get_html_input_type(Type) ->
       date -> text_field;
       time -> text_field;
       datetime -> text_field;
-      binary -> get_html_binary_input_type(Type)
+      decimal -> text_field;
+      binary -> get_html_binary_input_type(Type);
+      _ -> text_field
   end.
 
 get_html_binary_input_type({Type, _Len}) ->
