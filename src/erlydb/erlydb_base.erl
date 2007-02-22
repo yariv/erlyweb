@@ -344,7 +344,7 @@ to_iolist(Module, Recs, ToIolistFun) ->
     to_iolist1(Module, Recs, ToIolistFun).
 
 to_iolist1(Module, Rec, ToIolistFun) ->
-    Fields = lists:reverse(Module:db_fields()),
+    Fields = Module:db_fields(),
     IsDefaultFun = ToIolistFun == fun field_to_iolist/2,
     WrapperFun = 
 	if IsDefaultFun -> ToIolistFun;
@@ -358,12 +358,12 @@ to_iolist1(Module, Rec, ToIolistFun) ->
 			end
 		end
 	end,
-    lists:foldl(
-      fun(Field, Acc) ->
+    lists:map(
+      fun(Field) ->
 	      FieldName = erlydb_field:name(Field),
 	      Val = Module:FieldName(Rec),
-	      [WrapperFun(Val, Field) | Acc]
-      end, [], Fields).
+	      WrapperFun(Val, Field)
+      end, Fields).
 
 %% @doc A helper function used for converting field values to iolists.
 %%
@@ -609,21 +609,16 @@ insert1(Recs) ->
     Fields = Mod:db_fields(),
     Fields1 = [erlydb_field:name(Field) ||
 		  Field <- Fields, erlydb_field:extra(Field) =/= identity],
-    Rows1 = lists:foldr(
-	      fun(Rec, Rows) ->
+    Rows1 = lists:map(
+	      fun(Rec) ->
 		      case is_new(Rec) of
 			  true ->
 			      Rec1 = Mod:before_save(Rec),
-			      Row = 
-				  lists:map(
-				    fun(Field) ->
-					    Mod:Field(Rec1)
-				    end, Fields1),
-			      [Row | Rows];
+			      [Mod:Field(Rec1) || Field <- Fields1];
 			  _ ->
 			      exit({record_already_inserted, Rec})
 		      end
-	      end, [], Recs),
+	      end, Recs),
     {Driver, Options} = Mod:driver(),
     case Driver:transaction(
 	   fun() ->
@@ -974,16 +969,13 @@ driver(Driver) ->
 %% @spec set_related_one_to_many(Rec::record(), Other::record()) -> record()
 %%   | exit(Err)
 set_related_one_to_many(Rec, Other) ->
-    if_saved(Other,
-	     fun() ->
-		     OtherModule = get_module(Other),
-		     PkFields = OtherModule:get_pk_fk_fields(),
-		     Module = get_module(Rec),
-		     lists:foldl(
-		       fun({PkField, FkField}, Rec1) ->
-			       Module:FkField(Rec1, OtherModule:PkField(Other))
-		       end, Rec, PkFields)
-	     end).
+    OtherModule = get_module(Other),
+    PkFields = OtherModule:get_pk_fk_fields(),
+    Module = get_module(Rec),
+    lists:foldl(
+      fun({PkField, FkField}, Rec1) ->
+	      Module:FkField(Rec1, OtherModule:PkField(Other))
+      end, Rec, PkFields).
 
 %% @doc Find the related record for a record from a module having a
 %% many-to-one relation.
@@ -1121,7 +1113,7 @@ add_related_many_to_many(JoinTable, Rec, OtherRec) ->
 	    Res =
 		DriverMod:transaction(
 		  fun() ->
-		  DriverMod:update(Query, Options)
+			  DriverMod:update(Query, Options)
 		  end, Options),
 	    case Res of
 		{atomic, {ok, 1}} when is_tuple(OtherRec) ->
@@ -1145,17 +1137,15 @@ make_add_related_many_to_many_query(JoinTable, Rec, OtherRecs) ->
     if OtherTable == Table ->
 	    Fields = Mod:get_pk_fk_fields2(),
 	    Rows1 = 
-		lists:foldr(
-		  fun(OtherRec, Rows) ->
+		lists:map(
+		  fun(OtherRec) ->
 			  [R1, R2] = 
 			      sort_records(Mod, Rec, OtherRec, Fields),
-			  Row =
-			      lists:foldl(
-				fun({PkField, _FkField1, _FkField2}, Acc) ->
-					[Mod:PkField(R1), Mod:PkField(R2) | Acc]
-				end, [], Fields),
-			  [Row | Rows]
-		  end, [], OtherRecs),
+			  lists:foldl(
+			    fun({PkField, _FkField1, _FkField2}, Acc) ->
+				    [Mod:PkField(R1), Mod:PkField(R2) | Acc]
+			    end, [], Fields)
+		  end, OtherRecs),
 	    FkFields =
 		lists:foldl(
 		  fun({_PkField, FkField1, FkField2}, Acc) ->
@@ -1165,21 +1155,18 @@ make_add_related_many_to_many_query(JoinTable, Rec, OtherRecs) ->
        true ->
 	    Fields = Mod:get_pk_fk_fields(),
 	    OtherFields = OtherMod:get_pk_fk_fields(),
-	    FkFields = lists:map(fun({_Pk, Fk}) -> Fk end,
-				 Fields ++ OtherFields),
-	    Rows = lists:foldr(
-		     fun(OtherRec, Rows) ->
+	    FkFields = [Fk || {_Pk, Fk} <-
+				  Fields ++ OtherFields],
+	    Rows = lists:map(
+		     fun(OtherRec) ->
 			     OtherVals =
-				 lists:map(
-				   fun({PkField, _}) ->
-					   OtherMod:PkField(OtherRec)
-				   end, OtherFields),
-			     Row = lists:foldr(
-				      fun({PkField, _}, Acc2) ->
-					      [Mod:PkField(Rec) | Acc2]
-				      end, OtherVals, Fields),
-			     [Row | Rows]
-		     end, [], OtherRecs),
+				 [OtherMod:PkField(OtherRec) ||
+				     {PkField, _} <- OtherFields],
+			     lists:foldr(
+			       fun({PkField, _}, Acc2) ->
+				       [Mod:PkField(Rec) | Acc2]
+			       end, OtherVals, Fields)
+		     end, OtherRecs),
 	    {insert, JoinTable, FkFields, Rows}
     end.
 
@@ -1263,25 +1250,17 @@ make_remove_related_many_to_many_all_query(JoinTable, OtherMod, Rec,
 	if Table == OtherTable ->
 		Fields = Mod:get_pk_fk_fields2(),
 		Conds1 =
-		    lists:foldl(
-		      fun({PkField, FkField1, _FkField2}, Acc) ->
-			      [{{JoinTable, FkField1}, '=', Mod:PkField(Rec)} |
-			       Acc]
-		      end, [], Fields),
+		    [{{JoinTable, FkField1}, '=', Mod:PkField(Rec)} ||
+			{PkField, FkField1, _FkField2} <- Fields],
 		Conds2 =
-		    lists:foldl(
-		      fun({PkField, _FkField1, FkField2}, Acc) ->
-			      [{{JoinTable, FkField2}, '=', Mod:PkField(Rec)}
-			       | Acc]
-		      end, [], Fields),
+		    [{{JoinTable, FkField2}, '=', Mod:PkField(Rec)} ||
+			{PkField, _FkField1, FkField2} <- Fields],
 		{'or', [{'and', Conds1}, {'and', Conds2}]};
 	   true ->
 		Conds =
-		    lists:foldl(
-		      fun({PkField, FkField}, Acc) ->
-			      [{{JoinTable, FkField}, '=', Mod:PkField(Rec)}
-			       | Acc]
-		      end, [], Mod:get_pk_fk_fields()),
+		    [{{JoinTable, FkField}, '=', Mod:PkField(Rec)} ||
+			{PkField, FkField} <-
+			     Mod:get_pk_fk_fields()],
 		{'and', Conds}
 	end,
     if Where == undefined ->
@@ -1603,8 +1582,7 @@ select(Module, Query, true) ->
     Res = DriverMod:select_as(Module, Query, Options),
     case Res of
 	{ok, Rows} ->
-	    F = fun(Rec) -> Module:after_fetch(Rec) end,
-	    lists:map(F, Rows);
+	    [Module:after_fetch(Rec) || Rec <- Rows];
 	Err ->
 	    exit(Err)
     end;
@@ -1656,24 +1634,24 @@ field_names_for_query(Module, UseStar) ->
     end.
 
 
-if_saved(Rec, Fun) when not is_list(Rec) ->
-    if_saved([Rec], Fun);
-if_saved(Recs, Fun) ->
-    case catch lists:foreach(
-	    fun(Rec) ->
-		    case is_new(Rec) of
-			true ->
-			    exit({no_such_record, Rec});
-			false ->
-			    ok
-		    end
-	    end, Recs)
-	of
-	ok ->
-	    Fun();
-	{'EXIT', Err} ->
-	    exit(Err)
-    end.
+%% if_saved(Rec, Fun) when not is_list(Rec) ->
+%%     if_saved([Rec], Fun);
+%% if_saved(Recs, Fun) ->
+%%     case catch lists:foreach(
+%% 	    fun(Rec) ->
+%% 		    case is_new(Rec) of
+%% 			true ->
+%% 			    exit({no_such_record, Rec});
+%% 			false ->
+%% 			    ok
+%% 		    end
+%% 	    end, Recs)
+%% 	of
+%% 	ok ->
+%% 	    Fun();
+%% 	{'EXIT', Err} ->
+%% 	    exit(Err)
+%%     end.
 
 
 set_module(Rec, Module) ->
