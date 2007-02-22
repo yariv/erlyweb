@@ -5,7 +5,7 @@
 
 %% For license information see LICENSE.txt
 -module(erlyweb_compile).
--export([compile/2, get_app_data_module/1]).
+-export([compile/2, get_app_data_module/1, compile_file/5]).
 
 -include_lib("kernel/include/file.hrl").
 

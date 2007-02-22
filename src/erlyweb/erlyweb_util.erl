@@ -7,7 +7,7 @@
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
 -export([log/5, create_app/2, create_component/2, get_appname/1,
-	 get_app_root/1, validate/3, get_cookie/2, indexify/2]).
+	 get_app_root/1, validate/3, validate1/3, get_cookie/2, indexify/2]).
 
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
 -define(Info(Msg, Params), log(?MODULE, ?LINE, info, Msg, Params)).
@@ -22,30 +22,31 @@ log(Module, Line, Level, Msg, Params) ->
 create_app(AppName, Dir) ->
     case filelib:is_dir(Dir) of
 	true ->
+	    AppDir = Dir ++ "/" ++ AppName,
+	    Dirs =
+		[SrcDir, ComponentsDir, WebDir, _EbinDir]
+		= [AppDir ++ "/src",
+		   AppDir ++ "/src/components",
+		   AppDir ++ "/www",
+		   AppDir ++ "/ebin"],
 	    lists:foreach(
 	      fun(SubDir) ->
-		      NewDir = Dir ++ "/" ++ SubDir,
-		      ?Info("creating ~p", [NewDir]),
-		      case file:make_dir(NewDir) of
+		      ?Info("creating ~p", [SubDir]),
+		      case file:make_dir(SubDir) of
 			  ok ->
 			      ok;
 			  Err ->
 			      exit(Err)
 		      end
-	      end, [AppName,
-		    AppName ++ "/src",
-		    AppName ++ "/src/components",
-		    AppName ++ "/ebin",
-		    AppName ++ "/www"]),
+	      end, [AppDir | Dirs]),
 
-	    SrcDir = Dir ++ "/" ++ AppName ++ "/src",
-	    WebDir = Dir ++ "/" ++ AppName ++ "/www",
-	    BaseName = SrcDir ++ "/" ++ AppName,
 	    Files =
-		[{BaseName ++ "_app_view.et",
-		  view(AppName)},
-		 {BaseName ++ "_app_controller.erl",
-		  controller(AppName)},
+		[{ComponentsDir ++ "/html_container_view.et",
+		  html_container_view(AppName)},
+		 {ComponentsDir ++ "/html_container_controller.erl",
+		  html_container_controller()},
+		 {SrcDir ++ "/" ++ AppName ++ "_app_controller.erl",
+		  app_controller(AppName)},
 		 {WebDir ++ "/index.html",
 		  index(AppName)},
 		 {WebDir ++ "/style.css",
@@ -69,17 +70,31 @@ create_file(FileName, Bin) ->
 	    exit({Err, FileName})
     end.
 	
-controller(AppName) ->
+app_controller(AppName) ->
     Text =
 	["-module(", AppName, "_app_controller).\n"
 	 "-export([hook/1]).\n\n"
 	 "hook(A) ->\n"
-	 "\t{ewc, A}."],
+	 "\t{phased, {ewc, A},\n"
+	 "\t\tfun(_Ewc, Data) ->\n"
+	 "\t\t\t{ewc, html_container, index, [A, {data, Data}]}\n"
+	 "\t\tend}."],
     iolist_to_binary(Text).
 
-view(AppName) ->
+html_container_controller() ->
     Text =
-	["<html>\n"
+	["-module(html_container_controller).\n"
+	 "-export([private/0, index/2]).\n\n"
+	 "private() ->\n"
+	 "\ttrue.\n\n"
+	 "index(_A, Ewc) ->\n"
+	 "\tEwc."],
+    iolist_to_binary(Text).
+
+html_container_view(AppName) ->
+    Text =
+	["<%@ index(Data) %>\n"
+	 "<html>\n"
 	 "<head>\n"
 	 "<title>", AppName, "</title>\n"
 	 "<link rel=\"stylesheet\" href=\"/style.css\""
@@ -192,26 +207,51 @@ get_app_root(A)->
 validate(A, Fields, Fun) when is_tuple(A), element(1, A) == arg ->
     validate(yaws_api:parse_post(A), Fields, Fun);
 validate(Params, Fields, Fun) ->
-    lists:foldl(
-      fun(Field, {Vals, Errs}) ->
+    lists:foldr(
+      fun(Field, Acc) ->
 	      case proplists:lookup(Field, Params) of
 		  none -> exit({missing_param, Field});
 		  {_, Val} ->
-		      Val1 = case Val of undefined -> ""; _ -> Val end,
-		      case Fun(Field, Val1) of
-			  ok ->
-			      {[Val1 | Vals], Errs};
-			  {ok, Val2} ->
-			      {[Val2 | Vals], Errs};
-			  {error, Err, Val2} ->
-			      {[Val2 | Vals], [Err | Errs]};
-			  {error, Err} ->
-			      {[Val1 | Vals], [Err | Errs]}
-		      end
+		      check_val(Field, Val, Fun,Acc)
 	      end
-      end, {[], []}, lists:reverse(Fields)).
+      end, {[], []}, Fields).
 
+%% @doc validate1/3 is similar to validate/3, but it expects the parameter
+%% list to match the field list both in the number of elements and in their
+%% order. validate1/3 is more efficient and is also stricter than validate/3.
+%% @see validate/3
+%%
+%% @spec validate1(Params::proplist() | arg(), Fields::[string()],
+%% Fun::function() -> {Vals, Errs} | exit({missing_params, [string()]}) |
+%% exit({unexpected_params, proplist()}) | exit({unexpected_param, string()})
+validate1(A, Fields, Fun) when is_tuple(A), element(1, A) == arg ->
+    validate1(yaws_api:parse_post(A), Fields, Fun);
+validate1(Params, Fields, Fun) ->
+    validate1_1(Params, Fields, Fun, {[], []}).
 
+validate1_1([], [], _Fun, {Vals, Errs}) ->
+    {lists:reverse(Vals), lists:reverse(Errs)};
+validate1_1([], Fields, _Fun, _Acc) -> exit({missing_params, Fields});
+validate1_1(Params, [], _Fun, _Acc) -> exit({unexpected_params, Params});
+validate1_1([{Field, Val} | Params], [Field | Fields], Fun, Acc) ->
+    Acc1 = check_val(Field, Val, Fun, Acc),
+    validate1_1(Params, Fields, Fun, Acc1);
+validate1_1([{Param, _} | _Params], [Field | _], _Fun, _Acc) ->
+    exit({unexpected_param, Field, Param}).
+
+check_val(Field, Val, Fun, {Vals, Errs}) ->
+    Val1 = case Val of undefined -> ""; _ -> Val end,
+    case Fun(Field, Val1) of
+	ok ->
+	    {[Val1 | Vals], Errs};
+	{ok, Val2} ->
+	    {[Val2 | Vals], Errs};
+	{error, Err, Val2} ->
+	    {[Val2 | Vals], [Err | Errs]};
+	{error, Err} ->
+	    {[Val1 | Vals], [Err | Errs]}
+    end.
+    
 %% @doc Get the cookie's value from the arg.
 %% @equiv yaws_api:find_cookie_val(Name, yaws_headers:cookie(A)).
 %%

@@ -40,14 +40,14 @@ list(A, Model, Page) when is_integer(Page) ->
 		    id ->
 			Id = Model:field_to_iolist(Val),
 			erlyweb_html:a(
-			  [erlyweb_util:get_app_root(A),
+			  [erlyweb:get_app_root(A),
 			   atom_to_list(Model),
 			   <<"edit">>, Id], Id);
 		    _ ->
 			default
 		end
 	end,
-    {data, {erlyweb_util:get_app_root(A),
+    {data, {erlyweb:get_app_root(A),
 	    atom_to_list(Model),
 	    Model:db_field_names_bin(),
 	    Model:to_iolist(Records, ToIoListFun)}}.
@@ -74,7 +74,7 @@ new_or_edit(A, Model, Record) ->
 			  erlydb_field:html_input_type(Field),
 			  erlydb_field:modifier(Field),
 			  Val} || {Field, Val} <- Combined],
-	    {data, {erlyweb_util:get_app_root(A),
+	    {data, {erlyweb:get_app_root(A),
 		    atom_to_list(Model),
 		    IdStr,
 		    yaws_arg:server_path(A),
@@ -98,7 +98,7 @@ delete(A, Model, Id) ->
 		  fun(Field, Val) -> [Field, Val] end,
 		  Fields, Vals),
 			 
-	    {data, {erlyweb_util:get_app_root(A),
+	    {data, {erlyweb:get_app_root(A),
 		    atom_to_list(Model), Id,
 		    Combined}};
 	'POST' ->
