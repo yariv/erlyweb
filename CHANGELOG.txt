@@ -70,6 +70,9 @@ v0.5
 
 - Added support for using complete expressions rather than just constants in the RHS of ErlSQL UPDATE statements.
 
+- Added compile_file/5 to the erlyweb_compile export list.
+
+- Added a default html field type to the 'decimal' data type in erlydb_field.
 
 v0.4.1
 
