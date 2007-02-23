@@ -1,6 +1,8 @@
-%% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com)]
-%%
 %% @doc This module contains utility functions for ErlyWeb.
+%%
+%% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com)]
+%% @copyright Yariv Sadan 2006-2007
+
 
 %% For license information see LICENSE.txt
 
