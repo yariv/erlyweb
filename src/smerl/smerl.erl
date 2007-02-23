@@ -1,5 +1,5 @@
 %% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com]
-%% @copyright Yariv Sadan 2006
+%% @copyright Yariv Sadan 2006-2007
 %%
 %% @doc  Smerl: Simple Metaprogramming for Erlang
 %%
@@ -42,7 +42,7 @@
 %%   it's also easier to manipulate in code.</p>
 %%
 
-%% Copyright (c) 2006-2007 Yariv Sadan
+%% Copyright (c) Yariv Sadan 2006-2007
 %%
 %% Permission is hereby granted, free of charge, to any person
 %% obtaining a copy of this software and associated documentation

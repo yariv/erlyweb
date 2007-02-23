@@ -1,6 +1,6 @@
 %% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com]
 %% @version 0.9.3
-%% @copyright 2006-2007 Yariv Sadan
+%% @copyright Yariv Sadan 2006-2007
 %%
 %% @doc ErlTL is a simple Erlang template language.
 %% 
@@ -117,7 +117,7 @@
 %%
 %% @end
 
-%% Copyright (c) 2006-2007 Yariv Sadan
+%% Copyright (c) Yariv Sadan 2006-2007
 %% 
 %% Permission is hereby granted, free of charge, to any person obtaining a
 %% copy of this software and associated documentation files (the

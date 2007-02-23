@@ -1,5 +1,5 @@
 %% @author Yariv Sadan (yarivvv@gmail.com) (http://yarivsblog.com)
-%% @copyright Yariv Sadan 2006
+%% @copyright Yariv Sadan 2006-2007
 %% 
 %% @doc This module implements the MySQL driver for ErlyDB.
 %%

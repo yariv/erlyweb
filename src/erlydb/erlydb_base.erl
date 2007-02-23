@@ -1,5 +1,5 @@
 %% @author Yariv Sadan <yarivvv@gmail.com> [http://yarivsblog.com]
-%% @copyright Yariv Sadan 2006-2007
+%% @copyright Yariv Sadan 2006-2007-2007
 %% @doc erlydb_base is the base module that all modules that ErlyDB generates
 %% extend.
 %%
