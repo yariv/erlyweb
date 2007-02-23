@@ -7,7 +7,8 @@
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
 -export([log/5, create_app/2, create_component/2, get_appname/1,
-	 get_app_root/1, validate/3, validate1/3, get_cookie/2, indexify/2]).
+	 get_app_root/1, validate/3, validate1/3, get_cookie/2, indexify/2,
+	 to_recs/2]).
 
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
 -define(Info(Msg, Params), log(?MODULE, ?LINE, info, Msg, Params)).
@@ -285,3 +286,45 @@ indexify2([$/ | _] = Postfix, []) -> {stop, Postfix};
 indexify2([C1 | Rest1], [C1 | Rest2]) ->
     indexify2(Rest1, Rest2);
 indexify2(_, _) -> next.
+
+
+%% @doc This function helps process POST requests containing fields that
+%% represent multiple models. This function is similar to but more powerful than
+%% {@link erlydb_base:set_fields_from_strs/3} because it works with forms
+%% containing fields from multiple models. This function expects each field
+%% to be mapped to its record by being named with a unique prefix identifying
+%% the record.
+%%
+%% For example, suppose you have to process an HTML form whose fields
+%% represent a house and 2 cars. The house's fields have the
+%% prefix "house_" and the cars' fields have the prefixes "car1_" and
+%% "car2_". The arg's POST parameters are
+%% `[{"house_rooms", "3"}, {"car1_year", "2007"}, "car2_year", "2006"]'.
+%% With such a setup, calling `to_recs(A, [{house, "house_"}, {car, "car1_"},
+%% {car, "car2_"}])'
+%% returns the list `[House, Car1, Car2]', where `house:rooms(House) == "3"',
+%% `car:year(Car1) == "2007"' and `car:year(Car2) == "2006"', and all other
+%% fields are `undefined'.
+%%
+%% @spec to_recs(A::arg() | [{ParamName::string(), ParamVal::term()}],
+%% [{Prefix::string(), Model::atom()}]) -> [record::tuple()]
+to_recs(A, ModelDescs) when is_tuple(A), element(1, A) == arg ->
+    to_recs(yaws_arg:parse_post(A), ModelDescs);
+to_recs(Params, ModelDescs) ->
+    Models = 
+	[{Prefix, Model, Model:new()} || {Prefix, Model} <- ModelDescs],
+    Models1 =
+	lists:foldl(
+	  fun({Name, Val}, Acc) ->
+		  {First, [{Prefix1, Model1, Rec} | Rest]} =
+		      lists:splitwith(
+			fun({Prefix2, _Module2, _Rec2}) ->
+				not lists:prefix(Prefix2, Name)
+			end, Acc),
+		  {_, FieldName} = lists:split(length(Prefix1), Name),
+		  Field = erlydb_field:name(Model1:db_field(FieldName)),
+		  First ++ [{Prefix1, Model1, Model1:Field(Rec, Val)} | Rest]
+	  end, Models, Params),
+    [element(3, Model3) || Model3 <- Models1].
+    
+	      
