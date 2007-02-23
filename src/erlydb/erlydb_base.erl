@@ -1,5 +1,5 @@
 %% @author Yariv Sadan <yarivvv@gmail.com> [http://yarivsblog.com]
-%% @copyright Yariv Sadan 2006
+%% @copyright Yariv Sadan 2006-2007
 %% @doc erlydb_base is the base module that all modules that ErlyDB generates
 %% extend.
 %%
@@ -629,7 +629,7 @@ insert1(Recs) ->
 	{aborted, Err} -> exit(Err)
     end.
 
-%% @equiv update(Module, Propss, undefined).
+%% @equiv update(Module, Props, undefined)
 update(Module, Props) ->
     update(Module, Props, undefined).
 

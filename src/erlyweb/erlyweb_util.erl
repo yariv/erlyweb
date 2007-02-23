@@ -203,8 +203,10 @@ get_app_root(A)->
 %%   inserted into 'Errors' and Val is inserted into 'Values' instead of
 %%   the parameter's original value.
 %%
-%% @spec validate(A::arg() | Params::proplist(), Fields::[string()],
-%%   Fun::function()) -> {Values::[term()], Errors::[term()]}.
+%% For complex forms, it may be more convenient to use {@link to_recs/2}.
+%%
+%% @spec validate(A::arg() | proplist(), Fields::[string()],
+%%   Fun::function()) -> {Values::[term()], Errors::[term()]}
 validate(A, Fields, Fun) when is_tuple(A), element(1, A) == arg ->
     validate(yaws_api:parse_post(A), Fields, Fun);
 validate(Params, Fields, Fun) ->
@@ -223,7 +225,7 @@ validate(Params, Fields, Fun) ->
 %% @see validate/3
 %%
 %% @spec validate1(Params::proplist() | arg(), Fields::[string()],
-%% Fun::function() -> {Vals, Errs} | exit({missing_params, [string()]}) |
+%% Fun::function()) -> {Vals, Errs} | exit({missing_params, [string()]}) |
 %% exit({unexpected_params, proplist()}) | exit({unexpected_param, string()})
 validate1(A, Fields, Fun) when is_tuple(A), element(1, A) == arg ->
     validate1(yaws_api:parse_post(A), Fields, Fun);
@@ -254,7 +256,7 @@ check_val(Field, Val, Fun, {Vals, Errs}) ->
     end.
     
 %% @doc Get the cookie's value from the arg.
-%% @equiv yaws_api:find_cookie_val(Name, yaws_headers:cookie(A)).
+%% @equiv yaws_api:find_cookie_val(Name, yaws_headers:cookie(A))
 %%
 %% @spec get_cookie(Name::string(), A::arg()) -> string()
 get_cookie(Name, A) ->
@@ -307,7 +309,7 @@ indexify2(_, _) -> next.
 %% fields are `undefined'.
 %%
 %% @spec to_recs(A::arg() | [{ParamName::string(), ParamVal::term()}],
-%% [{Prefix::string(), Model::atom()}]) -> [record::tuple()]
+%% [{Prefix::string(), Model::atom()}]) -> [Record::tuple()]
 to_recs(A, ModelDescs) when is_tuple(A), element(1, A) == arg ->
     to_recs(yaws_arg:parse_post(A), ModelDescs);
 to_recs(Params, ModelDescs) ->

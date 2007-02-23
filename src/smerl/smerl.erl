@@ -130,7 +130,7 @@ new(ModuleName) when is_atom(ModuleName) ->
     #meta_mod{module = ModuleName}.
 
 
-%% @equiv for_module(ModuleName, []).
+%% @equiv for_module(ModuleName, [])
 for_module(ModuleName) ->
     for_module(ModuleName, []).
 
@@ -169,7 +169,7 @@ for_module(ModuleName, IncludePaths) when is_atom(ModuleName) ->
 	    end
     end.
 
-%% @equiv for_file(SrcFilePath, []).
+%% @equiv for_file(SrcFilePath, [])
 for_file(SrcFilePath) ->
     for_file(SrcFilePath, []).
 
