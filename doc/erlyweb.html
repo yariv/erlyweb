@@ -31,7 +31,7 @@ that implements basic CRUD features for a database table.</td></tr>
 <tr><td valign="top"><a href="#get_app_root-1">get_app_root/1</a></td><td>Get the relative URL for the application's root path.</td></tr>
 <tr><td valign="top"><a href="#get_ewc-1">get_ewc/1</a></td><td/></tr>
 <tr><td valign="top"><a href="#get_initial_ewc-1">get_initial_ewc/1</a></td><td>Get the expanded 'ewc' tuple for the request.</td></tr>
-<tr><td valign="top"><a href="#out-1">out/1</a></td><td>This is the 'out' function that Yaws calls when passing
+<tr><td valign="top"><a href="#out-1">out/1</a></td><td>This is the out/1 function that Yaws calls when passing
    HTTP requests to the ErlyWeb appmod.</td></tr>
 </table>
 
@@ -42,8 +42,8 @@ that implements basic CRUD features for a database table.</td></tr>
 <p><p>Compile all the files for an application. Files with the '.et'    
 extension are compiled with ErlTL.</p>
  
-    This function returns {ok, Now}, where Now is
-    the result of calendar:local_time().
+    This function returns <code>{ok, Now}</code>, where Now is
+    the result of <code>calendar:local_time()</code>.
     You can pass the second value in the options for the next call to
     compile/2 to telling ErlyWeb to avoid recompiling files that haven't
     changed (ErlyWeb does this automatically when the auto-compilation
@@ -57,15 +57,15 @@ extension are compiled with ErlTL.</p>
    documentation (<a href="http://erlang.org" target="_top"><tt>http://erlang.org</tt></a>).   
 ErlyWeb also lets you define the following options:</p>
  
-   <p>- {last_compile_time, LocalTime}: Tells ErlyWeb to not compile files     
+   <p>- <code>{last_compile_time, LocalTime}</code>: Tells ErlyWeb to not compile files     
 that haven't changed since LocalTime.</p>
  
-   <p>- {erlydb_driver, Name}: Tells ErlyWeb which ErlyDB driver to use     
+   <p>- <code>{erlydb_driver, Name}</code>: Tells ErlyWeb which ErlyDB driver to use     
 when calling erlydb:code_gen on models that are placed in src/components.     
 If you aren't using ErlyDB, i.e., you don't have any model files in     
 src/components, you can omit this option.</p>
  
-   <p>- {auto_compile, Val}, where Val is 'true', or 'false'.     
+   <p>- <code>{auto_compile, Val}</code>, where Val is 'true', or 'false'.     
 This option tells ErlyWeb whether it should turn on auto-compilation.     
 Auto-compilation is helpful during development because it spares you     
 from having to call erlyweb:compile every time you make a code change     
@@ -73,8 +73,8 @@ to your app. Just remember to turn this option off when you are in
 production mode because it will slow your app down (to turn auto_compile     
 off, just call erlyweb:compile without the auto_compile option).</p>
  
-  - 'suppress_warnings' and 'suppress_errors' tell ErlyWeb to not pass the
-    'report_warnings' and 'report_errors' to compile:file/2.
+  - <code>suppress_warnings</code> and <code>suppress_errors</code> tell ErlyWeb to not pass the
+    <code>report_warnings</code> and <code>report_errors</code> to compile:file/2.
  </p>
 
 <h3><a name="create_app-2">create_app/2</a></h3>
@@ -119,23 +119,23 @@ be useful in the app controller in case the application requires special
 logic for handling client requests for different components.</p>
  
   <p>If the request is for a component whose controller implements the function
-  <code>private() -&gt; true.</code>, this function calls   
-exit({illegal_request, Controller}).</p>
+  <code>private() -&gt; true.</code>, this function calls
+   <code>exit({illegal_request, Controller})</code>.</p>
  
-  <p>If the request matches a component but no function in the component's  
-controller, this function calls exit({no_such_function, Err}).</p>
+  <p>If the request matches a component but no function in the component's
+  controller, this function calls <code>exit({no_such_function, Err})</code>.</p>
  
-  <p>If the request doesn't match any components, this function returns  
-{page, Path}, where Path is the arg's appmoddata field.</p>
+  <p>If the request doesn't match any components, this function returns
+  <code>{page, Path}</code>, where Path is the arg's appmoddata field.</p>
  
-  If the parameter isn't in the form {ewc, A}, this function returns
+  If the parameter isn't in the form <code>{ewc, A}</code>, this function returns
   the parameter unchanged without any extra processing.
  </p>
 <p><b>See also:</b> <a href="#handle_request-1">handle_request/1</a>.</p>
 
 <h3><a name="out-1">out/1</a></h3>
 <p><tt>out(A::<a href="#type-yaws_arg">yaws_arg()</a>) -&gt; <a href="#type-ret_val">ret_val()</a></tt></p>
-<p>This is the 'out' function that Yaws calls when passing
+<p>This is the out/1 function that Yaws calls when passing
    HTTP requests to the ErlyWeb appmod.
  </p>
 </body>

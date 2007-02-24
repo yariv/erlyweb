@@ -9,9 +9,9 @@
 {@section Components}<br/>
 {@section Models}<br/>
 {@section Controllers}<br/>
+{@section Containers}<br/>
 {@section The App Controller}<br/>
 {@section Views}<br/>
-{@section The App View}<br/>
 {@section Advanced Controller Topics}<br/>
 {@section Yaws Configuration}<br/>
 
@@ -161,17 +161,25 @@ view layer and return a standard Yaws tuple such as {html, ...} or
 {ehtml, ..}, you should avoid defining a view function. Otherwise,
 Yaws may fail to understand the response and crash the process.
 
-=== Containers ===
-Containers are ErlyWeb components in which other components can be nested.
-Container functions are passed `ewc' and/or `data' tuples representing
-the nested components, which those functions return
-(either verbatim or modified), telling ErlyWeb to render the
-nested components and pass the result to the container's view function.
-The view function nests the rendered subcomponents in the container's
-surrounding content, and the result is sent back to the browser.
+== Containers ==
+Containers are ErlyWeb components in which other components can
+be nested. ErlyWeb contains no special logic to enable containers;
+'container' is just a word used to describe a component the application code
+uses in a special way.
 
-For example, you can create a simple HTML container by implementing the
-following files:
+The application code passes container controller functions
+`ewc' and/or `data' tuples representing nested components. The controller
+functions include those tuples in their return values,
+telling ErlyWeb to render the
+nested components and include the results in the parameters of the
+container's corresponding view functions.
+The view functions nest the rendered subcomponents in the
+container's surrounding content, and the result is sent back to Yaws.
+
+Let's take a look at an example.
+Below is the code for a simple HTML container. It accepts any
+`ewc' or `data' tuple (or list thereof), renders it, and embeds the result
+in a basic HTML page.
 
 html_container_controller.erl:
 ```
@@ -179,7 +187,7 @@ html_container_controller.erl:
 -export([index/2, private/0]).
 
 %% tells ErlyWeb to reject direct HTTP requests for this
-%% component
+%% container
 private() ->
   true.
 
@@ -200,19 +208,22 @@ html_container_view.et:
 </html>
 '''
 
-The following files implement a component called 'foo' that nests its
+Below is the code for a component that called 'song' that nests the title
+of a song in html_container.
+
 data in html_container:
 
-foo_controller.erl:
+song_controller.erl:
 ```
 index(A) ->
-  {ewc, html_container, [A, {data, "My Dynamic Data"}]}.
+  {ewc, html_container, [A, {data, "Back in the USSR"}]}.
 '''
 
-foo_view.et:
+song_view.et:
 ```
 <%@ index(Data) %>
 <% Data %>
+'''
 
 == The App Controller ==
 
@@ -222,14 +233,28 @@ has a single function by default, whose basic implementation is
 
 `hook(A) -> {ewc, A}.'
 
-You can change this function to rewrite the Arg, add headers, implement
-authentication hook, and perform any other action upon receiving a 
-browser request at the application level.
+This implementation tells ErlyWeb to invoke the component associated with
+the request's URL and send the result back to Yaws.
+
+You can change the implentation of hook/1 to rewrite the Arg,
+add headers, implement authentication logic, or perform any other
+action upon receiving a browser request at the application level.
 
 The app controller has a special feature to facilitate the nesting of
 rendered content inside containers (prior to ErlyWeb v0.5, similar,
 but more limited, functionality was provided by app views, which have since
-been removed).
+been removed). In addition to returning `ewc' and/or Yaws tuples, hook/1
+can return a tuple of the form `{phased, Ewc, Fun}'. This tuple tells ErlyWeb
+to process the request in 2 phases: first, render the initial component,
+and then embed any resulting iolists in another component.
+
+`Ewc' can be any `ewc'
+tuple, but it's usually just `{ewc, A}'. `Fun' is a function of the form
+`fun(ExpandedEwc, Data) -> FinalEwc end', where `ExpandedEwc' is the result of
+calling {@link erlyweb:get_initial_ewc/1} with `Ewc' as the parameter, and
+`Data' is any rendered data obtained from processing the original `Ewc'.
+`FinalEwc' is another `ewc' and/or `data' tuple telling ErlyWeb what to do
+with the rendered `Data'.
 
 
 === App Controller Compilation Hooks ===

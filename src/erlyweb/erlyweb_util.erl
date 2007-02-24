@@ -9,7 +9,8 @@
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
 -export([log/5, create_app/2, create_component/2, get_appname/1,
-	 get_app_root/1, validate/3, validate1/3, get_cookie/2, indexify/2,
+	 get_app_root/1, validate/3, validate1/3, validate_rec/2,
+	 get_cookie/2, indexify/2,
 	 to_recs/2]).
 
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
@@ -256,6 +257,54 @@ check_val(Field, Val, Fun, {Vals, Errs}) ->
 	{error, Err} ->
 	    {[Val1 | Vals], [Err | Errs]}
     end.
+
+
+%% @doc When a form has fields that correspond to the fields of an ErlyDB
+%% record, validate_rec/2 helps validate the values of the record's fields.
+%%
+%% validate_rec/2 accepts an ErlyDB record and a validation function.
+%% It folds over all the fields of the record (obtained by calling
+%% {@link erlydb_base:db_field_names/0}), calling the validation function
+%% with each field's existing value. The validation function's
+%% return value indicates if the field has a valid value,
+%% and it may also set the record's field final value.
+%%
+%% The result of validate_rec/2 is a tuple of the form `{Rec1, Errs}', where
+%% the first element is the modified record and the second element is
+%% a list of errors accumulated by the calls to the validation function.
+%%
+%% The validation function takes 3 parameters: the field name (an atom),
+%% the current value (this can be any term, but it's usually a string,
+%% especially if the record came from {@link to_recs/2}), and the record
+%% after folding over all the previous fields. It returns
+%% `ok', `{ok, NewVal}', `{error, Err}', or `{error, Err, NewVal}'.
+%%
+%% validate_rec/2 is especially useful in conjunction with {@link to_recs/2}.
+%% A common pattern is to create the records for the submitted form using
+%% to_recs/2 and then validate their fields using validate_rec/2.
+%%
+%% @spec validate_rec(Rec::erlydb_record(), Fun::function()) ->
+%%  {Rec1::erlydb_record(), Errs::[term()]}
+validate_rec(Rec, Fun) ->
+    Module = element(1, Rec),
+    {Rec, Errs} =
+	lists:foldl(
+	  fun(Field, {Rec1, Errs1} = Acc) ->
+		  case Fun(Field,
+			   Module:Field(Rec1), Rec1) of
+		      ok ->
+			  Acc;
+		      {ok, NewVal} ->
+			  {Module:Field(Rec1, NewVal),
+			   Errs1};
+		      {error, Err} ->
+			  {Rec1, [Err | Errs1]};
+		      {error, Err, NewVal} ->
+			  {Module:Field(Rec1, NewVal),
+			   [Err | Errs1]}
+		  end
+	  end, {Rec, []}, Module:db_field_names()),
+    {Rec, lists:reverse(Errs)}.
     
 %% @doc Get the cookie's value from the arg.
 %% @equiv yaws_api:find_cookie_val(Name, yaws_headers:cookie(A))
@@ -303,7 +352,7 @@ indexify2(_, _) -> next.
 %% represent a house and 2 cars. The house's fields have the
 %% prefix "house_" and the cars' fields have the prefixes "car1_" and
 %% "car2_". The arg's POST parameters are
-%% `[{"house_rooms", "3"}, {"car1_year", "2007"}, "car2_year", "2006"]'.
+%% `[{"house_rooms", "3"}, {"car1_year", "2007"}, {"car2_year", "2006"}]'.
 %% With such a setup, calling `to_recs(A, [{house, "house_"}, {car, "car1_"},
 %% {car, "car2_"}])'
 %% returns the list `[House, Car1, Car2]', where `house:rooms(House) == "3"',
