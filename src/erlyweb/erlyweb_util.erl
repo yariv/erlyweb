@@ -313,21 +313,29 @@ indexify2(_, _) -> next.
 %% @spec to_recs(A::arg() | [{ParamName::string(), ParamVal::term()}],
 %% [{Prefix::string(), Model::atom()}]) -> [Record::tuple()]
 to_recs(A, ModelDescs) when is_tuple(A), element(1, A) == arg ->
-    to_recs(yaws_arg:parse_post(A), ModelDescs);
+    to_recs(yaws_api:parse_post(A), ModelDescs);
 to_recs(Params, ModelDescs) ->
     Models = 
 	[{Prefix, Model, Model:new()} || {Prefix, Model} <- ModelDescs],
     Models1 =
 	lists:foldl(
 	  fun({Name, Val}, Acc) ->
-		  {First, [{Prefix1, Model1, Rec} | Rest]} =
-		      lists:splitwith(
-			fun({Prefix2, _Module2, _Rec2}) ->
-				not lists:prefix(Prefix2, Name)
-			end, Acc),
-		  {_, FieldName} = lists:split(length(Prefix1), Name),
-		  Field = erlydb_field:name(Model1:db_field(FieldName)),
-		  First ++ [{Prefix1, Model1, Model1:Field(Rec, Val)} | Rest]
+		  case lists:splitwith(
+			 fun({Prefix2, _Module2, _Rec2}) ->
+				 not lists:prefix(Prefix2, Name)
+			 end, Acc) of
+		      {_, []} ->
+			  Acc;
+		      {First, [{Prefix1, Model1, Rec} | Rest]} ->
+			  {_, FieldName} = lists:split(length(Prefix1), Name),
+			  Field = erlydb_field:name(Model1:db_field(FieldName)),
+			  Val1 = case Val of
+				     undefined -> "";
+				     _ -> Val
+				 end,
+			  First ++ [{Prefix1, Model1,
+				     Model1:Field(Rec, Val1)} | Rest]
+		  end
 	  end, Models, Params),
     [element(3, Model3) || Model3 <- Models1].
     

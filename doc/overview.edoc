@@ -1,6 +1,6 @@
 @title ErlyWeb: The Erlang Twist on Web Framworks
 @author Yariv Sadan
-@copyright Yariv Sadan 2006
+@copyright Yariv Sadan 2006-2007
 
 @doc
 == Contents ==
@@ -161,17 +161,76 @@ view layer and return a standard Yaws tuple such as {html, ...} or
 {ehtml, ..}, you should avoid defining a view function. Otherwise,
 Yaws may fail to understand the response and crash the process.
 
+=== Containers ===
+Containers are ErlyWeb components in which other components can be nested.
+Container functions are passed `ewc' and/or `data' tuples representing
+the nested components, which those functions return
+(either verbatim or modified), telling ErlyWeb to render the
+nested components and pass the result to the container's view function.
+The view function nests the rendered subcomponents in the container's
+surrounding content, and the result is sent back to the browser.
+
+For example, you can create a simple HTML container by implementing the
+following files:
+
+html_container_controller.erl:
+```
+-module(html_container_controller).
+-export([index/2, private/0]).
+
+%% tells ErlyWeb to reject direct HTTP requests for this
+%% component
+private() ->
+  true.
+
+index(_A, Ewc) ->
+  Ewc.
+'''
+
+html_container_view.et:
+```
+<%@ index(Data) %>
+<html>
+<head>
+<title>My ErlyWeb App</title>
+</head>
+<body>
+<% Data %>
+</body>
+</html>
+'''
+
+The following files implement a component called 'foo' that nests its
+data in html_container:
+
+foo_controller.erl:
+```
+index(A) ->
+  {ewc, html_container, [A, {data, "My Dynamic Data"}]}.
+'''
+
+foo_view.et:
+```
+<%@ index(Data) %>
+<% Data %>
+
 == The App Controller ==
 
 All ErlyWeb applications have a module called [AppName]_app_controller,
 whose source file is in the 'src' directory by convention. This module
-has a single function by default, whose implementation is
+has a single function by default, whose basic implementation is
 
 `hook(A) -> {ewc, A}.'
 
 You can change this function to rewrite the Arg, add headers, implement
 authentication hook, and perform any other action upon receiving a 
 browser request at the application level.
+
+The app controller has a special feature to facilitate the nesting of
+rendered content inside containers (prior to ErlyWeb v0.5, similar,
+but more limited, functionality was provided by app views, which have since
+been removed).
+
 
 === App Controller Compilation Hooks ===
 
