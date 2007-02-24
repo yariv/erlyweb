@@ -645,10 +645,10 @@ update(Module, Props) ->
 %% In generated modules, the 'Module' parameter is omitted.
 %%
 %% Example:
-%% Calling `person:update([{name,<<"Jane">>}, {age, {age, '+', 1}}],
-%% {id,'=',7})'
-%% would yield the statement `UPDATE person SET name='Jane', age=age+1
-%% WHERE id=7'.
+%% Calling ``person:update([{name,<<"Jane">>}, {age, {age, '+', 1}}],
+%% {id,'=',7})''
+%% would yield the statement ``UPDATE person SET name='Jane', age=age+1
+%% WHERE id=7''.
 %%
 %% The UPDATE statement is executed in a transactional context.
 %%

@@ -864,10 +864,10 @@ expression representing its value.</p>
   <p>In generated modules, the 'Module' parameter is omitted.</p>
  
   <p>Example:
-  Calling <code>person:update([{name,&lt;&lt;"Jane"&gt;&gt;}, {age, {age,</code>+', 1}}],
-  {id,'=',7})'
-  would yield the statement <code>UPDATE person SET name=</code>Jane', age=age+1  
-WHERE id=7'.</p>
+  Calling <code>person:update([{name,&lt;&lt;"Jane"&gt;&gt;}, {age, {age, '+', 1}}],
+  {id,'=',7})</code>
+  would yield the statement <code>UPDATE person SET name='Jane', age=age+1
+  WHERE id=7</code>.</p>
  
   The UPDATE statement is executed in a transactional context.
  </p>

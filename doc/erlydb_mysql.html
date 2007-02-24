@@ -56,7 +56,9 @@ This module implements the MySQL driver for ErlyDB.
 <tr><td valign="top"><a href="#select_as-3">select_as/3</a></td><td>Execute a SELECT statements for records belonging to the given module,
     returning all rows with additional data to support
     higher-level ErlyDB features.</td></tr>
-<tr><td valign="top"><a href="#start-1">start/1</a></td><td>Start the MySQL driver using the options property list.</td></tr>
+<tr><td valign="top"><a href="#start-1">start/1</a></td><td>Start the MySQL dispatcher using the options property list.</td></tr>
+<tr><td valign="top"><a href="#start_link-1">start_link/1</a></td><td>This function is similar to <a href="#start-1"><code>start/1</code></a>, only it calls
+  mysql:start_link() instead of mysql:start().</td></tr>
 <tr><td valign="top"><a href="#transaction-2">transaction/2</a></td><td>Execute a group of statements in a transaction.</td></tr>
 <tr><td valign="top"><a href="#update-2">update/2</a></td><td>Execute a DELETE or UPDATE statement.</td></tr>
 </table>
@@ -169,7 +171,7 @@ This module implements the MySQL driver for ErlyDB.
 
 <h3><a name="start-1">start/1</a></h3>
 <p><tt>start(StartOptions::<a href="#type-proplist">proplist()</a>) -&gt; ok | {error, Error}</tt></p>
-<p><p>Start the MySQL driver using the options property list.   
+<p><p>Start the MySQL dispatcher using the options property list.   
 The available options are:</p>
  
    <p><code>pool_id</code> (optional): an atom identifying the connection pool id.      
@@ -187,11 +189,20 @@ pool, i.e. 'erlydb_mysql', should be used.</p>
  
    <p><code>database</code>: a string indicating the database name.</p>
  
-   <code>allow_unsafe_sql</code>: a boolean value indicating whether the driver should
+   <p><code>allow_unsafe_sql</code>: a boolean value indicating whether the driver should
    accept string and/or binary SQL queries and query fragments. If you
    set this value to
    'true', ErlyDB lets you use string or binary Where and Extras expressions
-   in generated functions. For more information, see <a href="erlydb.html"><code>erlydb</code></a>.
+   in generated functions. For more information, see <a href="erlydb.html"><code>erlydb</code></a>.</p>
+ 
+  This function calls mysql:start(), not mysql:start_link(). To
+  link the MySQL dispatcher to the calling process, use <a href="#start_link-1"><code>start_link/1</code></a>.
+ </p>
+
+<h3><a name="start_link-1">start_link/1</a></h3>
+<p><tt>start_link(StartOptions::<a href="#type-proplist">proplist()</a>) -&gt; ok | {error, Error}</tt></p>
+<p>This function is similar to <a href="#start-1"><code>start/1</code></a>, only it calls
+  mysql:start_link() instead of mysql:start().
  </p>
 
 <h3><a name="transaction-2">transaction/2</a></h3>
