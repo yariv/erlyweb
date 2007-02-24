@@ -196,15 +196,23 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
     %% extend the base module, erlydb_base
     M20 = smerl:extend(erlydb_base, MetaMod),
 
+    %% This is an optimization to avoid the remote function call
+    %% to erlydb_base:set/3 in order to allow the compiler to decide to
+    %% update the record destructively.
+    M21 = smerl:remove_func(M20, set, 3),
+    {ok, M22} = smerl:add_func(M21,
+			 "set(Idx, Rec, Val) -> "
+			 "setelement(Idx, Rec, Val)."),
+
     Module = smerl:get_module(MetaMod),
 
-    ok = smerl:compile(M20),
+    ok = smerl:compile(M22),
 
     {Fields, FieldNames} = get_db_fields(Module, DbFields),
     
     PkFields = [Field || Field <- Fields, erlydb_field:key(Field) == primary],
     
-    {ok, M24} = smerl:curry_replace(M20, db_pk_fields, 1, [PkFields]),
+    {ok, M24} = smerl:curry_replace(M22, db_pk_fields, 1, [PkFields]),
 
     M26 = add_pk_fk_field_names(M24, PkFields),
     
