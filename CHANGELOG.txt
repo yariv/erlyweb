@@ -14,8 +14,6 @@ v0.5
 
 - Fixed a bug in the auto-compilation feature causing an internal data-structure to grow indefinitely upon automatic recompilations.
 
-- Added the validate/3 function to erlyweb_util.
-
 - Introduced a new return type, 'ewr', to redirect to the application's root url.
 
 - Introduced a new return type, {ewc, ControllerModule, ViewModule, Func, Params} to enable fine-grained control over ErlyWeb's rendering of components.
@@ -80,8 +78,6 @@ v0.5
 
 - Made internal improvements in erlydb_base.
 
-- Added erlyweb_util:to_recs/2.
-
 - Added a few functions in mysql.erl to start the dispatcher without linking.
 
 - Added erlydb:start_link() and changed erlydb:start() to make it call
@@ -89,6 +85,9 @@ v0.5
   dispatcher from dying every time the interactive shell traps an exit. Just
   remember to call erlydb:start_link() instead of erlydb_start() if you want
   to link to the MySQL dispatcher.
+
+- Created the 'erlyweb_forms' module, with a few functions useful for form POST processing.
+
 
 v0.4.1
 
