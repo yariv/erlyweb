@@ -195,18 +195,24 @@ get_cookie(Name, A) ->
 %%
 %% @spec indexify(A::arg(), ComponentNames::[string()]) -> arg()
 indexify(A, ComponentNames) ->
-    Str = indexify1(yaws_arg:appmoddata(A), ComponentNames),
-    yaws_arg:appmoddata(A, Str).
+    Appmod = yaws_arg:appmoddata(A),
+    Sp = yaws_arg:server_path(A),
 
-indexify1(Str, []) -> Str;
-indexify1(Str, [Prefix | Others]) ->
-    case indexify2(Str, [$/ | Prefix]) of
-	stop ->
-	    Str;
+    Appmod1 = indexify1(Appmod, ComponentNames),
+    A1 = yaws_arg:appmoddata(A, Appmod1),
+
+    {SpRoot, _} = lists:split(length(Sp) - length(Appmod), Sp),
+    yaws_arg:server_path(A1, SpRoot ++ Appmod1).
+     
+
+indexify1(S1, []) -> S1;
+indexify1(S1, [Prefix | Others]) ->
+    case indexify2(S1, [$/ | Prefix]) of
+	stop -> S1;
 	{stop, Postfix} ->
 	    [$/ | Prefix] ++ "/index" ++ Postfix;
 	next ->
-	    indexify1(Str, Others)
+	    indexify1(S1, Others)
     end.
 
 indexify2([], []) -> stop;
