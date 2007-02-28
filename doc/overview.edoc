@@ -9,10 +9,9 @@
 {@section Components}<br/>
 {@section Models}<br/>
 {@section Controllers}<br/>
+{@section Views}<br/>
 {@section Containers}<br/>
 {@section The App Controller}<br/>
-{@section Views}<br/>
-{@section Advanced Controller Topics}<br/>
 {@section Yaws Configuration}<br/>
 
 == Introduction ==
@@ -98,11 +97,12 @@ models in 'src/components' and then you won't have to call erlydb:start().
 Controllers contain most of your application's logic. They are the glue
 between Yaws and your applications models and views.
 
-Controller functions always accept the Yaws Arg as the first parameter, and
-they may return any of the values that Yaws appmods may return (please read
-the paragraph below concerning returning standard Yaws tuples to avoid
-running into trouble). In addition, they may return a few special values,
-which are listed below with their meanings
+Controller functions always accept the Yaws Arg for the request as the
+first parameter, and they may return any of the values that Yaws
+appmods may return (please read
+the section below on the `{response, Elems}' tuple to avoid
+running into trouble). In addition, controller functions may return
+a few special values, which are listed below with their meanings
 (note: 'ewr' stands for 'ErlyWeb redirect' and 'ewc' stands for 'ErlyWeb
 Component.').
 
@@ -138,9 +138,8 @@ the result to the view function.
 
 `{ewc, ControllerModule, ViewModule, FuncName, Params}'<br/>
 This tuple lets you specify exacly which controller and
-view modules ErlyWeb uses to render the sub-component. You should only use
-it if you need very fine-grained control over the rendering
-sub-components. This tuple is considered for advanced use only.
+view modules ErlyWeb uses to render the sub-component. It is considered for
+advanced uses only.
 
 Controller functions may also return (nested) lists of
 'ewc' and 'data' tuples, telling ErlyWeb to render the items
@@ -149,37 +148,99 @@ the view function.
 This feature lets you build components that are composed of a mix of
 dynamic data and one or more sub-components.
 
-If a component is only supposed to exist as a subcomponent, you can
+If a component is only supposed to be used as a subcomponent, you should
 implement the function "`private() -> true.'" in its controller to
 prevent web clients from accessing the component by requesting
-its corresponding URL.
+its corresponding URL directly.
 
-If a controller function doesn't have a corresponding view function,
-ErlyWeb calls the controller function, processes the result (if necessary),
-and then sends the output back to Yaws. When you wish to bypass the
-view layer and return a standard Yaws tuple such as {html, ...} or
-{ehtml, ..}, you should avoid defining a view function. Otherwise,
-Yaws may fail to understand the response and crash the process.
+=== Returning Arbitrary Yaws Tuples ===
+
+ErlyWeb provides the infrastructure for rendering components and redirecting
+to other components in the same application. This is sufficient for simple
+applications, but sometimes you may want to return
+to Yaws tuples that Yaws understands and that aren't directly
+supported by ErlyWeb (these are documented
+at [http://yaws.hyber.org/yman.yaws?page=yaws_api]). A common requirement,
+for example, is to instruct Yaws to include arbitrary HTTP headers, such as
+cookies, in the response Yaws sends to the browser.
+ErlyWeb lets you do this by returning a tuple of the
+form `{response, Elems}' from controller functions. 
+
+The second element in the `{response, Elems}' is a list of values that
+ErlyWeb should return to Yaws verbatim, with the exception of the (optional)
+`{body, Body}' tuple and any of the `ewr' tuples listed above (ErlyWeb
+translates the latter into their `redirect_local' equivalents). If,
+in addition to returning standard Yaws tuples, you want ErlyWeb to
+render the response's body using the component's view, you can
+include the `{body, Body}' tuple in `Elems'. `Body' may be any single `ewc'
+or `data' tuple, or a list thereof. ErlyWeb renders the elements of `Body',
+sends the result to the view function, and embeds the resulting iolist in
+an `{html, Iolist}' tuple prior to returning it to Yaws.
+
+There is currently a restriction on the usage of `{response, Elems}': only the
+top-level component for the request may return the
+`{response, Elems}' tuple. Sub-components may return only `data' and/or
+`ewc' tuples. This restriction makes sense because you normally only use 
+sub-components for rendering segments of the response's body and not
+for setting HTTP headers or implementing arbitrary application logic.
+
+=== Optional Controller Hooks ===
+
+ErlyWeb lets you implement the before_call/2 and before_return/3 hooks
+in controllers to intercept function calls before they are applied
+and/or manipulate controller return values before ErlyWeb processes them.
+
+The signature of before_call/2 is
+
+```
+before_call(FuncName::atom(), Params::[term()]) ->
+  {NewFuncName::atom(), NewParams::[term()]}
+'''
+
+You can use the before_call/2 hook to change the controller function ErlyWeb
+calls and/pr the parameters ErlyWeb passes to the function. 
+This hook can be convenient, for example, for implementing authentication
+logic for some or all functions of a controller.
+
+The signature of before_return/3 is
+
+```
+before_return(FuncName::atom(), Params::[term()], Response::term()) ->
+  NewResponse::term()
+'''
+
+By implementing the before_return/3 hook, you can change all return values
+based on the names and/or parameters of their originating controller
+functions. This hook can simplify the definition of response elements
+such HTTP headers common to some or all of a controller's functions.
+
+== Views ==
+
+Views are Erlang modules whose functions return iolists (nested lists
+of strings and/or binaries). A view function that ErlyWeb uses has
+the same name as its corresponding controller function,
+and it accepts a single parameter, which is the result of ErlyWeb's
+processing of the controller function's return value.
 
 == Containers ==
 Containers are ErlyWeb components in which other components can
 be nested. ErlyWeb contains no special logic to enable containers;
-'container' is just a word used to describe a component the application code
-uses in a special way.
+'container' is just a word used to describe components that applications
+use in a special way.
 
-The application code passes container controller functions
-`ewc' and/or `data' tuples representing nested components. The controller
-functions include those tuples in their return values,
-telling ErlyWeb to render the
-nested components and include the results in the parameters of the
-container's corresponding view functions.
-The view functions nest the rendered subcomponents in the
-container's surrounding content, and the result is sent back to Yaws.
+What sets containers apart from standard components is that containers'
+controller functions accept as parameters
+`ewc' and/or `data' tuples representing nested sub-components.
+The controller functions include those parameters in their return values,
+telling ErlyWeb to render the nested components and pass the results
+to the container's corresponding view functions. The view functions embed
+the rendered subcomponents in the container's static HTML,
+and ErlyWeb returns the final result Yaws.
 
-Let's take a look at an example.
-Below is the code for a simple HTML container. It accepts any
-`ewc' or `data' tuple (or list thereof), renders it, and embeds the result
-in a basic HTML page.
+The code below illustrates how to implement a
+simple HTML container. The container's controller function tells ErlyWeb
+to renders its sub-component (index/2's `Ewc' parameter), and pass the result
+to the component's view, which defines a basic HTML page.
 
 html_container_controller.erl:
 ```
@@ -208,10 +269,8 @@ html_container_view.et:
 </html>
 '''
 
-Below is the code for a component that called 'song' that nests the title
-of a song in html_container.
-
-data in html_container:
+The example below shows the implementation of a simple component called
+'song', which nests the title of a song in html_container:
 
 song_controller.erl:
 ```
@@ -227,35 +286,79 @@ song_view.et:
 
 == The App Controller ==
 
-All ErlyWeb applications have a module called [AppName]_app_controller,
-whose source file is in the 'src' directory by convention. This module
-has a single function by default, whose basic implementation is
+ErlyWeb applications have a module called [AppName]_app_controller,
+whose source file is in the 'src' directory by convention. The app controller
+provides the entry-point into ErlyWeb applications via the hook/1 function,
+whose signature is
 
-`hook(A) -> {ewc, A}.'
+```
+hook(A::arg()) -> hook_result() | [hook_result()]
 
-This implementation tells ErlyWeb to invoke the component associated with
-the request's URL and send the result back to Yaws.
+hook_result = ewc() | yaws_term() |
+  {phased, Ewc::ewc(), fun(ExpandedEwc::ewc(), Data::iolist()) ->
+	FinalEwc::ewc()}
 
-You can change the implentation of hook/1 to rewrite the Arg,
-add headers, implement authentication logic, or perform any other
-action upon receiving a browser request at the application level.
+ewc = any `ewc' tuple
+yaws_term() = any legal Yaws appmod return value
+'''
 
-The app controller has a special feature to facilitate the nesting of
-rendered content inside containers (prior to ErlyWeb v0.5, similar,
-but more limited, functionality was provided by app views, which have since
-been removed). In addition to returning `ewc' and/or Yaws tuples, hook/1
-can return a tuple of the form `{phased, Ewc, Fun}'. This tuple tells ErlyWeb
-to process the request in 2 phases: first, render the initial component,
-and then embed any resulting iolists in another component.
 
-`Ewc' can be any `ewc'
-tuple, but it's usually just `{ewc, A}'. `Fun' is a function of the form
-`fun(ExpandedEwc, Data) -> FinalEwc end', where `ExpandedEwc' is the result of
-calling {@link erlyweb:get_initial_ewc/1} with `Ewc' as the parameter, and
-`Data' is any rendered data obtained from processing the original `Ewc'.
-`FinalEwc' is another `ewc' and/or `data' tuple telling ErlyWeb what to do
-with the rendered `Data'.
+The basic implementation of hook/1 is
 
+```
+hook(A) -> {ewc, A}.
+'''
+
+This tells ErlyWeb to check if the component that's mapped to the
+request's URL is a top-level component (i.e., it doesn't implement
+`private() -> true.'). If it is top-level, ErlyWeb renders the component
+and returns the to Yaws. Otherwise, ErlyWeb calls
+`exit({illegal_request, ControllerName}).'
+
+Warning: ErlyWeb only checks if tuples of the form `{ewc, A}' represent
+top-level components. If you return a different `ewc' tuple (e.g. one
+returned by calling {@link erlyweb:get_initial_ewc/1}), ErlyWeb expects you
+to ensure the safety of your components manually.
+
+In ErlyWeb 0.5, the `phased' return type was introduced to faciliate
+the conditional embedding of any rendered data in containers
+(before ErlyWeb 0.5, a similar, but weaker functionality was provided by
+app views, which ErlyWeb no longer supports). By returning
+`{phased, Ewc, Fun}', you are instructing ErlyWeb to first render the
+requested component, and if the result includes a rendered
+iolist (i.e., the requested component didn't return only headers),
+then nest the resulting iolist in a container before returning it.
+
+This approach is superior to directly embedding the requested component in a
+container because it allows the requested component to return headers
+(sub-components aren't allowed to return the `{response, Elems}' tuple,
+as discussed above). In addition, this approach lets ErlyWeb skip the
+unnecessary rendering of the container when the requested component
+returns only headers.
+
+Consider this trivial example: returning
+
+```
+{phased, {ewc, A}, fun(_Ewc, Data) -> {data, Data} end}
+'''
+
+is tantamount to returning
+
+```
+{ewc, A}
+'''
+
+Another example: the return value below
+
+```
+{phased, {ewc, A},
+  fun(_Ewc, Data) ->
+    {html_container, index, [A, {data, Data}]}
+  end}
+'''
+
+tells ErlyWeb to embed any rendered data in html_container by passing
+the parameters `[A, {data, Data}]' to its 'index' function.
 
 === App Controller Compilation Hooks ===
 
@@ -265,147 +368,6 @@ hook into the compilation process and extend it in arbitrary ways.
 Both functions take a single parameter indicating the last compilation
 time (as returned from calendar:local_time()), or 'undefined' if the
 last compilation time is unknown.
-
-== Views ==
-
-Views are Erlang modules whose functions return iolists (nested lists
-of strings and/or binaries). A view function that ErlyWeb uses has
-the same name as its corresponding controller function,
-and it accepts a single parameter, which is the result of ErlyWeb's
-processing of the controller function's return value.
-
-Views may implement the special function render/1. If this function exists,
-ErlyWeb passes into it the results of other functions in the
-same view module and then returns the result of render/1 back to Yaws.
-This feature simplifies creating view elements,
-such as headers and footers, that are common to all component functions.
-
-In ErlTL files, the render/1 function is always at the top of the file,
-and its parameter is named 'Data'. When you implement a view
-as an ErlTL template, even if your view functions don't share any common
-elements, you should at least have the following line at the top of the file
-(under the top-level forms tag, if it exists):
-
-`<% Data %>'
-
-This line tells ErlTL to not dismiss the values that ErlyWeb passes into
-render/1. Without this line,
-ErlyWeb would return an empty response back to Yaws.
-(The reason is that ErlTL would compile the view's render/1 function as
-"`render(Data) -> [].'" instead of "`render(Data) -> [Data].'".)
-
-== The App View ==
-
-ErlyWeb applications normally have a view module called
-[AppName]_app_view, whose source file is in the 'src' directory.
-Before returning to Yaws a rendered iolist, ErlyWeb checks
-if this module exists and if it exports the function render/1.
-If it does, ErlyWeb passes the iolist to render/1 and then
-returns the result back to Yaws.
-
-This feature allows you to easily create global view elements, such as headers
-and footers, for your application.
-
-== Advanced Controller Topics ==
-
-Note: The contents of this section are considered experimental
-and are subject to future changes.
-
-=== Advanced Response Values ===
-Sometimes, you may need to extend ErlyWeb's basic behavior
-and exercise a greater degree of control over how your
-components are rendered and what values ErlyWeb returns to Yaws after it
-renders certain components. This may include setting HTTP headers or
-choosing a different app view for specific components or
-component functions.
-
-Starting from ErlyWeb v0.4 (currently in svn trunk),
-controllers can return a tuple of the type
-`{response, Elems}', where Elems is a list of tuples telling ErlyWeb
-what special actions to take when handling the response.
-These are the values you can add to the Elems list:
-
-`{app_view, ModuleName}'<br/>
-This tells ErlyWeb to use a different app view for rendering the
-final output. ModuleName may have 2 special values: 'default' tells ErlyWeb
-to use the default app view, and 'undefined' tells ErlyWeb to not
-use any app view (this is often useful for AJAX responses).<br/>
-This tuple applies only to top-level components; ErlyWeb ignores it
-in subcomponents.
-
-`{app_view_param, Ewc}'<br/>
-Normally, the app view's render/1 function accepts as its parameter an
-opaque iolist. However, sometimes you may wish to pass specific values
-to render/1 in order to parameterize it based on the logic in
-controller functions. When Elems contains the `{app_view_param, Ewc}'
-tuple, ErlyWeb renders the Ewc value (an `{ewc,..}' or `{data,...}' tuple,
-or a list thereof) and then
-passes into the app view's render/1 function a 2 element list: the first
-element is the rendered Ewc, and the second element is the normal opaque
-iolist.<br/>
-This tuple applies only to top-level components; ErlyWeb ignores it
-in subcomponents.
-
-For example, if the following were your controller function,
-
-```
-index(A) ->
-  {response, [{app_view_param, {data, <<"Hello">>}},
-  {body, {data, "from ErlyWeb"}}]}.
-'''
-view function
-```
-<%@ index(Data) %>
-<% Data %>!
-'''
-and app view template,
-```
-<? [A, B] = Data %>
-< A %> <% B %>
-'''
-
-then the final result would be an iolist containing the message
-"Hello from ErlyWeb!"
-
-`{view_param, Ewc}'<br/>
-Similar to app_view_param, but affects the parameter passed into the
-component view's render/1 function.
-
-`{body, Ewc}'<br/>
-Ewc is the normal value that the function would return without the
-'response' tuple. ErlyWeb processes it and then sends the result to the
-corresponding view function (if one exists).
-Note: this value must appear after all of the tuples above (for performance
-reasons).
-
-In addition to these values, Elems may include any value that
-Yaws accepts, such as `{header, Header}', `{html, Html}', etc. ErlyWeb
-returns these values, as well as the rendered component,
-in their order of appearance.
-
-=== The `before_return' Hook ===
-ErlyWeb provides a hook for changing the responses from all functions in
-a controller before ErlyWeb processes them. This lets you avoid
-repetition in your code in scenarios such as
-when you wish to disable the app view, add a given subcomponent, or
-set HTTP headers for an entire controller. To use this hook, you may
-implement the function before_return/3 in your controllers. Its first
-parameter is the name of the function,
-its second parameter is the list of parameters passed to the function,
-and the third parameter is the function's original return value. It returns
-the modified response.
-
-For example, to disable the app view for all the functions in a controller
-except 'index', you could implement before_return/3 as follows:
-
-```
-before_return(index, _Params, Response) -> Response;
-before_return(_FuncName, _Params, {response, Elems}) ->
-  {response, [{app_view, undefined} | Elems]};
-before_return(_FuncName, _Params, Body) ->
-  {response, [{app_view, undefined}, {body, Body}]}.
-'''
-
 
 == Yaws Configuration ==
 To use ErlyWeb, you need to configure Yaws to use the erlyweb module
