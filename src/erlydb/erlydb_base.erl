@@ -611,13 +611,8 @@ insert1(Recs) ->
 		  Field <- Fields, erlydb_field:extra(Field) =/= identity],
     Rows1 = lists:map(
 	      fun(Rec) ->
-		      case is_new(Rec) of
-			  true ->
-			      Rec1 = Mod:before_save(Rec),
-			      [Mod:Field(Rec1) || Field <- Fields1];
-			  _ ->
-			      exit({record_already_inserted, Rec})
-		      end
+		      Rec1 = Mod:before_save(Rec),
+		      [Mod:Field(Rec1) || Field <- Fields1]
 	      end, Recs),
     {Driver, Options} = Mod:driver(),
     case Driver:transaction(
@@ -1353,32 +1348,32 @@ make_find_related_many_to_many_query(OtherModule, JoinTable, Rec, Fields,
     Module = get_module(Rec),
     Cond =
 	case OtherTable == db_table(Module) of
-	    true->
+	    true ->
 		PkFks = Module:get_pk_fk_fields2(),
 		{'or', 
 		 [{'and',
-		   [{{OtherTable, PkField}, '=',
-		     {JoinTable, FkField1}} ||
-		       {PkField, FkField1, _FkField2} <- PkFks] ++
 		   [{{JoinTable, FkField2},'=',
 		     Module:PkField(Rec)} ||
-		       {PkField, _FkField1, FkField2} <- PkFks]},
-		 {'and',
-		   [{{OtherTable, PkField}, '=',
-		     {JoinTable, FkField2}} ||
 		       {PkField, _FkField1, FkField2} <- PkFks] ++
+		   [{{OtherTable, PkField}, '=',
+		     {JoinTable, FkField1}} ||
+		       {PkField, FkField1, _FkField2} <- PkFks]},
+		  {'and',
 		   [{{JoinTable, FkField1},'=',
 		     Module:PkField(Rec)} ||
-		       {PkField, FkField1, _FkField2} <- PkFks]}]};
-	   _ ->
+		       {PkField, FkField1, _FkField2} <- PkFks] ++
+		   [{{OtherTable, PkField}, '=',
+		     {JoinTable, FkField2}} ||
+		       {PkField, _FkField1, FkField2} <- PkFks]}]};
+	    _ ->
 		{'and',
-		 [{{OtherTable, PkField},'=',{JoinTable, FkField}} ||
-		     {PkField, FkField} <- OtherModule:get_pk_fk_fields()] ++
 		 [{{JoinTable, FkField},'=',Module:PkField(Rec)} ||
-		     {PkField, FkField} <- Module:get_pk_fk_fields()]}
+		     {PkField, FkField} <- Module:get_pk_fk_fields()] ++
+		 [{{OtherTable, PkField},'=',{JoinTable, FkField}} ||
+		     {PkField, FkField} <- OtherModule:get_pk_fk_fields()]}
 	end,
     {select, Fields,
-     {from, [db_table(OtherModule), JoinTable]},
+     {from, [JoinTable, db_table(OtherModule)]},
      make_where_expr(OtherModule, Cond, Where),
      Extras}.
 

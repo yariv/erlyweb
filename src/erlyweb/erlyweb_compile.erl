@@ -286,6 +286,8 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
 		lists:foldl(
 		  fun({before_return, _}, Acc1) ->
 			  Acc1;
+		     ({before_call, _}, Acc1) ->
+			  Acc1;
 		     ({module_info, _}, Acc1) ->
 			  Acc1;
 		     ({_, 0}, Acc1) ->
@@ -345,7 +347,9 @@ compile_file(FileName, BaseName, Type, Options, IncludePaths) ->
     end.
 
 add_forms(controller, BaseName, MetaMod) ->
-    M1 = add_func(MetaMod, private, 0, "private() -> false."),
+    M0 = add_func(MetaMod, private, 0, "private() -> false."),
+    M1 = add_func(M0, before_call, 2,
+		  "before_call(FuncName, Params) -> {FuncName, Params}."),
     M2 = add_func(M1, before_return, 3,
 		  "before_return(_FuncName, _Params, Response) -> Response."),
     case smerl:get_attribute(M2, erlyweb_magic) of

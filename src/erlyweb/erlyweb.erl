@@ -235,8 +235,9 @@ ewc({ewc, Component, FuncName, Params}, AppData) ->
     end;
 
 ewc({ewc, Controller, View, FuncName, [A | _] = Params}, AppData) ->
-    Response = apply(Controller, FuncName, Params),
-    Response1 = Controller:before_return(FuncName, Params, Response),
+    {FuncName1, Params1} = Controller:before_call(FuncName, Params),
+    Response = apply(Controller, FuncName1, Params1),
+    Response1 = Controller:before_return(FuncName1, Params1, Response),
     Response2 = case Response1 of
 		    {response, _} ->
 			Response1;

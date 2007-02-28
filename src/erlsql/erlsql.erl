@@ -312,17 +312,17 @@ extra_clause({group_by, ColNames}, _Safe) ->
 extra_clause({group_by, ColNames, having, Expr}, Safe) ->
     [extra_clause({group_by, ColNames}, Safe), <<" HAVING ">>,
      expr(Expr, Safe)];
-extra_clause({order_by, ColNames}, _Safe) ->
+extra_clause({order_by, ColNames}, Safe) ->
     [<<" ORDER BY ">>,
      make_list(ColNames,
 		      fun({Name, Modifier}) when
 			 Modifier == 'asc' ->
-			      [convert(Name), 32, convert('ASC')];
+			      [expr(Name, Safe), 32, convert('ASC')];
 			 ({Name, Modifier}) when
 			 Modifier == 'desc' ->
-			      [convert(Name), 32, convert('DESC')];
+			      [expr(Name, Safe), 32, convert('DESC')];
 			 (Name) ->
-			      convert(Name)
+			      expr(Name, Safe)
 		      end)].
 
 extra_clause2(Exprs, Safe) ->
@@ -497,6 +497,7 @@ subquery_op(in) -> <<" IN (">>;
 subquery_op(any) -> <<" ANY (">>;
 subquery_op(some) -> <<" SOME (">>.
 
+expr2(undefined, _Safe) -> <<"NULL">>;
 expr2(Expr, _Safe) when is_atom(Expr) -> convert(Expr);
 expr2(Expr, Safe) -> expr(Expr, Safe).
     

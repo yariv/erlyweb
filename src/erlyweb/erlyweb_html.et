@@ -20,12 +20,10 @@ join([First | Rest], Acc) ->
 %>
 <%@ a(PathElems, Text) %>
 <a href="<% join(PathElems) %>"><% Text %></a>
-
 <%@ a(PathElems, Text, Props) %>
 <a href="<% join(PathElems) %>"<%
 	[[" ", Name,<<"=\"">>,Value,<<"\"">>] || {Name, Value} <- Props] %>><% 
 	Text %></a>
-
 <%@ table(Records) %>
 <% table(Records, undefined) %>
 

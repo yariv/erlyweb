@@ -88,6 +88,9 @@ v0.5
 
 - Created the 'erlyweb_forms' module, with a few functions useful for form POST processing.
 
+- Added support for the optional 'before_call/2' function in controllers. This function takes the name of the requested function and its parameters and returns {NewFucnName, NewParams}.
+
+- Made a couple of SQL statement generation fixes in erlsql.erl.
 
 v0.4.1
 
