@@ -1,5 +1,5 @@
 %% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com]
-%% @copyright Yariv Sadan 2006
+%% @copyright Yariv Sadan 2006-2007
 %%
 %% @doc This module contains data structures and functions for
 %% exposing database fields' metadata.
@@ -216,7 +216,9 @@ get_html_input_type(Type) ->
       date -> text_field;
       time -> text_field;
       datetime -> text_field;
-      binary -> get_html_binary_input_type(Type)
+      decimal -> text_field;
+      binary -> get_html_binary_input_type(Type);
+      _ -> text_field
   end.
 
 get_html_binary_input_type({Type, _Len}) ->

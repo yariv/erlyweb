@@ -9,7 +9,7 @@
 <h1>Module erlydb_base</h1>
 erlydb_base is the base module that all modules that ErlyDB generates  
 extend.
-<p>Copyright © Yariv Sadan 2006</p>
+<p>Copyright © Yariv Sadan 2006-2007</p>
 <ul><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
 <p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivvv@gmail.com"><tt>yarivvv@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com" target="_top">http://yarivsblog.com</a></tt>].</p>
 
@@ -125,7 +125,9 @@ according to the Where and Extras expressions.</td></tr>
 many-to-one relation.</td></tr>
 <tr><td valign="top"><a href="#get-2">get/2</a></td><td>A generic getter function ErlyDB uses to generate getters, e.g.</td></tr>
 <tr><td valign="top"><a href="#get_module-1">get_module/1</a></td><td>Get the name of the module to which the record belongs.</td></tr>
+<tr><td valign="top"><a href="#insert-1">insert/1</a></td><td>Insert one or more records into the database.</td></tr>
 <tr><td valign="top"><a href="#is_new-1">is_new/1</a></td><td>Check if the record has been saved in the database.</td></tr>
+<tr><td valign="top"><a href="#is_new-2">is_new/2</a></td><td>Set the record's 'is_new' field to the given value.</td></tr>
 <tr><td valign="top"><a href="#new-1">new/1</a></td><td>Create a new record with all fields set to 'undefined'.</td></tr>
 <tr><td valign="top"><a href="#new_from_strings-2">new_from_strings/2</a></td><td>Equivalent to <a href="#new_with-3"><tt>new_with(Module, Fields, fun field_from_string/2)</tt></a>.
 </td></tr>
@@ -135,6 +137,8 @@ according to the key/value pairs in the Fields property list.</td></tr>
   property list values to field values before setting them.</td></tr>
 <tr><td valign="top"><a href="#relations-0">relations/0</a></td><td>Return the list of relations of the module.</td></tr>
 <tr><td valign="top"><a href="#remove_related_many_to_many-3">remove_related_many_to_many/3</a></td><td>Remove a related record in a many-to-many relation.</td></tr>
+<tr><td valign="top"><a href="#remove_related_many_to_many_all-5">remove_related_many_to_many_all/5</a></td><td>Remove all related recorded according to a Where and Extras clause  
+in a many-to-many relation.</td></tr>
 <tr><td valign="top"><a href="#save-1">save/1</a></td><td>Save an object by executing a INSERT or UPDATE query.</td></tr>
 <tr><td valign="top"><a href="#set-3">set/3</a></td><td>A generic setter function ErlyDB uses to generate setters, e.g.</td></tr>
 <tr><td valign="top"><a href="#set_fields-3">set_fields/3</a></td><td>Set the record's fields according to the name/value pairs in the  
@@ -156,12 +160,16 @@ and return the list of the converted records.</td></tr>
 <tr><td valign="top"><a href="#transaction-2">transaction/2</a></td><td>Execute a transaction using the module's driver settings, as defined
   by the parameters passed to <a href="erlydb.html#code_gen-3"><code>erlydb:code_gen/3</code></a>.</td></tr>
 <tr><td valign="top"><a href="#type_field-0">type_field/0</a></td><td>Return the column that identifies the types of the records in a table.</td></tr>
+<tr><td valign="top"><a href="#update-2">update/2</a></td><td>Equivalent to <a href="#update-3"><tt>update(Module, Props, undefined)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#update-3">update/3</a></td><td>Execute an UPDATE statement against the module's database table  
+and return the number of rows updated.</td></tr>
 </table>
 
 <h2><a name="functions">Function Details</a></h2>
 
 <h3><a name="add_related_many_to_many-3">add_related_many_to_many/3</a></h3>
-<p><tt>add_related_many_to_many(JoinTable::atom(), Rec::<a href="#type-record">record()</a>, OtherRec::<a href="#type-record">record()</a>) -&gt; ok | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><tt>add_related_many_to_many(JoinTable::atom(), Rec::<a href="#type-record">record()</a>, OtherRec::<a href="#type-record">record()</a> | [<a href="#type-record">record()</a>]) -&gt; {ok, NumAdded} | <a href="#type-exit">exit(Err)</a></tt></p>
 <p><p>Add a related record in a many-to-many relation.</p>
  
   <p>This function isn't meant to be used directly; ErlyDB uses this function  
@@ -599,9 +607,24 @@ defining many-to-one relations.</p>
 <p>Get the name of the module to which the record belongs.
  </p>
 
+<h3><a name="insert-1">insert/1</a></h3>
+<p><tt>insert(Rec::<a href="#type-record">record()</a> | [<a href="#type-record">record()</a>]) -&gt; NumInserts::integer() | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Insert one or more records into the database.</p>
+ 
+  If you don't need to get the saved records' auto-generated ids, this
+  function is much more
+  efficient than calling save/1 on each record as this function saves
+  the entire list of records in one INSERT statement.
+ </p>
+
 <h3><a name="is_new-1">is_new/1</a></h3>
 <p><tt>is_new(Rec::<a href="#type-record">record()</a>) -&gt; <a href="#type-boolean">boolean()</a></tt></p>
 <p>Check if the record has been saved in the database.
+ </p>
+
+<h3><a name="is_new-2">is_new/2</a></h3>
+<p><tt>is_new(Rec::<a href="#type-record">record()</a>, Val::<a href="#type-boolean">boolean()</a>) -&gt; NewRec::<a href="#type-record">record()</a></tt></p>
+<p>Set the record's 'is_new' field to the given value.
  </p>
 
 <h3><a name="new-1">new/1</a></h3>
@@ -656,7 +679,7 @@ the new value.</p>
  </p>
 
 <h3><a name="remove_related_many_to_many-3">remove_related_many_to_many/3</a></h3>
-<p><tt>remove_related_many_to_many(JoinTable::atom(), Rec::<a href="#type-record">record()</a>, OtherRec::<a href="#type-record">record()</a>) -&gt; ok | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><tt>remove_related_many_to_many(JoinTable::atom(), Rec::<a href="#type-record">record()</a>, OtherRec::<a href="#type-record">record()</a>) -&gt; NumRemoved::<a href="#type-interger">interger()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
 <p><p>Remove a related record in a many-to-many relation.</p>
  
   <p>This function isn't meant to be used directly; ErlyDB uses this function  
@@ -674,11 +697,43 @@ the second column is 'student_id'.</p>
   This function expects a single record to be removed.
  </p>
 
+<h3><a name="remove_related_many_to_many_all-5">remove_related_many_to_many_all/5</a></h3>
+<p><tt>remove_related_many_to_many_all(JoinTable::atom(), OtherTable::atom(), Rec::<a href="#type-record">record()</a>, Where::<a href="#type-where_clause">where_clause()</a>, Extras::<a href="#type-extras_clause">extras_clause()</a>) -&gt; {ok, NumDeleted} | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Remove all related recorded according to a Where and Extras clause  
+in a many-to-many relation.</p>
+ 
+  <p>This function isn't meant to be used directly; ErlyDB uses this function  
+to generate special remove_all_[RelatedModuleAsPlural] functions in  
+modules that define many-to-many relations.</p>
+ 
+  <p>For instance, if you had a module 'student' that defined the relation
+  <code>{many_to_many, [class]}</code>, and module 'class' and 'student' had a single
+  primary key field called 'id', ErlyDB would add the function
+  <code>student:remove_all_classes(Student, Where, Extras)</code> to the 'student'  
+module. This function would remove [class:id(Class), student:id(Student)]  
+rows from the class_student table according to the Where and Extras clauses.</p>
+ 
+  <p>In addition to student:remove_all_classes/3, ErlyDB would generate  
+additional variations. This would be the full list:</p>
+ 
+  <pre>  student:remove_all_classes(Student)
+  student:remove_all_classes(Student, Where)
+  student:remove_all_classes_with(Student, Extras)
+  student:remove_all_classes(Student, Where, Extras)</pre>
+ 
+  Limitation: for self-referencing many-to-many relations, all variations
+  accepting a Where clause are currently not generated.
+ </p>
+
 <h3><a name="save-1">save/1</a></h3>
 <p><tt>save(Rec::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
 <p><p>Save an object by executing a INSERT or UPDATE query.  
 This function returns a modified tuple representing  
 the saved record or throws an exception if an error occurs.</p>
+ 
+  <p>With MySQL, for INSERT statements for records with identity primary keys,  
+this function sets the primary key field to the value returned from  
+calling "SELECT last_insert_id()".</p>
  
   You can override the return value by implementing the after_save
   hook.
@@ -788,6 +843,33 @@ for an example).</p>
     table, where each module uses a different subset of fields.
     If you override this function, in most cases you should also override
     fields/0.
+ </p>
+
+<h3><a name="update-2">update/2</a></h3>
+<tt>update(Module, Props) -&gt; term()
+</tt><p>Equivalent to <a href="#update-3"><tt>update(Module, Props, undefined)</tt></a>.</p>
+
+
+<h3><a name="update-3">update/3</a></h3>
+<p><tt>update(Module::atom(), Props::<a href="#type-proplist">proplist()</a>, Where::<a href="#type-where_expr">where_expr()</a>) -&gt; NumUpdated::integer() | <a href="#type-exit">exit(Err)</a></tt></p>
+<p><p>Execute an UPDATE statement against the module's database table  
+and return the number of rows updated.</p>
+ 
+  <p>'Props' is a list of 2 element tuples, where the first element is an  
+atom representing the field's name, and the second value is an ErlSQL  
+expression representing its value.</p>
+ 
+  <p>'Where' is an ErlSQL 'where' expression.</p>
+ 
+  <p>In generated modules, the 'Module' parameter is omitted.</p>
+ 
+  <p>Example:
+  Calling <code>person:update([{name,&lt;&lt;"Jane"&gt;&gt;}, {age, {age, '+', 1}}],
+  {id,'=',7})</code>
+  would yield the statement <code>UPDATE person SET name='Jane', age=age+1
+  WHERE id=7</code>.</p>
+ 
+  The UPDATE statement is executed in a transactional context.
  </p>
 </body>
 </html>

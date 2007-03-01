@@ -1,5 +1,5 @@
 %% @author Yariv Sadan (yarivvv@gmail.com) (http://yarivsblog.com)
-%% @copyright Yariv Sadan 2006
+%% @copyright Yariv Sadan 2006-2007
 %% 
 %% @doc This module implements the MySQL driver for ErlyDB.
 %%
@@ -16,6 +16,7 @@
 -author("Yariv Sadan (yarivvv@gmail.com) (http://yarivsblog.com)").
 
 -export([start/1,
+	 start_link/1,
 	 connect/5,
 	 connect/7,
 	 get_metadata/1,
@@ -47,7 +48,7 @@
 %% @type esql() = {esql, term()}. An ErlSQL expression.
 %% @type statement() = esql() | binary() | string()
 
-%% @doc Start the MySQL driver using the options property list.
+%% @doc Start the MySQL dispatcher using the options property list.
 %%  The available options are:
 %%
 %%  `pool_id' (optional): an atom identifying the connection pool id.
@@ -71,8 +72,21 @@
 %%  'true', ErlyDB lets you use string or binary Where and Extras expressions
 %%  in generated functions. For more information, see {@link erlydb}.
 %%
+%% This function calls mysql:start(), not mysql:start_link(). To
+%% link the MySQL dispatcher to the calling process, use {@link start_link/1}.
+%%
 %% @spec start(StartOptions::proplist()) -> ok | {error, Error}
 start(Options) ->
+    start1(Options, fun mysql:start/6).
+
+%% @doc This function is similar to {@link start/1}, only it calls
+%% mysql:start_link() instead of mysql:start().
+%%
+%% @spec start_link(StartOptions::proplist()) -> ok | {error, Error}
+start_link(Options) ->
+    start1(Options, fun mysql:start_link/6).
+
+start1(Options, Fun) ->
     [PoolId, Hostname, Port, Username, Password, Database] =
 	lists:foldl(
 	  fun(Key, Acc) ->
@@ -82,8 +96,8 @@ start(Options) ->
 			 password, database])),
 
     PoolId1 = if PoolId == undefined -> ?Epid; true -> PoolId end,
-    mysql:start_link(PoolId1, Hostname, Port, Username, Password, Database).
-
+    Fun(PoolId1, Hostname, Port, Username, Password, Database).
+    
 
 %% @doc Call connect/7 with Port set to 3306 and Reconnect set to 'true'.
 %%

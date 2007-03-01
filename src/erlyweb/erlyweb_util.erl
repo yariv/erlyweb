@@ -1,13 +1,18 @@
-%% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com)]
 %%
-%% @doc This module contains utility functions for ErlyWeb.
+%% @doc This module contains a few utility functions useful
+%% for ErlyWeb apps.
+%%
+%% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com)]
+%% @copyright Yariv Sadan 2006-2007
+
 
 %% For license information see LICENSE.txt
 
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
 -export([log/5, create_app/2, create_component/2, get_appname/1,
-	 get_app_root/1, validate/3, get_cookie/2]).
+	 get_app_root/1, 
+	 get_cookie/2, indexify/2]).
 
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
 -define(Info(Msg, Params), log(?MODULE, ?LINE, info, Msg, Params)).
@@ -22,30 +27,31 @@ log(Module, Line, Level, Msg, Params) ->
 create_app(AppName, Dir) ->
     case filelib:is_dir(Dir) of
 	true ->
+	    AppDir = Dir ++ "/" ++ AppName,
+	    Dirs =
+		[SrcDir, ComponentsDir, WebDir, _EbinDir]
+		= [AppDir ++ "/src",
+		   AppDir ++ "/src/components",
+		   AppDir ++ "/www",
+		   AppDir ++ "/ebin"],
 	    lists:foreach(
 	      fun(SubDir) ->
-		      NewDir = Dir ++ "/" ++ SubDir,
-		      ?Info("creating ~p", [NewDir]),
-		      case file:make_dir(NewDir) of
+		      ?Info("creating ~p", [SubDir]),
+		      case file:make_dir(SubDir) of
 			  ok ->
 			      ok;
 			  Err ->
 			      exit(Err)
 		      end
-	      end, [AppName,
-		    AppName ++ "/src",
-		    AppName ++ "/src/components",
-		    AppName ++ "/ebin",
-		    AppName ++ "/www"]),
+	      end, [AppDir | Dirs]),
 
-	    SrcDir = Dir ++ "/" ++ AppName ++ "/src",
-	    WebDir = Dir ++ "/" ++ AppName ++ "/www",
-	    BaseName = SrcDir ++ "/" ++ AppName,
 	    Files =
-		[{BaseName ++ "_app_view.et",
-		  view(AppName)},
-		 {BaseName ++ "_app_controller.erl",
-		  controller(AppName)},
+		[{ComponentsDir ++ "/html_container_view.et",
+		  html_container_view(AppName)},
+		 {ComponentsDir ++ "/html_container_controller.erl",
+		  html_container_controller()},
+		 {SrcDir ++ "/" ++ AppName ++ "_app_controller.erl",
+		  app_controller(AppName)},
 		 {WebDir ++ "/index.html",
 		  index(AppName)},
 		 {WebDir ++ "/style.css",
@@ -69,17 +75,31 @@ create_file(FileName, Bin) ->
 	    exit({Err, FileName})
     end.
 	
-controller(AppName) ->
+app_controller(AppName) ->
     Text =
 	["-module(", AppName, "_app_controller).\n"
 	 "-export([hook/1]).\n\n"
 	 "hook(A) ->\n"
-	 "\t{ewc, A}."],
+	 "\t{phased, {ewc, A},\n"
+	 "\t\tfun(_Ewc, Data) ->\n"
+	 "\t\t\t{ewc, html_container, index, [A, {data, Data}]}\n"
+	 "\t\tend}."],
     iolist_to_binary(Text).
 
-view(AppName) ->
+html_container_controller() ->
     Text =
-	["<html>\n"
+	["-module(html_container_controller).\n"
+	 "-export([private/0, index/2]).\n\n"
+	 "private() ->\n"
+	 "\ttrue.\n\n"
+	 "index(_A, Ewc) ->\n"
+	 "\tEwc."],
+    iolist_to_binary(Text).
+
+html_container_view(AppName) ->
+    Text =
+	["<%@ index(Data) %>\n"
+	 "<html>\n"
 	 "<head>\n"
 	 "<title>", AppName, "</title>\n"
 	 "<link rel=\"stylesheet\" href=\"/style.css\""
@@ -161,61 +181,42 @@ get_app_root(A)->
     erlyweb:get_app_root(A).
 
 
-%% @doc This function helps with form validation. It takes a Yaws arg
-%% (or the arg's POST data in the form of a name-value property list), a
-%% list of parameter names to validate, and a validation function, and returns
-%% a tuple of the form {Values, Errors}.
-%% 'Values' contains the list of values for the checked parameters
-%% and Erros is a list of errors returned from the validation function.
-%% If no validation errors occured, this list is empty.
-%%
-%% If the name of a field is missing from the arg's POST data, this function
-%% calls exit({missing_param, Name}).
-%%
-%% The validation function takes two parameters: the parameter name and
-%% its value, and it may return one of the following values:
-%%
-%% - `ok' means the parameter's value is valid
-%%
-%% - `{ok, Val}' means the parameter's value is valid, and it also lets you
-%%   set the value inserted into 'Values' for this parameter.
-%%
-%% - `{error, Err}' indicates the parameter didn't validate. Err is inserted
-%%   into 'Errors'.
-%%
-%% - `{error, Err, Val}' indicates the parameter didn't validate. Err is
-%%   inserted into 'Errors' and Val is inserted into 'Values' instead of
-%%   the parameter's original value.
-%%
-%% @spec validate(A::arg() | Params::proplist(), Fields::[string()],
-%%   Fun::function()) -> {Values::[term()], Errors::[term()]}.
-validate(A, Fields, Fun) when is_tuple(A), element(1, A) == arg ->
-    validate(yaws_api:parse_post(A), Fields, Fun);
-validate(Params, Fields, Fun) ->
-    lists:foldl(
-      fun(Field, {Vals, Errs}) ->
-	      case proplists:lookup(Field, Params) of
-		  none -> exit({missing_param, Field});
-		  {_, Val} ->
-		      Val1 = case Val of undefined -> ""; _ -> Val end,
-		      case Fun(Field, Val1) of
-			  ok ->
-			      {[Val1 | Vals], Errs};
-			  {ok, Val2} ->
-			      {[Val2 | Vals], Errs};
-			  {error, Err, Val2} ->
-			      {[Val2 | Vals], [Err | Errs]};
-			  {error, Err} ->
-			      {[Val1 | Vals], [Err | Errs]}
-		      end
-	      end
-      end, {[], []}, lists:reverse(Fields)).
-
-
 %% @doc Get the cookie's value from the arg.
-%% @equiv yaws_api:find_cookie_val(Name, yaws_headers:cookie(A)).
+%% @equiv yaws_api:find_cookie_val(Name, yaws_headers:cookie(A))
 %%
 %% @spec get_cookie(Name::string(), A::arg()) -> string()
 get_cookie(Name, A) ->
     yaws_api:find_cookie_val(
       Name, yaws_headers:cookie(A)).
+
+%% @doc Translate requests such as '/foo/bar' to '/foo/index/bar' for the given
+%% list of components. This function is useful for rewriting the Arg in the
+%% app controller prior to handling incoming requests.
+%%
+%% @spec indexify(A::arg(), ComponentNames::[string()]) -> arg()
+indexify(A, ComponentNames) ->
+    Appmod = yaws_arg:appmoddata(A),
+    Sp = yaws_arg:server_path(A),
+
+    Appmod1 = indexify1(Appmod, ComponentNames),
+    A1 = yaws_arg:appmoddata(A, Appmod1),
+
+    {SpRoot, _} = lists:split(length(Sp) - length(Appmod), Sp),
+    yaws_arg:server_path(A1, SpRoot ++ Appmod1).
+     
+
+indexify1(S1, []) -> S1;
+indexify1(S1, [Prefix | Others]) ->
+    case indexify2(S1, [$/ | Prefix]) of
+	stop -> S1;
+	{stop, Postfix} ->
+	    [$/ | Prefix] ++ "/index" ++ Postfix;
+	next ->
+	    indexify1(S1, Others)
+    end.
+
+indexify2([], []) -> stop;
+indexify2([$/ | _] = Postfix, []) -> {stop, Postfix};
+indexify2([C1 | Rest1], [C1 | Rest2]) ->
+    indexify2(Rest1, Rest2);
+indexify2(_, _) -> next.

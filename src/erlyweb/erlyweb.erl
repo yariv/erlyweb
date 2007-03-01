@@ -1,5 +1,5 @@
 %% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com]
-%% @copyright Yariv Sadan 2006
+%% @copyright Yariv Sadan 2006-2007
 %%
 %% @doc ErlyWeb: The Erlang Twist on Web Framworks.
 %%
@@ -67,8 +67,8 @@ create_component(Component, AppDir) ->
 %% @doc Compile all the files for an application. Files with the '.et'
 %%   extension are compiled with ErlTL.
 %%
-%%   This function returns {ok, Now}, where Now is
-%%   the result of calendar:local_time().
+%%   This function returns `{ok, Now}', where Now is
+%%   the result of `calendar:local_time()'.
 %%   You can pass the second value in the options for the next call to
 %%   compile/2 to telling ErlyWeb to avoid recompiling files that haven't
 %%   changed (ErlyWeb does this automatically when the auto-compilation
@@ -83,15 +83,15 @@ compile(DocRoot) ->
 %%  documentation ([http://erlang.org]).
 %%  ErlyWeb also lets you define the following options:
 %%
-%%  - {last_compile_time, LocalTime}: Tells ErlyWeb to not compile files
+%%  - `{last_compile_time, LocalTime}': Tells ErlyWeb to not compile files
 %%    that haven't changed since LocalTime.
 %%
-%%  - {erlydb_driver, Name}: Tells ErlyWeb which ErlyDB driver to use
+%%  - `{erlydb_driver, Name}': Tells ErlyWeb which ErlyDB driver to use
 %%    when calling erlydb:code_gen on models that are placed in src/components.
 %%    If you aren't using ErlyDB, i.e., you don't have any model files in
 %%    src/components, you can omit this option.
 %%
-%%  - {auto_compile, Val}, where Val is 'true', or 'false'.
+%%  - `{auto_compile, Val}', where Val is 'true', or 'false'.
 %%    This option tells ErlyWeb whether it should turn on auto-compilation.
 %%    Auto-compilation is helpful during development because it spares you
 %%    from having to call erlyweb:compile every time you make a code change
@@ -99,8 +99,8 @@ compile(DocRoot) ->
 %%    production mode because it will slow your app down (to turn auto_compile
 %%    off, just call erlyweb:compile without the auto_compile option).
 %%
-%% - 'suppress_warnings' and 'suppress_errors' tell ErlyWeb to not pass the
-%%   'report_warnings' and 'report_errors' to compile:file/2.
+%% - `suppress_warnings' and `suppress_errors' tell ErlyWeb to not pass the
+%%   `report_warnings' and `report_errors' to compile:file/2.
 %% 
 %% @spec compile(AppDir::string(), Options::[option()]) ->
 %%  {ok, Now::datetime()} | {error, Err}
@@ -108,7 +108,7 @@ compile(AppDir, Options) ->
     erlyweb_compile:compile(AppDir, Options).
 
 
-%% @doc This is the 'out' function that Yaws calls when passing
+%% @doc This is the out/1 function that Yaws calls when passing
 %%  HTTP requests to the ErlyWeb appmod.
 %%
 %% @spec out(A::yaws_arg()) -> ret_val()
@@ -175,15 +175,15 @@ handle_request(Ewc, AppData, DataFun) ->
 %%
 %% If the request is for a component whose controller implements the function
 %% `private() -> true.', this function calls
-%%  exit({illegal_request, Controller}).
+%%  `exit({illegal_request, Controller})'.
 %%
 %% If the request matches a component but no function in the component's
-%% controller, this function calls exit({no_such_function, Err}).
+%% controller, this function calls `exit({no_such_function, Err})'.
 %%
 %% If the request doesn't match any components, this function returns
-%% {page, Path}, where Path is the arg's appmoddata field.
+%% `{page, Path}', where Path is the arg's appmoddata field.
 %%
-%% If the parameter isn't in the form {ewc, A}, this function returns
+%% If the parameter isn't in the form `{ewc, A}', this function returns
 %% the parameter unchanged without any extra processing.
 %%
 %% @spec get_initial_ewc({ewc, A::arg()}) ->
@@ -235,8 +235,9 @@ ewc({ewc, Component, FuncName, Params}, AppData) ->
     end;
 
 ewc({ewc, Controller, View, FuncName, [A | _] = Params}, AppData) ->
-    Response = apply(Controller, FuncName, Params),
-    Response1 = Controller:before_return(FuncName, Params, Response),
+    {FuncName1, Params1} = Controller:before_call(FuncName, Params),
+    Response = apply(Controller, FuncName1, Params1),
+    Response1 = Controller:before_return(FuncName1, Params1, Response),
     Response2 = case Response1 of
 		    {response, _} ->
 			Response1;
@@ -357,7 +358,7 @@ get_app_root(A) ->
     {First, _Rest} =
 	lists:split(
 	  length(ServerPath) -
-	  length(yaws_arg:appmoddata(A)) + 1,
+	  length(yaws_arg:appmoddata(A)),
 	  ServerPath),
     First.
 

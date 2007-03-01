@@ -33,7 +33,7 @@ test() ->
     erlydb_mysql:q({esql, {delete, language}}),
     erlydb_mysql:q({esql, {delete, project}}),
     erlydb_mysql:q({esql, {delete, person}}),
-    erlydb_mysql:q({esql, {delete, developer_project}}),
+    erlydb_mysql:q({esql, {delete, person_project}}),
     
     %% Create some new records
     Languages = 
@@ -214,15 +214,15 @@ test() ->
 	developer:projects(Klacke),
 
     %% Klacke, nothing personal here :)
-    ok = developer:remove_project(Klacke, Yaws1),
+    1 = developer:remove_project(Klacke, Yaws1),
     [OTP, Mnesia] = developer:projects(Klacke),
-    ok = developer:remove_project(Klacke, OTP),
+    1 = developer:remove_project(Klacke, OTP),
     [Mnesia] = developer:projects(Klacke),
-    ok = developer:remove_project(Klacke, Mnesia),
+    1 = developer:remove_project(Klacke, Mnesia),
     [] = developer:projects(Klacke),
+    0 = developer:remove_project(Klacke, Mnesia),
 
-    %% I forgot to show you can delete records, too :)
-    ok = language:delete(Java),
+    1 = language:delete(Java),
 
     [] = language:find({name, '=', "Java"}),
 	
@@ -273,6 +273,10 @@ test2() ->
 
 %% test multi-field custom primary keys
 test3() ->
+    erlydb_mysql:q2("delete from customer_customer"),
+    erlydb_mysql:q2("delete from customer_store"),
+    erlydb_mysql:q2("delete from item_store"),
+
     store:delete_all(),
     customer:delete_all(),
     item:delete_all(),
@@ -305,11 +309,11 @@ test3() ->
     2 = store:count_of_customers(S2),
     <<"jane">> = store:max_of_customers(S2, name),
     
-    ok = store:remove_customer(S2, C2),
+    1 = store:remove_customer(S2, C2),
     1 = store:count_of_customers(S2),
     C4 = store:customers_first(S2),
     
-    ok = store:remove_customer(S2, C4),
+    1 = store:remove_customer(S2, C4),
     0 = store:count_of_customers(S2),
     undefined = store:customers_first(S2),
 
@@ -327,14 +331,16 @@ test3() ->
     <<"jane">> = customer:max_of_customers(C2, name),
     <<"adam">> = customer:min_of_customers(C2, name),
     
-    ok = customer:remove_customer(C2, C4),
+    1 = customer:remove_customer(C2, C4),
     1 = customer:count_of_customers(C2),
     C6 = customer:customers_first(C2),
 
 
-    ok = customer:remove_customer(C2, C6),
+    1 = customer:remove_customer(C2, C6),
     0 = customer:count_of_customers(C2),
     undefined = customer:customers_first(C2),
+
+    0 = customer:remove_customer(C2, C6),
     
     ok.
     

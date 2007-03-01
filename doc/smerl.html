@@ -8,7 +8,7 @@
 
 <h1>Module smerl</h1>
  Smerl: Simple Metaprogramming for Erlang.
-<p>Copyright © Yariv Sadan 2006
+<p>Copyright © Yariv Sadan 2006-2007
  </p>
 <ul><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
 <p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivsblog@gmail.com"><tt>yarivsblog@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com" target="_top">http://yarivsblog.com</a></tt>].</p>
@@ -102,10 +102,13 @@ resulting BEAM into the emulator.</td></tr>
   which indicates the difference
   in arities Smerl should use when figuring out which functions to
   generate based on the modules' exports.</td></tr>
-<tr><td valign="top"><a href="#for_file-1">for_file/1</a></td><td>Create a meta_mod for a module from its source
-  file.</td></tr>
-<tr><td valign="top"><a href="#for_file-2">for_file/2</a></td><td/></tr>
-<tr><td valign="top"><a href="#for_module-1">for_module/1</a></td><td>Create a meta_mod tuple for an existing module.</td></tr>
+<tr><td valign="top"><a href="#extend-4">extend/4</a></td><td/></tr>
+<tr><td valign="top"><a href="#for_file-1">for_file/1</a></td><td>Equivalent to <a href="#for_file-2"><tt>for_file(SrcFilePath, [])</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#for_file-2">for_file/2</a></td><td>Create a meta_mod for a module from its source file.</td></tr>
+<tr><td valign="top"><a href="#for_module-1">for_module/1</a></td><td>Equivalent to <a href="#for_module-2"><tt>for_module(ModuleName, [])</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#for_module-2">for_module/2</a></td><td>Create a meta_mod tuple for an existing module.</td></tr>
 <tr><td valign="top"><a href="#get_attribute-2">get_attribute/2</a></td><td>Get the value a the module's attribute.</td></tr>
 <tr><td valign="top"><a href="#get_export_all-1">get_export_all/1</a></td><td>Get the export_all value for the module.</td></tr>
 <tr><td valign="top"><a href="#get_exports-1">get_exports/1</a></td><td>Return the list of exports in the meta_mod.</td></tr>
@@ -262,25 +265,36 @@ described in the 'compile' module in the Erlang documentation.</p>
   useful when calling extend() followed by embed_all().
  </p>
 
-<h3><a name="for_file-1">for_file/1</a></h3>
-<p><tt>for_file(SrcFilePath::string()) -&gt; {ok, <a href="#type-meta_mod">meta_mod()</a>} | {error, invalid_module}</tt></p>
-<p>Create a meta_mod for a module from its source
-  file.
- </p>
-
-<h3><a name="for_file-2">for_file/2</a></h3>
-<tt>for_file(SrcFilePath, ExtraPaths) -&gt; term()
+<h3><a name="extend-4">extend/4</a></h3>
+<tt>extend(Parent, Child, ArityDiff, Options) -&gt; term()
 </tt>
 
+<h3><a name="for_file-1">for_file/1</a></h3>
+<tt>for_file(SrcFilePath) -&gt; term()
+</tt><p>Equivalent to <a href="#for_file-2"><tt>for_file(SrcFilePath, [])</tt></a>.</p>
+
+
+<h3><a name="for_file-2">for_file/2</a></h3>
+<p><tt>for_file(SrcFilePath::string(), IncludePaths::[string()]) -&gt; {ok, <a href="#type-meta_mod">meta_mod()</a>} | {error, invalid_module}</tt></p>
+<p>Create a meta_mod for a module from its source file.
+ </p>
+
 <h3><a name="for_module-1">for_module/1</a></h3>
-<p><tt>for_module(ModuleName::atom() | string()) -&gt; {ok, <a href="#type-meta_mod">meta_mod()</a>} | {error, Error}</tt></p>
-<p>Create a meta_mod tuple for an existing module. If ModuleName is a
-  string, it is interpreted as a file name (this is the same as calling
-  {link smerl:for_file}). If ModuleName is an atom, Smerl attempts to
-  find its abstract represtation either from its source file or from
-  its .beam file directly (if it has been compiled with debug_info).
-  If the abstract representation can't be found, this function returns
-  an error.
+<tt>for_module(ModuleName) -&gt; term()
+</tt><p>Equivalent to <a href="#for_module-2"><tt>for_module(ModuleName, [])</tt></a>.</p>
+
+
+<h3><a name="for_module-2">for_module/2</a></h3>
+<p><tt>for_module(ModuleName::atom() | string(), IncludePaths::[string()]) -&gt; {ok, <a href="#type-meta_mod">meta_mod()</a>} | {error, Error}</tt></p>
+<p><p>Create a meta_mod tuple for an existing module. If ModuleName is a  
+string, it is interpreted as a file name (this is the same as calling  
+{link smerl:for_file}). If ModuleName is an atom, Smerl attempts to  
+find its abstract represtation either from its source file or from  
+its .beam file directly (if it has been compiled with debug_info).  
+If the abstract representation can't be found, this function returns  
+an error.</p>
+ 
+  The IncludePaths parameter is used when 'ModuleName' is a file name.
  </p>
 
 <h3><a name="get_attribute-2">get_attribute/2</a></h3>

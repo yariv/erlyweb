@@ -1,5 +1,5 @@
 %% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com]
-%% @copyright Yariv Sadan 2006
+%% @copyright Yariv Sadan 2006-2007
 %%
 %% @doc
 %% This module provides functions for getting and setting
@@ -20,7 +20,8 @@
 -module(yaws_arg).
 -author("Yariv Sadan (yarivsblog@gmail.com)").
 
--export([new/0, clisock/1, clisock/2, headers/1, headers/2, req/1, req/2,
+-export([new/0, clisock/1, clisock/2, client_ip_port/1, client_ip_port/2,
+	 headers/1, headers/2, req/1, req/2,
 	 method/1, clidata/1, clidata/2, server_path/1, server_path/2,
 	 querydata/1, querydata/2, appmoddata/1, appmoddata/2, docroot/1,
 	 docroot/2, fullpath/1, fullpath/2, cont/1, cont/2, state/1,
@@ -37,6 +38,12 @@ clisock(Arg) ->
 
 clisock(Arg, Val) ->
     Arg#arg{clisock = Val}.
+
+client_ip_port(Arg) ->
+    Arg#arg.client_ip_port.
+
+client_ip_port(Arg, Val) ->
+    Arg#arg{client_ip_port = Val}.
 
 headers(Arg) ->
     Arg#arg.headers.

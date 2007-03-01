@@ -8,7 +8,7 @@
 
 <h1>Module erlydb</h1>
 ErlyDB: The Erlang Twist on Database Abstraction.
-<p>Copyright © Yariv Sadan 2006</p>
+<p>Copyright © Yariv Sadan 2006-2007</p>
 <ul><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
 <p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivsblog@gmail.com"><tt>yarivsblog@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com" target="_top">http://yarivsblog.com</a></tt>].</p>
 
@@ -101,6 +101,7 @@ many-to-many relations.)</p>
   options for the provided driver.</td></tr>
 <tr><td valign="top"><a href="#code_gen-3">code_gen/3</a></td><td>Generate code for the list of modules using user-defined options for
   the provided driver.</td></tr>
+<tr><td valign="top"><a href="#code_gen-4">code_gen/4</a></td><td/></tr>
 <tr><td valign="top"><a href="#start-1">start/1</a></td><td>Start an ErlyDB session for the driver using the driver's default
   options.</td></tr>
 <tr><td valign="top"><a href="#start-2">start/2</a></td><td>Start an ErlyDB sessions for the driver using the list of
@@ -125,6 +126,10 @@ many-to-many relations.)</p>
   {allow_unsafe_statements, Val::bool()} options.
   For more details refer to the driver's documentation.
  </p>
+
+<h3><a name="code_gen-4">code_gen/4</a></h3>
+<tt>code_gen(Driver, Modules, Options, IncludePaths) -&gt; term()
+</tt>
 
 <h3><a name="start-1">start/1</a></h3>
 <p><tt>start(Driver::atom()) -&gt; ok | {error, Err}</tt></p>

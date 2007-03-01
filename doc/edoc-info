@@ -7,6 +7,8 @@
           erlydb_field,
           erlydb_mysql,
           erlyweb,
+          erlyweb_forms,
+          erlyweb_util,
           smerl,
           yaws_arg,
           yaws_headers]}.

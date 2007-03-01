@@ -1,5 +1,5 @@
 %% @author Yariv Sadan <yarivvv@gmail.com> [http://yarivsblog.com]
-%% @copyright Yariv Sadan 2006
+%% @copyright Yariv Sadan 2006-2007
 %% @doc erlydb_base is the base module that all modules that ErlyDB generates
 %% extend.
 %%
@@ -108,6 +108,9 @@
 
     %% CRUD functions
     save/1,
+    insert/1,
+    update/2,
+    update/3,
     delete/1,
     delete_where/2,
     delete_id/2,
@@ -341,7 +344,7 @@ to_iolist(Module, Recs, ToIolistFun) ->
     to_iolist1(Module, Recs, ToIolistFun).
 
 to_iolist1(Module, Rec, ToIolistFun) ->
-    Fields = lists:reverse(Module:db_fields()),
+    Fields = Module:db_fields(),
     IsDefaultFun = ToIolistFun == fun field_to_iolist/2,
     WrapperFun = 
 	if IsDefaultFun -> ToIolistFun;
@@ -355,12 +358,12 @@ to_iolist1(Module, Rec, ToIolistFun) ->
 			end
 		end
 	end,
-    lists:foldl(
-      fun(Field, Acc) ->
+    lists:map(
+      fun(Field) ->
 	      FieldName = erlydb_field:name(Field),
 	      Val = Module:FieldName(Rec),
-	      [WrapperFun(Val, Field) | Acc]
-      end, [], Fields).
+	      WrapperFun(Val, Field)
+      end, Fields).
 
 %% @doc A helper function used for converting field values to iolists.
 %%
@@ -573,12 +576,93 @@ field_from_string(ErlyDbField, Str) ->
 %% This function returns a modified tuple representing
 %% the saved record or throws an exception if an error occurs.
 %%
+%% With MySQL, for INSERT statements for records with identity primary keys,
+%% this function sets the primary key field to the value returned from 
+%% calling "SELECT last_insert_id()".
+%%
 %% You can override the return value by implementing the after_save
 %% hook.
 %%
-%% @spec save(Rec::record()) -> record() | exit(Err)
+%% @spec save(Rec::record()) -> record() | exit(Err)    
 save(Rec) ->
     hook(Rec, do_save, before_save, after_save).
+
+%% @doc Insert one or more records into the database.
+%%
+%% If you don't need to get the saved records' auto-generated ids, this
+%% function is much more
+%% efficient than calling save/1 on each record as this function saves
+%% the entire list of records in one INSERT statement.
+%%
+%% @spec insert(Rec::record() | [record()]) -> NumInserts::integer() | exit(Err)
+insert(Recs) ->
+    case Recs of 
+	[] -> 0;
+	Rec when is_tuple(Rec) ->
+	    insert1([Rec]);
+	Recs ->
+	    insert1(Recs)
+    end.
+
+insert1(Recs) ->
+    Mod = get_module(hd(Recs)),
+    Fields = Mod:db_fields(),
+    Fields1 = [erlydb_field:name(Field) ||
+		  Field <- Fields, erlydb_field:extra(Field) =/= identity],
+    Rows1 = lists:map(
+	      fun(Rec) ->
+		      Rec1 = Mod:before_save(Rec),
+		      [Mod:Field(Rec1) || Field <- Fields1]
+	      end, Recs),
+    {Driver, Options} = Mod:driver(),
+    case Driver:transaction(
+	   fun() ->
+		   Driver:update({esql, {insert, db_table(Mod), Fields1,
+					 Rows1}}, Options)
+	   end, Options) of
+	{atomic, {ok, Num}} -> Num;
+	{aborted, Err} -> exit(Err)
+    end.
+
+%% @equiv update(Module, Props, undefined)
+update(Module, Props) ->
+    update(Module, Props, undefined).
+
+%% @doc Execute an UPDATE statement against the module's database table
+%% and return the number of rows updated.
+%%
+%% 'Props' is a list of 2 element tuples, where the first element is an
+%% atom representing the field's name, and the second value is an ErlSQL
+%% expression representing its value.
+%%
+%% 'Where' is an ErlSQL 'where' expression.
+%%
+%% In generated modules, the 'Module' parameter is omitted.
+%%
+%% Example:
+%% Calling ``person:update([{name,<<"Jane">>}, {age, {age, '+', 1}}],
+%% {id,'=',7})''
+%% would yield the statement ``UPDATE person SET name='Jane', age=age+1
+%% WHERE id=7''.
+%%
+%% The UPDATE statement is executed in a transactional context.
+%%
+%% @spec update(Module::atom(), Props::proplist(), Where::where_expr()) ->
+%%  NumUpdated::integer() | exit(Err)
+update(Module, Props, Where) ->
+    {Driver, Options} = Module:driver(),
+    case Driver:transaction(
+	   fun() ->
+		   Driver:update(
+		     {esql,
+		      {update, db_table(Module), Props, Where}},
+		     Options)
+	   end, Options) of 
+	{atomic, {ok, Num}} ->
+	    Num;
+	{aborted, Err} ->
+	    exit(Err)
+    end.
 
 %% @doc Delete the record from the database. To facilitate the after_delete
 %% hook, this function expects a single record to be deleted. 
@@ -880,16 +964,13 @@ driver(Driver) ->
 %% @spec set_related_one_to_many(Rec::record(), Other::record()) -> record()
 %%   | exit(Err)
 set_related_one_to_many(Rec, Other) ->
-    if_saved(Other,
-	     fun() ->
-		     OtherModule = get_module(Other),
-		     PkFields = OtherModule:get_pk_fk_fields(),
-		     Module = get_module(Rec),
-		     lists:foldl(
-		       fun({PkField, FkField}, Rec1) ->
-			       Module:FkField(Rec1, OtherModule:PkField(Other))
-		       end, Rec, PkFields)
-	     end).
+    OtherModule = get_module(Other),
+    PkFields = OtherModule:get_pk_fk_fields(),
+    Module = get_module(Rec),
+    lists:foldl(
+      fun({PkField, FkField}, Rec1) ->
+	      Module:FkField(Rec1, OtherModule:PkField(Other))
+      end, Rec, PkFields).
 
 %% @doc Find the related record for a record from a module having a
 %% many-to-one relation.
@@ -1015,25 +1096,74 @@ aggregate_related_many_to_one(OtherModule, AggFunc, Rec, Field, Where,
 %% mapped to foreign keys in the many-to-many relation table.
 %%
 %% @spec add_related_many_to_many(JoinTable::atom(), Rec::record(),
-%%   OtherRec::record()) -> ok | exit(Err)
+%%   OtherRec::record() | [record()]) -> {ok, NumAdded} | exit(Err)
 add_related_many_to_many(JoinTable, Rec, OtherRec) ->
-    {DriverMod, Options} = get_driver(Rec),
-    Query = {esql, make_add_related_many_to_many_query(
-		     JoinTable, Rec, OtherRec)},
-    Res =
-	DriverMod:transaction(
-	  fun() ->
-		  Res = DriverMod:update(Query, Options),
-		  as_single_update(Res)
-	  end, Options),
-    case Res of
-	{atomic, ok} -> ok;
-	{aborted, Err} -> exit(Err)
+    case OtherRec of
+	[] ->
+	    {ok, 0};
+	_ ->
+	    {DriverMod, Options} = get_driver(Rec),
+	    Query = {esql, make_add_related_many_to_many_query(
+			     JoinTable, Rec, OtherRec)},
+	    Res =
+		DriverMod:transaction(
+		  fun() ->
+			  DriverMod:update(Query, Options)
+		  end, Options),
+	    case Res of
+		{atomic, {ok, 1}} when is_tuple(OtherRec) ->
+		    ok;
+		{atomic, Other} -> Other;
+		{aborted, Err} -> exit(Err)
+	    end
     end.
 
-make_add_related_many_to_many_query(JoinTable, Rec, OtherRec) ->
+make_add_related_many_to_many_query(JoinTable, Rec, [OtherRec]) ->
+    make_add_related_many_to_many_query(JoinTable, Rec, OtherRec);
+make_add_related_many_to_many_query(JoinTable, Rec, OtherRec)
+  when not is_list(OtherRec) ->
     Fields = get_join_table_fields(Rec, OtherRec),
-    {insert, JoinTable, Fields}.
+    {insert, JoinTable, Fields};
+make_add_related_many_to_many_query(JoinTable, Rec, OtherRecs) ->
+    Mod = get_module(Rec),
+    OtherMod = get_module(hd(OtherRecs)),
+    Table = db_table(Mod),
+    OtherTable = db_table(OtherMod),
+    if OtherTable == Table ->
+	    Fields = Mod:get_pk_fk_fields2(),
+	    Rows1 = 
+		lists:map(
+		  fun(OtherRec) ->
+			  [R1, R2] = 
+			      sort_records(Mod, Rec, OtherRec, Fields),
+			  lists:foldl(
+			    fun({PkField, _FkField1, _FkField2}, Acc) ->
+				    [Mod:PkField(R1), Mod:PkField(R2) | Acc]
+			    end, [], Fields)
+		  end, OtherRecs),
+	    FkFields =
+		lists:foldl(
+		  fun({_PkField, FkField1, FkField2}, Acc) ->
+			  [FkField1, FkField2 | Acc]
+		  end, [], Fields),
+	    {insert, JoinTable, FkFields, Rows1};
+       true ->
+	    Fields = Mod:get_pk_fk_fields(),
+	    OtherFields = OtherMod:get_pk_fk_fields(),
+	    FkFields = [Fk || {_Pk, Fk} <-
+				  Fields ++ OtherFields],
+	    Rows = lists:map(
+		     fun(OtherRec) ->
+			     OtherVals =
+				 [OtherMod:PkField(OtherRec) ||
+				     {PkField, _} <- OtherFields],
+			     lists:foldr(
+			       fun({PkField, _}, Acc2) ->
+				       [Mod:PkField(Rec) | Acc2]
+			       end, OtherVals, Fields)
+		     end, OtherRecs),
+	    {insert, JoinTable, FkFields, Rows}
+    end.
 
 %% @doc Remove a related record in a many-to-many relation.
 %%
@@ -1052,7 +1182,7 @@ make_add_related_many_to_many_query(JoinTable, Rec, OtherRec) ->
 %% This function expects a single record to be removed. 
 %%
 %% @spec remove_related_many_to_many(JoinTable::atom(), Rec::record(),
-%%   OtherRec::record()) -> ok |
+%%   OtherRec::record()) -> NumRemoved::interger() |
 %%   exit(Err)
 remove_related_many_to_many(JoinTable, Rec, OtherRec) ->
     do_remove(Rec, make_remove_related_many_to_many_query(
@@ -1066,7 +1196,7 @@ do_remove(Rec, Query) ->
 		  DriverMod:update({esql, Query}, Options)
 	  end, Options),
     case Res of
-	{atomic, Res1} -> Res1;
+	{atomic, {ok, Num}} -> Num;
 	{aborted, Err} -> exit(Err)
     end.
 
@@ -1106,42 +1236,45 @@ remove_related_many_to_many_all(JoinTable, OtherTable,
 	      JoinTable, OtherTable, Rec, Where, Extras),
     do_remove(Rec, Query).
 
-make_remove_related_many_to_many_all_query(JoinTable, OtherTable, Rec,
+make_remove_related_many_to_many_all_query(JoinTable, OtherMod, Rec,
 					   Where, Extras) ->
+    OtherTable = db_table(OtherMod),
     Mod = get_module(Rec),
     Table = db_table(Mod),
     Expr =
 	if Table == OtherTable ->
 		Fields = Mod:get_pk_fk_fields2(),
 		Conds1 =
-		    lists:foldl(
-		      fun({PkField, FkField1, _FkField2}, Acc) ->
-			      [{FkField1, '=', Mod:PkField(Rec)} | Acc]
-		      end, [], Fields),
+		    [{{JoinTable, FkField1}, '=', Mod:PkField(Rec)} ||
+			{PkField, FkField1, _FkField2} <- Fields],
 		Conds2 =
-		    lists:foldl(
-		      fun({PkField, _FkField1, FkField2}, Acc) ->
-			      [{FkField2, '=', Mod:PkField(Rec)} | Acc]
-		      end, [], Fields),
+		    [{{JoinTable, FkField2}, '=', Mod:PkField(Rec)} ||
+			{PkField, _FkField1, FkField2} <- Fields],
 		{'or', [{'and', Conds1}, {'and', Conds2}]};
 	   true ->
 		Conds =
-		    lists:foldl(
-		      fun({PkField, FkField}, Acc) ->
-			      [{FkField, '=', Mod:PkField(Rec)} | Acc]
-		      end, [], Mod:get_pk_fk_fields()),
+		    [{{JoinTable, FkField}, '=', Mod:PkField(Rec)} ||
+			{PkField, FkField} <-
+			     Mod:get_pk_fk_fields()],
 		{'and', Conds}
 	end,
     if Where == undefined ->
 	    {delete, JoinTable, undefined, Expr, Extras};
        true ->
-	    Using = if Table == OtherTable ->
-			    undefined;
-		       true ->
-			    [JoinTable, OtherTable]
-		    end,
-	    {delete, JoinTable, Using,
-	     {'and', [Expr, Where]}, Extras}
+	    {Using, Where1} = 
+		if Table == OtherTable ->
+			{undefined, Expr};
+		   true ->
+			Fields1 = OtherMod:get_pk_fk_fields(),
+			Where2 =
+			     lists:foldl(
+			       fun({PkField, FkField}, Acc) ->
+				       [{{OtherTable, PkField}, '=',
+					 {JoinTable, FkField}} | Acc]
+			       end, [Where, Expr], Fields1),
+			{[JoinTable, OtherTable], {'and', Where2}}
+		end,
+	    {delete, JoinTable, Using, Where1, Extras}
     end.
 	    
 
@@ -1157,13 +1290,13 @@ get_join_table_fields(Rec, OtherRec) ->
     OtherMod = get_module(OtherRec),
     case db_table(Mod) == db_table(OtherMod) of
 	true ->
+	    Fields = Mod:get_pk_fk_fields2(),
+	    [Rec1, Rec2] = sort_records(Mod, Rec, OtherRec, Fields),
 	    lists:foldl(
 	      fun({PkField, FkField1, FkField2}, Acc) ->
-		      [Val1, Val2] = lists:sort([Mod:PkField(Rec),
-						 Mod:PkField(OtherRec)]),
-		      [{FkField1, Val1},
-		       {FkField2, Val2} | Acc]
-	      end, [], Mod:get_pk_fk_fields2());
+		      [{FkField1, Mod:PkField(Rec1)},
+		       {FkField2, Mod:PkField(Rec2)} | Acc]
+	      end, [], Fields);
        _ ->
 	    Fields1 = [{FkField, Mod:PkField(Rec)} ||
 			  {PkField, FkField} <-
@@ -1173,6 +1306,21 @@ get_join_table_fields(Rec, OtherRec) ->
 		      [{FkField, OtherMod:PkField(OtherRec)} | Acc]
 	      end, Fields1, OtherMod:get_pk_fk_fields())
     end.
+
+sort_records(_Mod, R1, R2, []) -> [R1, R2];
+sort_records(Mod, R1, R2, [{PkField, _, _} | Rest]) ->
+    case Mod:PkField(R1) < Mod:PkField(R2) of
+	true ->
+	    [R1, R2];
+	_ ->
+	    case Mod:PkField(R1) == Mod:PkField(R2) of
+		true ->
+		    sort_records(Mod, R1, R2, Rest);
+		false ->
+		    [R2, R1]
+	    end
+    end.
+
 
 %% @doc This function works as {@link find_related_many_to_one/4}, but
 %% for modules defining many-to-many relations.
@@ -1200,32 +1348,32 @@ make_find_related_many_to_many_query(OtherModule, JoinTable, Rec, Fields,
     Module = get_module(Rec),
     Cond =
 	case OtherTable == db_table(Module) of
-	    true->
+	    true ->
 		PkFks = Module:get_pk_fk_fields2(),
 		{'or', 
 		 [{'and',
-		   [{{OtherTable, PkField}, '=',
-		     {JoinTable, FkField1}} ||
-		       {PkField, FkField1, _FkField2} <- PkFks] ++
 		   [{{JoinTable, FkField2},'=',
 		     Module:PkField(Rec)} ||
-		       {PkField, _FkField1, FkField2} <- PkFks]},
-		 {'and',
-		   [{{OtherTable, PkField}, '=',
-		     {JoinTable, FkField2}} ||
 		       {PkField, _FkField1, FkField2} <- PkFks] ++
+		   [{{OtherTable, PkField}, '=',
+		     {JoinTable, FkField1}} ||
+		       {PkField, FkField1, _FkField2} <- PkFks]},
+		  {'and',
 		   [{{JoinTable, FkField1},'=',
 		     Module:PkField(Rec)} ||
-		       {PkField, FkField1, _FkField2} <- PkFks]}]};
-	   _ ->
+		       {PkField, FkField1, _FkField2} <- PkFks] ++
+		   [{{OtherTable, PkField}, '=',
+		     {JoinTable, FkField2}} ||
+		       {PkField, _FkField1, FkField2} <- PkFks]}]};
+	    _ ->
 		{'and',
-		 [{{OtherTable, PkField},'=',{JoinTable, FkField}} ||
-		     {PkField, FkField} <- OtherModule:get_pk_fk_fields()] ++
 		 [{{JoinTable, FkField},'=',Module:PkField(Rec)} ||
-		     {PkField, FkField} <- Module:get_pk_fk_fields()]}
+		     {PkField, FkField} <- Module:get_pk_fk_fields()] ++
+		 [{{OtherTable, PkField},'=',{JoinTable, FkField}} ||
+		     {PkField, FkField} <- OtherModule:get_pk_fk_fields()]}
 	end,
     {select, Fields,
-     {from, [db_table(OtherModule), JoinTable]},
+     {from, [JoinTable, db_table(OtherModule)]},
      make_where_expr(OtherModule, Cond, Where),
      Extras}.
 
@@ -1325,24 +1473,21 @@ do_save(Rec) ->
 
 make_save_statement(Rec) ->
     Module = get_module(Rec),
-    Fields = field_names_for_query(Module),
-    PkField = hd(Module:db_pk_fields()),
-    Fields1 = case erlydb_field:extra(PkField) == identity of
-	true -> lists:delete(erlydb_field:name(PkField), Fields);
-	false -> Fields
-    end,
-
+    Fields = [erlydb_field:name(Field) ||
+		 Field <- Module:db_fields(),
+		 erlydb_field:extra(Field) =/= identity,
+		 erlydb_field:type(Field) =/= timestamp],
     case is_new(Rec) of
 	false ->
-	    Vals = [{Field, Module:Field(Rec)} || Field <- Fields1],
+	    Vals = [{Field, Module:Field(Rec)} || Field <- Fields],
 	    {update, {update, get_table(Rec), Vals,
 		      {where, make_pk_expr(Rec)}}};
 	true ->
-	    Vals = [Module:Field(Rec) || Field <- Fields1],
+	    Vals = [Module:Field(Rec) || Field <- Fields],
 	    {Fields2, Vals1} = 
 		case Module:type_field() of
-		    undefined -> {Fields1, Vals};
-		    TypeField -> {[TypeField | Fields1], [Module | Vals]}
+		    undefined -> {Fields, Vals};
+		    TypeField -> {[TypeField | Fields], [Module | Vals]}
 		end,
 	    {insert, {insert, get_table(Rec), Fields2, [Vals1]}}
     end.
@@ -1406,12 +1551,11 @@ make_pk_expr2(Rec, WhereExpr, UseFk) ->
 	    _ -> [WhereExpr]
 	end,
     Mod = get_module(Rec),
-    case UseFk of
-	false ->
+    if not UseFk ->
 	    {'and', WhereList ++
 	     [{PkField, '=', Mod:PkField(Rec)} ||
 		 {PkField, _FkField} <- Mod:get_pk_fk_fields()]};
-	true ->
+       true ->
 	    {'and', WhereList ++
 	     [{FkField, '=', Mod:PkField(Rec)} ||
 		 {PkField, FkField} <- Mod:get_pk_fk_fields()]}
@@ -1433,8 +1577,7 @@ select(Module, Query, true) ->
     Res = DriverMod:select_as(Module, Query, Options),
     case Res of
 	{ok, Rows} ->
-	    F = fun(Rec) -> Module:after_fetch(Rec) end,
-	    lists:map(F, Rows);
+	    [Module:after_fetch(Rec) || Rec <- Rows];
 	Err ->
 	    exit(Err)
     end;
@@ -1486,24 +1629,24 @@ field_names_for_query(Module, UseStar) ->
     end.
 
 
-if_saved(Rec, Fun) when not is_list(Rec) ->
-    if_saved([Rec], Fun);
-if_saved(Recs, Fun) ->
-    case catch lists:foreach(
-	    fun(Rec) ->
-		    case is_new(Rec) of
-			true ->
-			    exit({no_such_record, Rec});
-			false ->
-			    ok
-		    end
-	    end, Recs)
-	of
-	ok ->
-	    Fun();
-	{'EXIT', Err} ->
-	    exit(Err)
-    end.
+%% if_saved(Rec, Fun) when not is_list(Rec) ->
+%%     if_saved([Rec], Fun);
+%% if_saved(Recs, Fun) ->
+%%     case catch lists:foreach(
+%% 	    fun(Rec) ->
+%% 		    case is_new(Rec) of
+%% 			true ->
+%% 			    exit({no_such_record, Rec});
+%% 			false ->
+%% 			    ok
+%% 		    end
+%% 	    end, Recs)
+%% 	of
+%% 	ok ->
+%% 	    Fun();
+%% 	{'EXIT', Err} ->
+%% 	    exit(Err)
+%%     end.
 
 
 set_module(Rec, Module) ->
@@ -1533,10 +1676,6 @@ make_where_expr(Module, Expr1, Expr2) ->
 and_expr(undefined, Expr2) -> Expr2;
 and_expr(Expr1, undefined) -> Expr1;
 and_expr(Expr1, Expr2) -> {Expr1, 'and', Expr2}.
-
-as_single_update({ok, 1}) -> ok;
-as_single_update({ok, Num}) -> exit({expected_single_update, Num});
-as_single_update({error, _} = Err) -> exit(Err).
 
 as_single_val(Res) -> as_single_val(Res, false).
 

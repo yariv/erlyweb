@@ -1,5 +1,5 @@
 %% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com]
-%% @copyright Yariv Sadan 2006
+%% @copyright Yariv Sadan 2006-2007
 %%
 %% @doc  Smerl: Simple Metaprogramming for Erlang
 %%
@@ -42,7 +42,7 @@
 %%   it's also easier to manipulate in code.</p>
 %%
 
-%% Copyright (c) 2006 Yariv Sadan
+%% Copyright (c) Yariv Sadan 2006-2007
 %%
 %% Permission is hereby granted, free of charge, to any person
 %% obtaining a copy of this software and associated documentation
@@ -106,6 +106,7 @@
 	 embed_all/2,
 	 extend/2,
 	 extend/3,
+	 extend/4,
 	 to_src/1,
 	 to_src/2
 	]).
@@ -129,7 +130,7 @@ new(ModuleName) when is_atom(ModuleName) ->
     #meta_mod{module = ModuleName}.
 
 
-%% @equiv for_module(ModuleName, []).
+%% @equiv for_module(ModuleName, [])
 for_module(ModuleName) ->
     for_module(ModuleName, []).
 
@@ -168,7 +169,7 @@ for_module(ModuleName, IncludePaths) when is_atom(ModuleName) ->
 	    end
     end.
 
-%% @equiv for_file(SrcFilePath, []).
+%% @equiv for_file(SrcFilePath, [])
 for_file(SrcFilePath) ->
     for_file(SrcFilePath, []).
 
@@ -526,7 +527,6 @@ compile(MetaMod, Options) ->
 
     Forms1 = [{attribute, 1, file, {FileName, 1}} | Forms],
     Forms2 = Forms1 ++ lists:reverse(MetaMod#meta_mod.forms),
-
     case compile:forms(Forms2, Options) of       
 	{ok, Module, Bin} ->
 	    Res = 
@@ -583,16 +583,45 @@ curry({function, Line, Name, Arity, Clauses}, NewParams) ->
 	  end, [], Clauses),
     {ok, {function, Line, Name, Arity-length(NewParams), NewClauses}}.
 
-curry_clause({clause, L1, ExistingParams, Guards, Exprs}, NewParams) ->
+curry_clause({clause, L1, ExistingParams, Guards, _Exprs} = Clause,
+	     NewParams) ->
     {FirstParams, LastParams} =
 	lists:split(length(NewParams), ExistingParams),
-    Matches =
+%%     Matches =
+%% 	lists:foldl(
+%% 	  fun({Var, NewVal}, Acc) ->
+%% 		  [{match, 1, Var, erl_parse:abstract(NewVal)} | Acc]
+%% 	  end, [], lists:zip(FirstParams, NewParams)),
+%%    {clause, L1, LastParams, Guards, Matches ++ Exprs}.
+    
+    Vals = 
 	lists:foldl(
-	  fun({Var, NewVal}, Acc) ->
-		  [{match, 1, Var, erl_parse:abstract(NewVal)} | Acc]
+	  fun({{var,_,Name}, NewVal}, Acc) ->
+		  [{Name, erl_parse:abstract(NewVal)} | Acc];
+	     (_, Acc) ->
+		  Acc
 	  end, [], lists:zip(FirstParams, NewParams)),
-    {clause, L1, LastParams, Guards, Matches ++ Exprs}.
+    
+    NewExprs = replace_vars(Clause, Vals),
 
+    {clause, L1, LastParams, Guards, NewExprs}.
+
+replace_vars(Clause, Vals) ->
+    Tree =
+	erl_syntax_lib:map(
+	  fun({var,_L2,Name} = Expr) ->
+		  case proplists:lookup(Name, Vals) of
+		      none ->
+			  Expr;
+		      {_, Val} ->
+			  Val
+		  end;
+	     (Expr) ->
+		  Expr
+	  end, Clause),
+    {clause, _, _, _, NewExprs} = erl_syntax:revert(Tree),
+    NewExprs.
+    
 
 %% @doc Curry the function from the module with the given param(s)
 %%
@@ -728,27 +757,44 @@ curry_replace(MetaMod, Name, Arity, Params) ->
 %%   Vals::[{Name::atom(), Value::term()}]) -> NewForm::func_form()
 embed_params({function, L, Name, Arity, Clauses}, Vals) ->
     NewClauses =
-	lists:foldl(
-	  fun({clause, L1, Params, Guards, Exprs}, Clauses1) ->
-		  {Params1, Matches1, _RemainingVals} =
-		      lists:foldl(
-			fun({var, _L2, ParamName} = Param,
-			    {Params2, Matches2, Vals1}) ->
-				case lists:keysearch(ParamName, 1, Vals1) of 
-				    {value, {_Name, Val} = Elem} ->
-					Match = {match, L1, Param,
-						 erl_parse:abstract(Val)},
-					{Params2, [Match | Matches2],
-					 lists:delete(Elem, Vals1)};
-				    false ->
-					{[Param | Params2], Matches2, Vals1}
+	lists:map(
+	  fun({clause, L1, Params, Guards, _Exprs} = Clause) ->
+		  {EmbeddedVals, OtherParams} =
+		      lists:foldr(
+			fun({var,_, VarName} = Param, {Embedded, Rest}) ->
+				case proplists:lookup(VarName, Vals) of
+				    none ->
+					{Embedded, [Param | Rest]};
+				    {_, Val} ->
+					{[{VarName, erl_parse:abstract(Val)} |
+					  Embedded], Rest}
 				end;
-			   (Param, {Params2, Matches2, Vals1}) ->
-				{[Param | Params2], Matches2, Vals1}
-			end, {[], [], Vals}, Params),
-		  [{clause, L1, lists:reverse(Params1), Guards,
-				lists:reverse(Matches1) ++ Exprs} | Clauses1]
-	  end, [], Clauses),
+			   (Param, {Embedded, Rest}) ->
+				{Embedded, [Param | Rest]}
+			end, {[], []}, Params),
+		  NewExprs = replace_vars(Clause, EmbeddedVals),
+		  {clause, L1, OtherParams, Guards, NewExprs}
+		  
+				    
+%% 		  {Params1, Matches1, _RemainingVals} =
+%% 		      lists:foldl(
+%% 			fun({var, _L2, ParamName} = Param,
+%% 			    {Params2, Matches2, Vals1}) ->
+%% 				case lists:keysearch(ParamName, 1, Vals1) of 
+%% 				    {value, {_Name, Val} = Elem} ->
+%% 					Match = {match, L1, Param,
+%% 						 erl_parse:abstract(Val)},
+%% 					{Params2, [Match | Matches2],
+%% 					 lists:delete(Elem, Vals1)};
+%% 				    false ->
+%% 					{[Param | Params2], Matches2, Vals1}
+%% 				end;
+%% 			   (Param, {Params2, Matches2, Vals1}) ->
+%% 				{[Param | Params2], Matches2, Vals1}
+%% 			end, {[], [], Vals}, Params),
+%% 		  [{clause, L1, lists:reverse(Params1), Guards,
+%% 				lists:reverse(Matches1) ++ Exprs} | Clauses1]
+	  end, Clauses),
     NewArity =
 	case NewClauses of
 	    [{clause, _L2, Params, _Guards, _Exprs}|_] ->
@@ -756,7 +802,7 @@ embed_params({function, L, Name, Arity, Clauses}, Vals) ->
 	    _ ->
 		Arity
 	end,
-    {function, L, Name, NewArity, lists:reverse(NewClauses)}.
+    {function, L, Name, NewArity, NewClauses}.
 
 %% @doc Apply {@link embed_params/2} to a function from the meta_mod and
 %%   add the resulting function to the meta_mod, and return the resulting
@@ -839,6 +885,9 @@ extend(Parent, Child) ->
 %%    ArityDiff::integer()) ->
 %%      NewChildMod::meta_mod()
 extend(Parent, Child, ArityDiff) ->
+    extend(Parent, Child, ArityDiff, []).
+
+extend(Parent, Child, ArityDiff, Options) ->
     {{ParentName, ParentExports, ParentMod}, ChildMod} = 
 	get_extend_data(Parent, Child),
     ChildExports = get_exports(ChildMod),
@@ -849,17 +898,23 @@ extend(Parent, Child, ArityDiff) ->
     NewChild =
 	lists:foldl(
 	  fun({FuncName, Arity}, ChildMod1) ->
-		  Params = get_params(
-			     ParentMod, FuncName, Arity),
-		  Clause1 =
-		      {clause,1,Params,[],
-		       [{call,1,
-			 {remote,1,{atom,1,ParentName},
-			  {atom,1,FuncName}},
-			 Params}]},
 		  Func =
-		      {function,1,FuncName,Arity, [Clause1]},
-		  
+		      case lists:member(copy, Options) of
+			  true ->
+			      {ok, ParentFunc} =
+				  smerl:get_func(ParentMod, FuncName, Arity),
+			      ParentFunc;
+			  _ ->
+			      Params = get_params(
+					 ParentMod, FuncName, Arity),
+			      Clause1 =
+				  {clause,1,Params,[],
+				   [{call,1,
+				     {remote,1,{atom,1,ParentName},
+				      {atom,1,FuncName}},
+				     Params}]},
+			      {function,1,FuncName,Arity, [Clause1]}
+		      end,
 		  {ok, ChildMod2} = add_func(ChildMod1, Func),
 		  ChildMod2
 	  end, ChildMod, ExportsDiff),
