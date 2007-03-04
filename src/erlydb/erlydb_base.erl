@@ -1487,7 +1487,7 @@ make_save_statement(Rec) ->
 	    {Fields2, Vals1} = 
 		case Module:type_field() of
 		    undefined -> {Fields, Vals};
-		    TypeField -> {[TypeField | Fields], [Module | Vals]}
+		    TypeField -> {[TypeField | Fields], [atom_to_list(Module) | Vals]}
 		end,
 	    {insert, {insert, get_table(Rec), Fields2, [Vals1]}}
     end.

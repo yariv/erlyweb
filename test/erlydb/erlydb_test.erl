@@ -17,7 +17,7 @@ init() ->
     erlydb:start(mysql,
 		 [{hostname, "localhost"},
 		  {username, "root"},
-		  {password, "password"},
+		  {password, "root"},
 		  {database, "test"}]),
 
     %% generate the abstraction layer modules

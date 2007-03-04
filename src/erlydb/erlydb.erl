@@ -122,7 +122,10 @@ start(Driver) ->
 %% @spec start(Driver::atom(), Options::proplist()) -> ok | {error, Err}
 start(mysql, Options) ->
     erlydb_mysql:start(Options);
-    
+
+start(mnesia, Options) ->
+    erlydb_mnesia:start(Options);
+                         
 start(_Driver, _Options) ->
     {error, driver_not_supported}.
     
