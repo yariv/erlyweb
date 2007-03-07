@@ -249,7 +249,7 @@ ewc({ewc, Controller, View, FuncName, [A | _] = Params}, AppData) ->
 				{response, [{body, Body}]}
 			end
 		end,
-    handle_response(A, Response2, View, FuncName, AppData);
+    handle_response(A, Response2, View, FuncName1, AppData);
 
 ewc(Other, _AppData) -> {response, [Other]}.
 

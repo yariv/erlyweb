@@ -1475,8 +1475,7 @@ make_save_statement(Rec) ->
     Module = get_module(Rec),
     Fields = [erlydb_field:name(Field) ||
 		 Field <- Module:db_fields(),
-		 erlydb_field:extra(Field) =/= identity,
-		 erlydb_field:type(Field) =/= timestamp],
+		 not lists:member(read_only, erlydb_field:attributes(Field))],
     case is_new(Rec) of
 	false ->
 	    Vals = [{Field, Module:Field(Rec)} || Field <- Fields],

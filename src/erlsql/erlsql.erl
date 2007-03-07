@@ -452,6 +452,10 @@ expr({Val, Op, Values}, Safe) when (Op == in orelse
 			      Op == some) andalso
 			     is_list(Values) ->
     [expr2(Val, Safe), subquery_op(Op), make_list(Values, fun encode/1), $)];
+expr({undefined, Op, Expr2}, Safe) when Op == 'and'; Op == 'not' ->
+    expr(Expr2, Safe);
+expr({Expr1, Op, undefined}, Safe) when Op == 'and'; Op == 'not' ->
+    expr(Expr1, Safe);
 expr({Expr1, Op, Expr2}, Safe)  ->
     {B1, B2} = 
 	if (Op == 'and' orelse Op == 'or') ->

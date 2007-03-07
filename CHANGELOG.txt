@@ -1,3 +1,20 @@
+v0.5.1
+
+- Added support for read-only fields and setting for arbitrary user-defined
+attributes in erlydb_field instances. In ErlyDB modules, the fields/0 function
+can now retun instead of an atom for each name, a tuple of the form
+{Name, Attributes}, where Attributes is an arbitrary list of terms. The
+Attributes list is embedded in the corresponding auto-generated erlydb_field
+structure, and it can be retrieved using erlydb_field:attributes/1.
+If Attributes includes the atom 'read_only', the field is excluded in the
+SQL statements generated erlydb_base:save/1.
+
+- Fixed a bug in the handling of before_call hooks.
+
+- Fixed a bug in the generation of SELECT statements for many-to-many
+relations where the modules define table names whose alphabetical ordering
+is different from that of the module names'.
+
 v0.5
 
 - erlyweb:compile() now obey relative include paths passed as {i, Path} options. It treats the base directory as [AppDir]/src. Absolute paths also work now.

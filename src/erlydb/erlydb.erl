@@ -281,43 +281,75 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
 %% implemented by the user as well as the database metadata for the table.
 %%
 %% Throw an error if any user-defined fields aren't in the database.
-get_db_fields(Module, Fields) ->
-    FieldNames = [erlydb_field:name(Field) || Field <- Fields],
-    Fields1 =
+get_db_fields(Module, DbFields) ->
+    DbFieldNames = [erlydb_field:name(Field) || Field <- DbFields],
+    DbFields1 =
 	case Module:fields() of
-	    '*' -> Fields;
+	    '*' -> [set_attributes(Field, []) || Field <- DbFields];
 	    DefinedFields ->
-		PkFieldNames = [erlydb_field:name(Field) ||
-				   Field <- Fields,
-				   erlydb_field:key(Field) == primary],
-		DefinedFields1 = PkFieldNames ++ (DefinedFields --
-						  PkFieldNames),
+		DefinedFields1 =
+		    lists:map(fun({_Name, _Atts} = F) -> F;
+				 (Name) -> {Name, []}
+			      end, DefinedFields),
+		
+		PkFields = [{erlydb_field:name(Field), []} ||
+			       Field <- DbFields,
+			       erlydb_field:key(Field) == primary,
+			       not lists:keymember(
+				     erlydb_field:name(Field),
+				     1, DefinedFields1)],
+
+		DefinedFields2 = PkFields ++ DefinedFields1,
+
 		InvalidFieldNames =
-		    [FieldName || FieldName <- DefinedFields1,
-				  not lists:member(FieldName, FieldNames)],
+		    [Name || {Name, _Atts} <- DefinedFields2,
+				  not lists:member(Name, DbFieldNames)],
 		case InvalidFieldNames of
-		    [] -> [Field || Field <- Fields,
-				    lists:member(erlydb_field:name(Field),
-						 DefinedFields1)];
+		    [] ->
+			lists:foldr(
+			  fun(Field, Acc) ->
+				  FieldName = erlydb_field:name(Field),
+				  case lists:keysearch(
+					 FieldName, 1, DefinedFields2) of
+				      {value, {_Name, Atts}} ->
+					  Field1 = 
+					      set_attributes(Field, Atts),
+					  [Field1 | Acc];
+				      false ->
+					  Acc
+				  end
+			  end, [], DbFields);
 		    _ -> exit({no_such_fields, {Module, InvalidFieldNames}})
 		end
 	end,
 
-    FieldNames1 = [erlydb_field:name(Field) || Field <- Fields1],
+    DbFieldNames1 = [erlydb_field:name(Field) || Field <- DbFields1],
 
     Res =
 	case Module:type_field() of
-	    undefined -> {Fields1, FieldNames1};
+	    undefined -> {DbFields1, DbFieldNames1};
 	    Name ->
-		case lists:member(Name, FieldNames) of
+		case lists:member(Name, DbFieldNames) of
 		    true ->
-			{[Field || Field <- Fields1,
+			{[Field || Field <- DbFields1,
 				   erlydb_field:name(Field) =/= Name],
-			 FieldNames1 -- [Name]};
+			 DbFieldNames1 -- [Name]};
 		    false -> exit({no_such_type_field, {Module, Name}})
 		end
 	end,
     Res.
+
+set_attributes(Field, Atts) ->
+    Atts1 = case erlydb_field:extra(Field) == identity orelse 
+		erlydb_field:type(Field) == timestamp of
+		true ->
+		    [read_only |
+		     Atts --
+		     [read_only]];
+		_ ->
+		    Atts
+	    end,
+    erlydb_field:attributes(Field, Atts1).
 
 add_pk_fk_field_names(MetaMod, PkFields) ->
     Module = smerl:get_module(MetaMod),
@@ -539,16 +571,19 @@ make_many_to_many_forms(OtherModule, MetaMod) ->
     %% Good example: person_project
     %% Bad example: project_person
     [Module1, Module2] = 
-	lists:sort([ModuleName, OtherModule]),
+	lists:sort(
+	  fun(Mod1, Mod2) ->
+		  get_table(Mod1) < get_table(Mod2)
+	  end,
+	  [ModuleName, OtherModule]),
     JoinTableName = append([get_table(Module1), "_", get_table(Module2)]),
-
     RemoveAllFuncName = append(["remove_all_", pluralize(OtherModule)]),
     CurryFuncs =
 	[{add_related_many_to_many, 3, [],
 	  append(["add_", OtherModule])},
 	 {remove_related_many_to_many, 3, [],
 	  append(["remove_", OtherModule])},
-	 {remove_related_many_to_many_all, 5, [OtherModule],
+	 {remove_related_many_to_many_all, 5, [get_table(OtherModule)],
 	  RemoveAllFuncName}],
     
     M3 = lists:foldl(

@@ -35,14 +35,16 @@
     null/1,
     key/1,
     default/1,
-    extra/1
+    extra/1,
+    attributes/1,
+    attributes/2
    ]).
 
 -record(erlydb_field,
 	{name, name_str, name_bin, type, modifier, erl_type,
 	 html_input_type,
 	 null, key,
-	 default, extra}).
+	 default, extra, attributes}).
 
 %% @doc Create a new erlydb_field record.
 %%
@@ -180,6 +182,18 @@ default(Field) ->
 %% @spec extra(Field::erlydb_field()) -> undefined | identity
 extra(Field) ->
     Field#erlydb_field.extra.
+
+%% @doc Get the field's user-defined attributes.
+%%
+%% @spec attributes(Field::erlydb_field()) -> undefined | [term()]
+attributes(Field) ->
+    Field#erlydb_field.attributes.
+
+%% @doc Set the field's user-defined attributes.
+%%
+%% @spec extra(Field::erlydb_field(), Attributes::[term()]) -> erlydb_field()
+attributes(Field, Attributes) ->
+    Field#erlydb_field{attributes = Attributes}.
 
 get_erl_type({Type, _Len}) -> get_erl_type(Type);
 get_erl_type(Type) ->
