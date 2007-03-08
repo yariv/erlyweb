@@ -306,7 +306,11 @@ get_ewc(A) ->
     get_ewc(A, lookup_app_data_module(A)).
 
 get_ewc(A, AppData) ->
-    case string:tokens(yaws_arg:appmoddata(A), "/") of
+    Prefix = lists:dropwhile(
+	       fun($?) -> true;
+		  (_) -> false
+	       end, yaws_arg:appmoddata(A)),
+    case string:tokens(Prefix, "/") of
 	[] -> {page, "/"};
 	[ComponentStr]->
 	    get_ewc(ComponentStr, "index", [A],

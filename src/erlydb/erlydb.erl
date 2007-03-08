@@ -578,13 +578,16 @@ make_many_to_many_forms(OtherModule, MetaMod) ->
 	  [ModuleName, OtherModule]),
     JoinTableName = append([get_table(Module1), "_", get_table(Module2)]),
     RemoveAllFuncName = append(["remove_all_", pluralize(OtherModule)]),
+    IsRelatedFuncName = append(["is_", OtherModule, "_related"]),
+
     CurryFuncs =
 	[{add_related_many_to_many, 3, [],
 	  append(["add_", OtherModule])},
 	 {remove_related_many_to_many, 3, [],
 	  append(["remove_", OtherModule])},
 	 {remove_related_many_to_many_all, 5, [get_table(OtherModule)],
-	  RemoveAllFuncName}],
+	  RemoveAllFuncName},
+	 {is_related, 3, [], IsRelatedFuncName}],
     
     M3 = lists:foldl(
 	   fun({FuncName, Arity, ExtraParams, NewName}, M1) ->

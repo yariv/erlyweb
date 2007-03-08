@@ -13,7 +13,7 @@
 %% @doc to_recs/2 helps process POST requests containing fields that
 %% belong to multiple records from one or more ErlyDB models.
 %%
-%% This function is useful when {@link erlydb_base:set_fields_from_strs/3}
+%% This function is useful when {@link erlydb_base:new_fields_from_strs/3}
 %% isn't sufficient because the latter is only designed to map POST
 %% parameters to the fields of a single record.
 %%

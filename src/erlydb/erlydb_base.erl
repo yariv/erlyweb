@@ -149,6 +149,7 @@
     aggregate_related_many_to_one/6,
 
     %% many-to-many functions
+    is_related/3,
     add_related_many_to_many/3,
     remove_related_many_to_many/3,
     remove_related_many_to_many_all/5,
@@ -375,23 +376,24 @@ field_to_iolist(Val) ->
 %% @doc This function converts standard ErlyDB field values to iolists.
 %% This is its source code:
 %% ```
-%% case Val of
-%%   Bin when is_binary(Bin) -> Val;
-%%   List when is_list(List) -> Val;
-%%   Int when is_integer(Int) -> integer_to_list(Val);
-%%   Float when is_float(Float) -> float_to_list(Val);
-%%   {datetime, {{Year,Month,Day},{Hour,Minute,Second}}} ->
-%%      io_lib:format("~b/~b/~b ~b:~b:~b",
-%%  	  [Month, Day, Year, Hour, Minute, Second]);
-%%   {date, {Year, Month, Day}} ->
-%%      io_lib:format("~b/~b/~b",
-%%         [Month, Day, Year]);
-%%   {time, {Hour, Minute, Second}}  ->
-%%      io_lib:format("~b:~b:~b", [Hour, Minute, Second]);
-%%   undefined -> [];
-%%   _Other ->
-%%      io_lib:format("~p", [Val])
-%% end.
+%%     case Val of
+%% 	Bin when is_binary(Bin) -> Val;
+%% 	List when is_list(List) -> Val;
+%% 	Int when is_integer(Int) -> integer_to_list(Val);
+%% 	Float when is_float(Float) -> float_to_list(Val);
+%% 	{datetime, {{Year,Month,Day},{Hour,Minute,Second}}} ->
+%% 	    io_lib:format("~b/~b/~b ~2.10.0b:~2.10.0b:~2.10.0b",
+%% 			  [Month, Day, Year, Hour, Minute, Second]);
+%% 	{date, {Year, Month, Day}} ->
+%% 	    io_lib:format("~b/~b/~b",
+%% 			  [Month, Day, Year]);
+%% 	{time, {Hour, Minute, Second}}  ->
+%% 	    io_lib:format("~2.10.0b:~2.10.0b:~2.10.0b",
+%% 			  [Hour, Minute, Second]);
+%% 	undefined -> [];
+%% 	_Other ->
+%% 	    io_lib:format("~p", [Val])
+%%    end.
 %% '''
 %%
 %% @spec field_to_iolist(Val::term, Field::erlydb_field()) -> iolist()
@@ -402,13 +404,14 @@ field_to_iolist(Val, _Field) ->
 	Int when is_integer(Int) -> integer_to_list(Val);
 	Float when is_float(Float) -> float_to_list(Val);
 	{datetime, {{Year,Month,Day},{Hour,Minute,Second}}} ->
-	    io_lib:format("~b/~b/~b ~b:~b:~b",
+	    io_lib:format("~b/~b/~b ~2.10.0b:~2.10.0b:~2.10.0b",
 			  [Month, Day, Year, Hour, Minute, Second]);
 	{date, {Year, Month, Day}} ->
 	    io_lib:format("~b/~b/~b",
 			  [Month, Day, Year]);
 	{time, {Hour, Minute, Second}}  ->
-	    io_lib:format("~b:~b:~b", [Hour, Minute, Second]);
+	    io_lib:format("~2.10.0b:~2.10.0b:~2.10.0b",
+			  [Hour, Minute, Second]);
 	undefined -> [];
 	_Other ->
 	    io_lib:format("~p", [Val])
@@ -532,19 +535,9 @@ set_fields_from_strs(Module, Record, Fields) ->
 %% month: 1-12<br/>
 %% year: 1-9999<br/>
 %%
-%% If you set a field to 'undefined' when erlydb_field:null(ErlyDbField)
-%% returns 'true', this function exits.
-%%
 %% @spec field_from_string(ErlyDbField::erlydb_field(), Str::list()) -> term()
 %%  | exit(Err)
-field_from_string(ErlyDbField, undefined) ->
-    case erlydb_field:null(ErlyDbField) of
-	true -> undefined;
-	false ->
-	    exit({null_value,
-		  erlydb_field:name(ErlyDbField)})
-    end;
-    
+field_from_string(_ErlyDbField, undefined) -> undefined;
 field_from_string(ErlyDbField, Str) ->
     case erlydb_field:erl_type(ErlyDbField) of
 	%% If the value started as a string, we keep it
@@ -1319,6 +1312,23 @@ sort_records(Mod, R1, R2, [{PkField, _, _} | Rest]) ->
 		false ->
 		    [R2, R1]
 	    end
+    end.
+
+
+is_related(JoinTable, Rec, OtherRec) ->
+    Mod = get_module(Rec),
+    {Driver, Options} = Mod:driver(),
+    Expr = make_join_table_expr(Rec, OtherRec),
+    Q = {select, {call, count, '*'}, {from, [JoinTable]},
+	 {where, Expr}},
+    Res = Driver:select({esql, Q}, Options),
+    case Res of
+	{ok, [{0}]} ->
+	    false;
+	{ok, [{_Num}]} ->
+	    true;
+	Err ->
+	    exit(Err)
     end.
 
 

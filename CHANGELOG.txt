@@ -15,6 +15,17 @@ SQL statements generated erlydb_base:save/1.
 relations where the modules define table names whose alphabetical ordering
 is different from that of the module names'.
 
+- Added erlydb_base:is_related/3 to check if 2 records are related in a many-to-many relation.
+
+- The ErlyWeb request tokenizer now stops when encountering the first '?' symbol in the URL. This lets you include arbitrary GET parameters in the URL, including those containing forward slashes.
+
+- Removed the NULL checks in erlydb_base:new_from_strings/2. This function no 
+longer calls exit({null_value, Field}) when one of its non-null fields is set
+to 'undefined'.
+
+- Fixed erlydb_base:field_to_iolist/2 to ensure that single-digit time values
+are padded with a leading zero.
+
 v0.5
 
 - erlyweb:compile() now obey relative include paths passed as {i, Path} options. It treats the base directory as [AppDir]/src. Absolute paths also work now.
