@@ -227,7 +227,7 @@ ewc({ewc, Component, Params}, AppData) ->
 ewc({ewc, Component, FuncName, Params}, AppData) ->
     case AppData:get_component(Component, FuncName, Params) of
 	{error, no_such_component} ->
-	    exit({no_such_component, Component});
+	    exit({no_such_component, Component, FuncName, length(Params)});
 	{error, no_such_function} ->
 	    exit({no_such_function, Component, FuncName, length(Params)});
 	{ok, Ewc} ->
@@ -241,6 +241,8 @@ ewc({ewc, Controller, View, FuncName, [A | _] = Params}, AppData) ->
     Response2 = case Response1 of
 		    {response, _} ->
 			Response1;
+		    {replace, Ewc} ->
+			{response, [{replace, Ewc}]};
 		    Body ->
 			case is_redirect(A, Body) of
 			    {true, Val} ->
@@ -272,19 +274,26 @@ ewr(A, {ewr, Component, FuncName, Params}) ->
 ewr(_A, Other) -> Other.
 
 ewr2(A, PathElems) ->
-    Strs = [if is_atom(Elem) -> atom_to_list(Elem);
-	       true -> Elem
-	    end || Elem <- PathElems],
+    Elems = [if is_atom(Elem) -> atom_to_list(Elem);
+		true -> Elem
+	     end || Elem <- PathElems],
     AppDir = get_app_root(A),
-    {redirect_local,
-     {any_path,
-      filename:join([AppDir | Strs])}}.
+    Path = lists:foldr(
+	     fun(Elem, []) -> [Elem];
+		(Elem, Acc) -> [Elem, $/ | Acc]
+	     end, [], Elems),
+    {redirect_local, [AppDir | Path]}.
 
 handle_response(A, {response, Elems}, View, FuncName, AppData) ->
     Elems2 = 
 	lists:map(
 	  fun({body, Ewc}) ->
 		  {rendered, View:FuncName(render_subcomponent(Ewc, AppData))};
+	     ({replace, Ewc})  when is_tuple(Ewc), element(1, Ewc) ==
+				    'ewc'->
+		  {rendered, render_subcomponent(Ewc, AppData)};
+	     ({replace, Ewc}) ->
+		  exit({expecting_ewc_tuple, Ewc});
 	     (Elem) ->
 		  ewr(A, Elem)
 	  end, Elems),
@@ -364,8 +373,11 @@ get_app_root(A) ->
 	  length(ServerPath) -
 	  length(yaws_arg:appmoddata(A)),
 	  ServerPath),
-    First.
-
+    if First == [] ->
+   	    "/";
+       true ->
+   	    First
+    end.
 
 lookup_app_data_module(A) ->
     proplists:get_value(app_data_module, yaws_arg:opaque(A)).

@@ -111,6 +111,10 @@
     insert/1,
     update/2,
     update/3,
+    increment/2,
+    increment/3,
+    decrement/2,
+    decrement/3,
     delete/1,
     delete_where/2,
     delete_id/2,
@@ -656,6 +660,22 @@ update(Module, Props, Where) ->
 	{aborted, Err} ->
 	    exit(Err)
     end.
+
+increment(Module, Fields) ->
+    increment(Module, Fields, undefined).
+
+increment(Module, Fields, Where) ->
+    inc_dec(Module, Fields, Where, '+').
+
+decrement(Module, Fields) ->
+    decrement(Module, Fields, undefined).
+
+decrement(Module, Fields, Where) ->
+    inc_dec(Module, Fields, Where, '-').
+
+
+inc_dec(Module, Fields, Where, Op) ->
+    Module:update([{Field, {Field, Op, 1}} || Field <- Fields], Where).
 
 %% @doc Delete the record from the database. To facilitate the after_delete
 %% hook, this function expects a single record to be deleted. 
@@ -1496,7 +1516,8 @@ make_save_statement(Rec) ->
 	    {Fields2, Vals1} = 
 		case Module:type_field() of
 		    undefined -> {Fields, Vals};
-		    TypeField -> {[TypeField | Fields], [atom_to_list(Module) | Vals]}
+		    TypeField -> {[TypeField | Fields],
+				  [atom_to_list(Module) | Vals]}
 		end,
 	    {insert, {insert, get_table(Rec), Fields2, [Vals1]}}
     end.

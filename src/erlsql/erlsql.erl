@@ -447,6 +447,7 @@ expr({Val, Op, {_, union, _, _} = Subquery}, Safe) ->
     subquery(Val, Op, Subquery, Safe);
 expr({Val, Op, {_, union, _, _, _} = Subquery}, Safe) ->
     subquery(Val, Op, Subquery, Safe);
+expr({_, in, []}, _Safe) -> <<"0">>;
 expr({Val, Op, Values}, Safe) when (Op == in orelse
 			      Op == any orelse
 			      Op == some) andalso

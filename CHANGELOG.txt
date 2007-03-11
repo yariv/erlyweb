@@ -26,6 +26,18 @@ to 'undefined'.
 - Fixed erlydb_base:field_to_iolist/2 to ensure that single-digit time values
 are padded with a leading zero.
 
+- Added the {replace, Ewc} return value for controller functions.
+This tuple tells ErlyWeb to render the subcomponent (which must be
+represented by a single 'ewc' tuple) without sending the result to the
+view function of the current component. The behavior is more or less like an
+internal redirect, and is useful for implementing generic error error pages,
+for instance.
+
+- The list of parameters in 'ewr' tuples can now contain iolists
+(not just strings).
+
+- Added erlydb_base:increment() and erlydb_base:decrement().
+
 v0.5
 
 - erlyweb:compile() now obey relative include paths passed as {i, Path} options. It treats the base directory as [AppDir]/src. Absolute paths also work now.
