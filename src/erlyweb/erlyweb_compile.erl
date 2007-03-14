@@ -34,13 +34,17 @@ compile(AppDir, Options) ->
 		  Acc
 	  end, [AppDir1 ++ "src"], Options),
     
-    Options1 = set_default_option(report_warnings, suppress_warnings,
-				  Options),
-    Options2 = set_default_option(report_errors, suppress_errors, Options1),
-    Options3 = set_default_option(debug_info, no_debug_info, Options2),
+    Options1 =
+	lists:foldl(
+	  fun({Opt, NoOpt}, Acc) ->
+		  set_default_option(Opt, NoOpt, Acc)
+	  end, [return_errors | Options],
+	  [{report_warnings, suppress_warnings},
+	   {report_errors, suppress_errors},
+	   {debug_info, no_debug_info}]),
 
-    {Options4, OutDir} =
-	get_option(outdir, AppDir1 ++ "ebin", Options3),
+    {Options2, OutDir} =
+	get_option(outdir, AppDir1 ++ "ebin", Options1),
 
     file:make_dir(OutDir),
 
@@ -52,8 +56,8 @@ compile(AppDir, Options) ->
 	    LastControllers -> {LastControllers, []}
 	end,
 
-    {Options5, LastCompileTime} =
-	get_option(last_compile_time, {{1980,1,1},{0,0,0}}, Options4),
+    {Options3, LastCompileTime} =
+	get_option(last_compile_time, {{1980,1,1},{0,0,0}}, Options2),
     LastCompileTime1 = case LastCompileTime of
 			   {{1980,1,1},{0,0,0}} -> undefined;
 			   OtherTime -> OtherTime
@@ -67,8 +71,9 @@ compile(AppDir, Options) ->
     AppControllerFilePath = AppDir1 ++ "src/" ++ AppControllerFile,
     case compile_file(AppControllerFilePath,
 		      AppControllerStr, ".erl", undefined,
-		      LastCompileTimeInSeconds, Options5, IncludePaths) of
+		      LastCompileTimeInSeconds, Options3, IncludePaths) of
 	{ok, _} -> ok;
+	{ok, _, _, _} -> ok;
 	ok -> ok;
 	Err -> ?Error("Error compiling app controller", []),
 	       exit(Err)
@@ -85,7 +90,7 @@ compile(AppDir, Options) ->
 			  compile_component_file(
 			    AppDir1 ++
 			    "src/components", FileName,
-			    LastCompileTimeInSeconds, Options5, IncludePaths,
+			    LastCompileTimeInSeconds, Options3, IncludePaths,
 			    Acc);
 		     true ->
 			  Acc
@@ -99,10 +104,10 @@ compile(AppDir, Options) ->
 			[lists:flatten(
 			  [[filename:basename(Model), " "] ||
 			      Model <- Models])]),
-		 case lists:keysearch(erlydb_driver, 1, Options5) of
+		 case lists:keysearch(erlydb_driver, 1, Options3) of
 		     {value, {erlydb_driver, Driver}} ->
 			 erlydb:code_gen(Driver, lists:reverse(Models),
-					 Options5, IncludePaths);
+					 Options3, IncludePaths);
 		     false -> {error, missing_erlydb_driver_option}
 		 end
 	end,
@@ -112,8 +117,8 @@ compile(AppDir, Options) ->
 		AppDataModule = make_app_data_module(
 				     AppData, AppName,
 				     ComponentTree1,
-				     Options5),
-		smerl:compile(AppDataModule, Options5);
+				     Options3),
+		smerl:compile(AppDataModule, Options3);
 	   true -> ErlyDBResult
 	end,
 

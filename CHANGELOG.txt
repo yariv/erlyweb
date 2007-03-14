@@ -38,6 +38,8 @@ for instance.
 
 - Added erlydb_base:increment() and erlydb_base:decrement().
 
+- Show compilation errors in stack sent to browser.
+
 v0.5
 
 - erlyweb:compile() now obey relative include paths passed as {i, Path} options. It treats the base directory as [AppDir]/src. Absolute paths also work now.

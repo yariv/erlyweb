@@ -514,7 +514,8 @@ compile(MetaMod) ->
 %%
 %% @spec compile(MetaMod::meta_mod(), Options::[term()]) -> ok | {error, Error}
 compile(MetaMod, undefined) ->
-    compile(MetaMod, [report_errors, report_warnings]);
+    compile(MetaMod, [report_errors, report_warnings,
+		      return_errors]);
 
 compile(MetaMod, Options) ->
     Forms = [{attribute, 2, module, MetaMod#meta_mod.module},
