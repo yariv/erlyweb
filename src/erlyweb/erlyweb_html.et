@@ -64,7 +64,7 @@ join([First | Rest], Acc) ->
 <input name="<% Name %>" type="text" size="20" value="<%Val%>">
 
 <%@ input(Name, text_field, MaxLength, Val) %>
-<input name="<% Name %>" type="text" maxlength="<% MaxLength %>" size="20" value="<%Val%>">
+<input name="<% Name %>" type="text" maxlength="<% integer_to_list(MaxLength) %>" size="20" value="<%Val%>">
 
 <%@ input(Name, select, Options, Val) %>
 <select name="<% Name %>"><% [option(O, Val) || O <- Options] %></select>
