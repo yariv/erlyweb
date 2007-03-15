@@ -125,17 +125,17 @@ out(A) ->
  	    case AppData:auto_compile() of
  		false -> ok;
  		{true, Options} ->
- 		    AppDir = yaws_arg:docroot(A),
- 		    AppDir1 = case lists:last(AppDir) of
- 				  '/' ->
- 				      filename:dirname(
- 					filename:dirname(AppDir));
- 				  _ -> filename:dirname(AppDir)
- 			      end,
- 		    case compile(AppDir1, Options) of
- 			{ok, _} -> ok;
- 			Err -> exit(Err)
- 		    end
+  		    AppDir = yaws_arg:docroot(A),
+  		    AppDir1 = case lists:last(AppDir) of
+  				  '/' ->
+  				      filename:dirname(
+  					filename:dirname(AppDir));
+  				  _ -> filename:dirname(AppDir)
+  			      end,
+  		    case compile(AppDir1, Options) of
+  			{ok, _} -> ok;
+  			Err -> exit(Err)
+  		    end
  	    end,
   	    A1 = yaws_arg:opaque(A,
   				 [{app_data_module, AppData} |

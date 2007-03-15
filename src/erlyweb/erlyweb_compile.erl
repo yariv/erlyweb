@@ -38,8 +38,9 @@ compile(AppDir, Options) ->
 	lists:foldl(
 	  fun({Opt, NoOpt}, Acc) ->
 		  set_default_option(Opt, NoOpt, Acc)
-	  end, [return_errors | Options],
-	  [{report_warnings, suppress_warnings},
+	  end, Options,
+	  [{return_errors, no_return_errors},
+	   {report_warnings, suppress_warnings},
 	   {report_errors, suppress_errors},
 	   {debug_info, no_debug_info}]),
 
