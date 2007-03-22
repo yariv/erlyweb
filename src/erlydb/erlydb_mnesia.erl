@@ -76,7 +76,7 @@ get_metadata(_Options) ->
     	Tree -> {ok, Tree}
     end.
 
-get_metadata(Table, Type, TablesTree) when Type == set; Type == ordered_set ->
+get_metadata(Table, Type, TablesTree) when Type =:= set; Type =:= ordered_set ->
     [PrimaryField | Rest] = mnesia:table_info(Table, attributes),
    	Fields = [new_identity_field(PrimaryField) | [new_field(Field) || Field <- Rest]],
 	gb_trees:enter(Table, Fields, TablesTree);
@@ -399,6 +399,8 @@ extras({limit, Limit}, QHDesc) ->
             qlc:delete_cursor(QHCursor),
             Results
 		end};
+extras({limit, 0, Limit}, QHDesc) ->
+    extras({limit, Limit}, QHDesc);
 extras({limit, From, Limit}, QHDesc) ->
     QHDesc#qhdesc{evalfun = 
         fun(QH, QHOptions) ->
