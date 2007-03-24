@@ -65,36 +65,19 @@ start(_Options) ->
 %%
 %% @spec get_metadata(Options::proplist()) -> gb_trees()
 get_metadata(_Options) ->
-	% NOTE utilizing the metadata capabilities for mnesia tables (see user_properties) would allow
-	% us to specify types, limits, etc...  Integration with mnesia_rdbms would also be interesting...
+	% NOTE Integration with mnesia_rdbms would be interesting...
     Tables = mnesia:system_info(tables) -- [schema],
-    case catch lists:foldl(
+    Tree = lists:foldl(
 			fun(Table, TablesTree) ->
-                	get_metadata(Table, mnesia:table_info(Table, type), TablesTree)
-        	end, gb_trees:empty(), Tables) of
-	    {error, _} = Err -> Err;
-    	Tree -> {ok, Tree}
-    end.
+            	gb_trees:enter(Table, get_metadata(Table, table_fields(Table)), TablesTree)
+        	end, gb_trees:empty(), Tables),
+	{ok, Tree}.
 
-get_metadata(Table, Type, TablesTree) when Type =:= set; Type =:= ordered_set ->
-    [PrimaryField | Rest] = mnesia:table_info(Table, attributes),
-   	Fields = [new_identity_field(PrimaryField) | [new_field(Field) || Field <- Rest]],
-	gb_trees:enter(Table, Fields, TablesTree);
-get_metadata(Table, bag, TablesTree) ->
-    [PrimaryField | Rest] = mnesia:table_info(Table, attributes),
-   	Fields = [new_primary_field(PrimaryField) | [new_field(Field) || Field <- Rest]],
-	gb_trees:enter(Table, Fields, TablesTree).
-
-new_identity_field(Field) ->
-    % FIXME we need to generalize the primary key field instead of assuming an auto-incrementing integer...
-	erlydb_field:new(Field, integer, false, primary, undefined, identity).
-
-new_primary_field(Field) ->
-	erlydb_field:new(Field, varchar, false, primary, undefined, undefined).
-
-new_field(Field) ->
-    % FIXME mnesia doesn't have types but we should do something better than this...
-    erlydb_field:new(Field, varchar, true, undefined, undefined, undefined).
+get_metadata(Table, Attributes) when is_list(Attributes) ->
+    [get_metadata(Table, Attribute) || Attribute <- Attributes];
+get_metadata(Table, Attribute) ->
+    {Attribute, {Type, Modifier}, Null, Key, Default, Extra, _MnesiaType} = get_user_properties(Table, Attribute),
+    erlydb_field:new(Attribute, {Type, Modifier}, Null, Key, Default, Extra).
 
 
 
@@ -112,7 +95,7 @@ q(Statement, Options) when is_binary(Statement); is_list(Statement) ->
 
 q2({select, {call, count, _What}, {from, Table}, {where, undefined}, undefined}, _Options) 
 		when is_list(Table) == false ->
-    {ok, [{mnesia:table_info(Table, size)}]};
+    {ok, [{table_size(Table)}]};
 
 q2({select, Table}, Options) when is_list(Table) == false ->
     q2({select, [Table]}, Options);
@@ -186,7 +169,7 @@ q2({update, Table, Params}, _Options) ->
         {Attributes1, Values1, QLCData1}
     end,
 	{atomic, _} = traverse(TraverseFun, {Attributes, Values, QLCData}, Table),
-    {ok, mnesia:table_info(Table, size)};
+    {ok, table_size(Table)};
                             
 q2({update, Table, Params, {where, Where}}, Options) ->
     q2({update, Table, Params, Where}, Options);
@@ -358,7 +341,8 @@ where({From, Op, To}, #qhdesc{metadata = QLCData} = QHDesc) when is_tuple(From) 
 
 where({{_,_} = From, 'is', 'null'}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
 	QHDesc#qhdesc{filters = [dict:fetch(From, QLCData) ++ " == undefined" | Filters]};
-where({{_,_} = From, '=', {_,_} = To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) -> 
+where({{_,_} = From, '=', {_,_} = To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
+    % Implements an inner join, currently outer joins are not supported... 
 	QHDesc#qhdesc{filters = [dict:fetch(From, QLCData) ++ " == " ++ dict:fetch(To, QLCData) | Filters]};
 where({{_,_} = From, '=', To}, #qhdesc{filters = Filters, bindings = Bindings, metadata = QLCData} = QHDesc) ->
     Var = list_to_atom("Var" ++ integer_to_list(random:uniform(100000))),
@@ -437,9 +421,10 @@ min_max(Attribute, #qhdesc{metadata = QLCData} = QHDesc, Options) ->
     
 
 
-% for each table, add the metadata for the table's attributes to the dictionary and then
+% For each table, add the metadata for the table's attributes to the dictionary and then
 % add TABLE_ROW_VAR <- mnesia:table(Table) to the dictionary where TABLE_ROW_VAR is the variable
-% representing the current row of the table and Table is the table name as an atom
+% representing the current row of the table and Table is the table name as an atom (TABLE_ROW_VAR
+% defaults to the table name in all caps)
 get_qlc_metadata(Table) when is_list(Table) == false ->
     get_qlc_metadata([Table]);
 get_qlc_metadata(Tables) when is_list(Tables) ->
@@ -448,17 +433,28 @@ get_qlc_metadata(Tables) when is_list(Tables) ->
     get_qlc_metadata(Tables, QLCData1).
 
 get_qlc_metadata([Table | Tables], QLCData) when is_tuple(Table) == false ->
+    % Create an alias for the table (table name in all caps)
     get_qlc_metadata({Table, 'as', httpd_util:to_upper(atom_to_list(Table))}, Tables, QLCData);
 get_qlc_metadata([{_, 'as', _} = Table | Tables], QLCData) ->
     get_qlc_metadata(Table, Tables, QLCData);
 get_qlc_metadata([], QLCData) ->
     QLCData.
 
+
+% For each table store the following key => value pairs:
+% {alias, Table} => Alias where Table is atom and Alias is string
+% {table, Alias} => Table where Table is atom and Alias is string
+% {new_record, Table} => {Table, undefined, undefined...} where Table is atom and value is a tuple
+% Table => MnesiaTable where Table is atom and MnesiaTable is the string "Alias <- mnesia:table(Table)"
+%
+% Also store:
+% tables => [Tables] where Tables is a list of all tables in query
+% aliases => [Aliases] where Aliases is a list of all table aliases in query
 get_qlc_metadata({Table, 'as', Alias}, Tables, QLCData) ->
     QLCData1 = dict:store({alias, Table}, Alias, QLCData),
     QLCData2 = dict:store({table, Alias}, Table, QLCData1),
     QLCData3 = dict:store({new_record, Table}, {Table}, QLCData2),
-    QLCData4 = get_qlc_metadata(mnesia:table_info(Table, attributes), 2, Table, Alias, QLCData3),
+    QLCData4 = get_qlc_metadata(table_fields(Table), 2, Table, Alias, QLCData3),
     MnesiaTable = lists:concat([Alias, " <- mnesia:table(", Table, ")"]),
 	QLCData5 = dict:store(Table, MnesiaTable, QLCData4),
     QLCData6 = dict:store(tables, dict:fetch(tables, QLCData5) ++ [Table], QLCData5), 
@@ -466,11 +462,10 @@ get_qlc_metadata({Table, 'as', Alias}, Tables, QLCData) ->
 	get_qlc_metadata(Tables, QLCData7).
 
     
-% for each table attribute (column), create the following: "element(Alias, AttributeIndex)"
-% where Alias is the variable representing the current row of the table
-% and AttributeIndex is the attribute's index in the record tuple.
-% put the formed string into the dictionary using the key {Table, Attribute}
-% where Table is the atom of the table and attribute is the atom of the attribute
+% for each table attribute (column), store the following: 
+% {Table, Attribute} => "element(Alias, AttributeIndex)" where Table and Attribute are atoms
+% {Alias, Attribute} => "element(Alias, AttributeIndex)" where Alias is a string and Attribute is an atom
+% {index, Table, Attribute} => AttributeIndex where Table and Attribute are atoms and AttributeIndex is an integer
 get_qlc_metadata([Attribute | Attributes], AttributeIndex, Table, Alias, QLCData) ->
     Data = "element(" ++ integer_to_list(AttributeIndex) ++ ", " ++ Alias ++ ")",
     QLCData1 = dict:store({Table,Attribute}, Data, QLCData),
@@ -481,6 +476,60 @@ get_qlc_metadata([Attribute | Attributes], AttributeIndex, Table, Alias, QLCData
     get_qlc_metadata(Attributes, AttributeIndex + 1, Table, Alias, QLCData4);
 get_qlc_metadata([], _AttributeIndex, _Table, _Alias, QLCData) ->
     QLCData.
+
+
+
+%% User_properties for attribute is defined as:
+%% {Attribute, {Type, Modifier}, Null, Key, Default, Extra, MnesiaType}
+%% where Attribute is an atom,
+%% Type through Extra is are as defined in erlydb_field:new/6
+%% MnesiaType is the type to store the attribute as in mnesia.
+%%
+%% Currently the driver tries to do a limited bit of conversion of types.  For example, you may want
+%% to store strings as binaries in mnesia.  Erlydb may pass in strings during querying, updates, etc
+%% and the string will need to be converted to/from a binary.
+get_user_properties(Table, Attribute) ->
+    case lists:keysearch(Attribute, 1, mnesia:table_info(Table, user_properties)) of
+    	{value, {Attribute, {_Type, _Modifier}, _Null, _Key, _Default, _Extra, _MnesiaType} = UserProperties} -> UserProperties;
+        false -> get_default_user_properties(table_type(Table), Attribute, attribute_index(Table, Attribute))
+    end.
+
+get_default_user_properties(TableType, Attribute, 1) ->
+    case lists:suffix("id", atom_to_list(Attribute)) of
+        true -> if TableType =:= bag -> {Attribute, {integer, undefined}, false, primary, undefined, undefined, integer};
+                   true -> {Attribute, {integer, undefined}, false, primary, undefined, identity, integer}
+                end;
+        _False -> {Attribute, {varchar, undefined}, false, primary, undefined, undefined, string}
+    end;
+get_default_user_properties(_TableType, Attribute, Index) when Index > 1 ->
+    {Attribute, {varchar, undefined}, true, undefined, undefined, undefined, string}.
+
+
+
+%% @doc Find the attribute's position in the given table
+attribute_index(Table, Attribute) ->
+    attribute_index(Attribute, 1, table_fields(Table)).
+attribute_index(Attribute, Index, [Attribute | _Rest]) ->
+    Index;
+attribute_index(Attribute, Index, [_Attribute | Rest]) ->
+    attribute_index(Attribute, Index + 1, Rest);
+attribute_index(_Attribute, _Index, []) -> 
+    0.
+
+
+table_type(Table) ->
+    mnesia:table_info(Table, type).
+
+table_fields(Table) ->
+    mnesia:table_info(Table, attributes).
+
+table_size(Table) ->
+    mnesia:table_info(Table, size).
+
+%% get_mnesia_type(Table, Attribute) ->
+%%     {Attribute, {_Type, _Modifier}, _Null, _Key, _Default, _Extra, MnesiaType} = 
+%%             get_user_properties(Table, Attribute),
+%%     MnesiaType.
 
 
 resolve_field(From, QLCData) ->
