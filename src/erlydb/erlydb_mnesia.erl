@@ -73,11 +73,11 @@ get_metadata(_Options) ->
         	end, gb_trees:empty(), Tables),
 	{ok, Tree}.
 
-get_metadata(Table, Attributes) when is_list(Attributes) ->
-    [get_metadata(Table, Attribute) || Attribute <- Attributes];
-get_metadata(Table, Attribute) ->
-    {Attribute, {Type, Modifier}, Null, Key, Default, Extra, _MnesiaType} = get_user_properties(Table, Attribute),
-    erlydb_field:new(Attribute, {Type, Modifier}, Null, Key, Default, Extra).
+get_metadata(Table, Fields) when is_list(Fields) ->
+    [get_metadata(Table, Field) || Field <- Fields];
+get_metadata(Table, Field) ->
+    {Field, {Type, Modifier}, Null, Key, Default, Extra, _MnesiaType} = get_user_properties(Table, Field),
+    erlydb_field:new(Field, {Type, Modifier}, Null, Key, Default, Extra).
 
 
 
@@ -145,42 +145,42 @@ q2({select, Modifier, Fields, {from, Tables}, WhereExpr, Extras}, Options) ->
 
 
 q2({insert, Table, Params}, Options) ->
-    {Attributes, Values} = lists:unzip(Params),
-    q2({insert, Table, Attributes, [Values]}, Options);
-q2({insert, Table, Attributes, [Values]}, _Options) ->
+    {Fields, Values} = lists:unzip(Params),
+    q2({insert, Table, Fields, [Values]}, Options);
+q2({insert, Table, Fields, [Values]}, _Options) ->
     QLCData = get_qlc_metadata(Table),
-    {Attributes1, Values1} = case dict:find({index, Table, id}, QLCData) of
+    {Fields1, Values1} = case dict:find({index, Table, id}, QLCData) of
 		% FIXME this really needs to be handled better, what if the auto-incrementing primary key is not called id?
         {ok, 2} -> Id = mnesia:dirty_update_counter(counter, Table, 1),
              % FIXME this is probably not the best way to keep track of the last inserted id...
              put(mnesia_last_insert_id, Id),
-             {[id | Attributes], [Id | Values]};
-        _Other -> {Attributes, Values}
+             {[id | Fields], [Id | Values]};
+        _Other -> {Fields, Values}
     end,
-    ok = write(dict:fetch({new_record, Table}, QLCData), Attributes1, Values1, QLCData),
+    ok = write(dict:fetch({new_record, Table}, QLCData), Fields1, Values1, QLCData),
     {ok, 1};
               
 
 q2({update, Table, Params}, _Options) ->
-    {Attributes, Values} = lists:unzip(Params),
+    {Fields, Values} = lists:unzip(Params),
     QLCData = get_qlc_metadata(Table),
-    TraverseFun = fun(Record, {Attributes1, Values1, QLCData1}) ->
-    	write(Record, Attributes1, Values1, QLCData1),
-        {Attributes1, Values1, QLCData1}
+    TraverseFun = fun(Record, {Fields1, Values1, QLCData1}) ->
+    	write(Record, Fields1, Values1, QLCData1),
+        {Fields1, Values1, QLCData1}
     end,
-	{atomic, _} = traverse(TraverseFun, {Attributes, Values, QLCData}, Table),
+	{atomic, _} = traverse(TraverseFun, {Fields, Values, QLCData}, Table),
     {ok, table_size(Table)};
                             
 q2({update, Table, Params, {where, Where}}, Options) ->
     q2({update, Table, Params, Where}, Options);
 q2({update, Table, Params, Where}, Options) ->
     QHDesc = #qhdesc{metadata = get_qlc_metadata(Table)},
-	{Attributes, Values} = lists:unzip(Params),
+	{Fields, Values} = lists:unzip(Params),
     QLCData = QHDesc#qhdesc.metadata,
 	{atomic, Num} = mnesia:transaction(
 		fun() -> 
             {data, Records} = select(undefined, undefined, Table, Where, undefined, Options, QHDesc),
-			lists:foreach(fun(Record) -> write(Record, Attributes, Values, QLCData) end, Records),
+			lists:foreach(fun(Record) -> write(Record, Fields, Values, QLCData) end, Records),
             length(Records)
         end),
 	{ok, Num};
@@ -259,11 +259,11 @@ fields(undefined, QHDesc) ->
 fields('*', #qhdesc{expressions = Fields, metadata = QLCData} = QHDesc) ->
     QHDesc#qhdesc{expressions = dict:fetch(aliases, QLCData) ++ Fields};
 
-fields({call, avg, Attribute}, #qhdesc{metadata = QLCData} = QHDesc) when is_atom(Attribute) ->
+fields({call, avg, Field}, #qhdesc{metadata = QLCData} = QHDesc) when is_atom(Field) ->
 	[Table | _Tables] = dict:fetch(tables, QLCData),
-	fields({call, avg, {Table, Attribute}}, QHDesc);
-fields({call, avg, {Table, Attribute}}, #qhdesc{metadata = QLCData} = QHDesc) ->
-	Index = dict:fetch({index,Table,Attribute}, QLCData),
+	fields({call, avg, {Table, Field}}, QHDesc);
+fields({call, avg, {Table, Field}}, #qhdesc{metadata = QLCData} = QHDesc) ->
+	Index = dict:fetch({index,Table,Field}, QLCData),
 	QHDesc1 = QHDesc#qhdesc{posteval = 
      	fun(Results) ->
             Total = lists:foldl(fun(Record, Sum) -> element(Index, Record) + Sum end, 0, Results),
@@ -274,12 +274,12 @@ fields({call, avg, {Table, Attribute}}, #qhdesc{metadata = QLCData} = QHDesc) ->
 %% Count functions
 fields({call, count, What}, #qhdesc{metadata = QLCData} = QHDesc) when is_atom(What) ->
     QHDesc1 = case regexp:split(atom_to_list(What), "distinct ") of
-        {ok, [[], Attribute]} -> 
-            [Table | _] = resolve_field(Attribute, QLCData),
+        {ok, [[], Field]} -> 
+            [Table | _] = resolve_field(Field, QLCData),
             QHDesc#qhdesc{
                 expressions = [dict:fetch({alias, Table}, QLCData)],
                 postqh = fun(QH, _QHOptions) ->
-			       	qlc:keysort(dict:fetch({index,Table,list_to_atom(Attribute)}, QLCData), QH, [{unique, true}])
+			       	qlc:keysort(dict:fetch({index,Table,list_to_atom(Field)}, QLCData), QH, [{unique, true}])
         		end};
 		_Other -> fields('*', QHDesc)
     end,
@@ -288,10 +288,10 @@ fields({call, count, _What}, QHDesc) ->
     fields('*', QHDesc#qhdesc{posteval = fun count/1});
 
 %% Max/Min functions                 
-fields({call, max, Attribute}, QHDesc) ->
-    min_max(Attribute, QHDesc, [{order, descending}, {unique, true}]);
-fields({call, min, Attribute}, QHDesc) ->
-    min_max(Attribute, QHDesc, [{unique, true}]);
+fields({call, max, Field}, QHDesc) ->
+    min_max(Field, QHDesc, [{order, descending}, {unique, true}]);
+fields({call, min, Field}, QHDesc) ->
+    min_max(Field, QHDesc, [{unique, true}]);
 
 fields([Field | Fields], QHDesc) ->
     fields(Fields, fields(Field, QHDesc));
@@ -344,10 +344,10 @@ where({{_,_} = From, 'is', 'null'}, #qhdesc{filters = Filters, metadata = QLCDat
 where({{_,_} = From, '=', {_,_} = To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
     % Implements an inner join, currently outer joins are not supported... 
 	QHDesc#qhdesc{filters = [dict:fetch(From, QLCData) ++ " == " ++ dict:fetch(To, QLCData) | Filters]};
-where({{_,_} = From, '=', To}, #qhdesc{filters = Filters, bindings = Bindings, metadata = QLCData} = QHDesc) ->
+where({{Table, Field} = From, '=', To}, #qhdesc{filters = Filters, bindings = Bindings, metadata = QLCData} = QHDesc) ->
     Var = list_to_atom("Var" ++ integer_to_list(random:uniform(100000))),
 	QHDesc#qhdesc{filters = [lists:concat([dict:fetch(From, QLCData), " == ", Var]) | Filters],
-                  bindings = erl_eval:add_binding(Var, To, Bindings)};
+                  bindings = erl_eval:add_binding(Var, convert(Table, Field, To), Bindings)};
 where({{_,_} = From, 'like', To}, QHDesc) when is_binary(To) ->
     where({From, 'like', erlang:binary_to_list(To)}, QHDesc);
 where({{_,_} = From, 'like', To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
@@ -369,11 +369,11 @@ extras([Extra | Extras], QHDesc) ->
 extras([], QHDesc) ->
     QHDesc;
 
-extras({order_by, Attribute}, #qhdesc{metadata = QLCData} = QHDesc) when is_atom(Attribute) ->
+extras({order_by, Field}, #qhdesc{metadata = QLCData} = QHDesc) when is_atom(Field) ->
     QHDesc#qhdesc{postqh =
 		fun(QH, QHOptions) ->
             [Table | _Rest] = dict:fetch(tables, QLCData),
-            qlc:keysort(dict:fetch({index,Table,Attribute}, QLCData), QH, QHOptions)
+            qlc:keysort(dict:fetch({index,Table,Field}, QLCData), QH, QHOptions)
         end};
 extras({limit, Limit}, QHDesc) ->
     QHDesc#qhdesc{evalfun = 
@@ -407,21 +407,21 @@ posteval(Results) ->
     {data, Results}.
 count(Results) ->
     {ok, [{length(Results)}]}.
-min_max(Attribute, #qhdesc{metadata = QLCData} = QHDesc, Options) ->
-    [Table | _] = resolve_field(Attribute, QLCData),
+min_max(Field, #qhdesc{metadata = QLCData} = QHDesc, Options) ->
+    [Table | _] = resolve_field(Field, QLCData),
     QHDesc1 = QHDesc#qhdesc{postqh = 
 		fun(QH, _QHOptions) ->
-	        qlc:keysort(dict:fetch({index,Table,Attribute}, QLCData), QH, Options)
+	        qlc:keysort(dict:fetch({index,Table,Field}, QLCData), QH, Options)
         end},
  	QHDesc2 = QHDesc1#qhdesc{posteval = 
      	fun(Results) ->
-	        {ok, [{element(dict:fetch({index,Table,Attribute}, QLCData), hd(Results))}]}
+	        {ok, [{element(dict:fetch({index,Table,Field}, QLCData), hd(Results))}]}
         end},
     QHDesc2#qhdesc{expressions = [dict:fetch({alias, Table}, QLCData)]}.
     
 
 
-% For each table, add the metadata for the table's attributes to the dictionary and then
+% For each table, add the metadata for the table's fields to the dictionary and then
 % add TABLE_ROW_VAR <- mnesia:table(Table) to the dictionary where TABLE_ROW_VAR is the variable
 % representing the current row of the table and Table is the table name as an atom (TABLE_ROW_VAR
 % defaults to the table name in all caps)
@@ -462,58 +462,58 @@ get_qlc_metadata({Table, 'as', Alias}, Tables, QLCData) ->
 	get_qlc_metadata(Tables, QLCData7).
 
     
-% for each table attribute (column), store the following: 
-% {Table, Attribute} => "element(Alias, AttributeIndex)" where Table and Attribute are atoms
-% {Alias, Attribute} => "element(Alias, AttributeIndex)" where Alias is a string and Attribute is an atom
-% {index, Table, Attribute} => AttributeIndex where Table and Attribute are atoms and AttributeIndex is an integer
-get_qlc_metadata([Attribute | Attributes], AttributeIndex, Table, Alias, QLCData) ->
-    Data = "element(" ++ integer_to_list(AttributeIndex) ++ ", " ++ Alias ++ ")",
-    QLCData1 = dict:store({Table,Attribute}, Data, QLCData),
-    QLCData2 = dict:store({Alias,Attribute}, Data, QLCData1),
-    QLCData3 = dict:store({index,Table,Attribute}, AttributeIndex, QLCData2),
+% for each table field (column), store the following: 
+% {Table, Field} => "element(Alias, FieldIndex)" where Table and Field are atoms
+% {Alias, Field} => "element(Alias, FieldIndex)" where Alias is a string and Field is an atom
+% {index, Table, Field} => FieldIndex where Table and Field are atoms and FieldIndex is an integer
+get_qlc_metadata([Field | Fields], FieldIndex, Table, Alias, QLCData) ->
+    Data = "element(" ++ integer_to_list(FieldIndex) ++ ", " ++ Alias ++ ")",
+    QLCData1 = dict:store({Table,Field}, Data, QLCData),
+    QLCData2 = dict:store({Alias,Field}, Data, QLCData1),
+    QLCData3 = dict:store({index,Table,Field}, FieldIndex, QLCData2),
     TableRecord = dict:fetch({new_record, Table}, QLCData3),
     QLCData4 = dict:store({new_record, Table}, erlang:append_element(TableRecord, undefined), QLCData3),
-    get_qlc_metadata(Attributes, AttributeIndex + 1, Table, Alias, QLCData4);
-get_qlc_metadata([], _AttributeIndex, _Table, _Alias, QLCData) ->
+    get_qlc_metadata(Fields, FieldIndex + 1, Table, Alias, QLCData4);
+get_qlc_metadata([], _FieldIndex, _Table, _Alias, QLCData) ->
     QLCData.
 
 
 
-%% User_properties for attribute is defined as:
-%% {Attribute, {Type, Modifier}, Null, Key, Default, Extra, MnesiaType}
-%% where Attribute is an atom,
+%% User_properties for field is defined as:
+%% {Field, {Type, Modifier}, Null, Key, Default, Extra, MnesiaType}
+%% where Field is an atom,
 %% Type through Extra is are as defined in erlydb_field:new/6
-%% MnesiaType is the type to store the attribute as in mnesia.
+%% MnesiaType is the type to store the field as in mnesia.
 %%
 %% Currently the driver tries to do a limited bit of conversion of types.  For example, you may want
 %% to store strings as binaries in mnesia.  Erlydb may pass in strings during querying, updates, etc
 %% and the string will need to be converted to/from a binary.
-get_user_properties(Table, Attribute) ->
-    case lists:keysearch(Attribute, 1, mnesia:table_info(Table, user_properties)) of
-    	{value, {Attribute, {_Type, _Modifier}, _Null, _Key, _Default, _Extra, _MnesiaType} = UserProperties} -> UserProperties;
-        false -> get_default_user_properties(table_type(Table), Attribute, attribute_index(Table, Attribute))
+get_user_properties(Table, Field) ->
+    case lists:keysearch(Field, 1, mnesia:table_info(Table, user_properties)) of
+    	{value, {Field, {_Type, _Modifier}, _Null, _Key, _Default, _Extra, _MnesiaType} = UserProperties} -> UserProperties;
+        false -> get_default_user_properties(table_type(Table), Field, field_index(Table, Field))
     end.
 
-get_default_user_properties(TableType, Attribute, 1) ->
-    case lists:suffix("id", atom_to_list(Attribute)) of
-        true -> if TableType =:= bag -> {Attribute, {integer, undefined}, false, primary, undefined, undefined, integer};
-                   true -> {Attribute, {integer, undefined}, false, primary, undefined, identity, integer}
+get_default_user_properties(TableType, Field, 1) ->
+    case lists:suffix("id", atom_to_list(Field)) of
+        true -> if TableType =:= bag -> {Field, {integer, undefined}, false, primary, undefined, undefined, integer};
+                   true -> {Field, {integer, undefined}, false, primary, undefined, identity, integer}
                 end;
-        _False -> {Attribute, {varchar, undefined}, false, primary, undefined, undefined, string}
+        _False -> {Field, {varchar, undefined}, false, primary, undefined, undefined, undefined}
     end;
-get_default_user_properties(_TableType, Attribute, Index) when Index > 1 ->
-    {Attribute, {varchar, undefined}, true, undefined, undefined, undefined, string}.
+get_default_user_properties(_TableType, Field, Index) when Index > 1 ->
+    {Field, {varchar, undefined}, true, undefined, undefined, undefined, undefined}.
 
 
 
-%% @doc Find the attribute's position in the given table
-attribute_index(Table, Attribute) ->
-    attribute_index(Attribute, 1, table_fields(Table)).
-attribute_index(Attribute, Index, [Attribute | _Rest]) ->
+%% @doc Find the field's position in the given table
+field_index(Table, Field) ->
+    field_index(Field, 1, table_fields(Table)).
+field_index(Field, Index, [Field | _Rest]) ->
     Index;
-attribute_index(Attribute, Index, [_Attribute | Rest]) ->
-    attribute_index(Attribute, Index + 1, Rest);
-attribute_index(_Attribute, _Index, []) -> 
+field_index(Field, Index, [_Field | Rest]) ->
+    field_index(Field, Index + 1, Rest);
+field_index(_Field, _Index, []) -> 
     0.
 
 
@@ -526,10 +526,57 @@ table_fields(Table) ->
 table_size(Table) ->
     mnesia:table_info(Table, size).
 
-%% get_mnesia_type(Table, Attribute) ->
-%%     {Attribute, {_Type, _Modifier}, _Null, _Key, _Default, _Extra, MnesiaType} = 
-%%             get_user_properties(Table, Attribute),
-%%     MnesiaType.
+mnesia_type(Table, Field) ->
+	{Field, {_Type, _Modifier}, _Null, _Key, _Default, _Extra, MnesiaType} = 
+             get_user_properties(Table, Field),
+     MnesiaType.
+
+
+%% Convert Value to the type of the given Table Field.  No conversion takes place if there is
+%% no defined type for Field.
+convert(Table, Field, Value) ->
+    convert(Value, mnesia_type(Table, Field)).
+
+% FIXME there has to be some utility out there to do this conversion stuff...
+convert(Value, undefined) ->
+    Value;
+
+convert(Value, integer) when is_integer(Value) ->
+    Value;
+convert(Value, list) when is_integer(Value) ->
+    integer_to_list(Value);
+convert(Value, atom) when is_integer(Value) ->
+    list_to_atom(integer_to_list(Value));
+convert(Value, binary) when is_integer(Value) ->
+    list_to_binary(integer_to_list(Value));
+
+convert(Value, integer) when is_list(Value) ->
+    list_to_integer(Value);
+convert(Value, list) when is_list(Value) ->
+    Value;
+convert(Value, atom) when is_list(Value) ->
+    list_to_atom(Value);
+convert(Value, binary) when is_list(Value) ->
+    list_to_binary(Value);
+
+convert(Value, integer) when is_atom(Value) ->
+    list_to_integer(atom_to_list(Value));
+convert(Value, list) when is_atom(Value) ->
+    atom_to_list(Value);
+convert(Value, atom) when is_atom(Value) ->
+    Value;
+convert(Value, binary) when is_atom(Value) ->
+    list_to_binary(atom_to_list(Value));
+
+convert(Value, integer) when is_binary(Value) ->
+    list_to_integer(binary_to_list(Value));
+convert(Value, list) when is_binary(Value) ->
+    binary_to_list(Value);
+convert(Value, atom) when is_binary(Value) ->
+    list_to_atom(binary_to_list(Value));
+convert(Value, binary) when is_binary(Value) ->
+    Value.
+
 
 
 resolve_field(From, QLCData) ->
@@ -544,12 +591,13 @@ resolve_field(From, Tables, QLCData) ->
 		Tables).
 
 
-write(Record, Attribute, Value, QLCData) when is_list(Attribute) == false ->
-	write(Record, [Attribute], [Value], QLCData);
-write(Record, [Attribute | Attributes], [Value | Values], QLCData) ->
-    AttributeIndex = dict:fetch({index, element(1, Record), Attribute}, QLCData),
-    Record1 = setelement(AttributeIndex, Record, Value),
-    write(Record1, Attributes, Values, QLCData);
+write(Record, Field, Value, QLCData) when is_list(Field) == false ->
+	write(Record, [Field], [Value], QLCData);
+write(Record, [Field | Fields], [Value | Values], QLCData) ->
+    Table = element(1, Record),
+    FieldIndex = dict:fetch({index, Table, Field}, QLCData),
+    Record1 = setelement(FieldIndex, Record, convert(Table, Field, Value)),
+    write(Record1, Fields, Values, QLCData);
 write(Record, [], [], _QLCData) ->
     ok = mnesia:write(Record).
 
