@@ -10,13 +10,12 @@
 -export([start/0, up/0, down/0]).
 
 
-
 -record(language, {
-	id,
-	name,
-	description,
-	paradigm,
-	creation_year}).
+	id, 
+    name, 
+    description, 
+    paradigm, 
+    creation_year}).
 
 
 -record(project, {
@@ -27,22 +26,21 @@
 
 
 -record(person, {
- 	id,
-	type,
-	name,
-	age,
-	country,
-	office,
-	department,
-	genre,
-	instrument,
-	created_on}).
+	id, 
+    type, 
+    name, 
+    age, 
+    country, 
+    office, 
+    department, 
+    genre, 
+    instrument, 
+    created_on}).
 
 
 -record(person_project, {
 	person_id,
 	project_id}).
-	
 	
 	
 -record(store, {
@@ -72,6 +70,7 @@
 	customer_id1,
 	customer_id2}).
 
+
 %%
 %% API Functions
 %%
@@ -88,38 +87,60 @@ up() ->
 
     mnesia:create_table(counter, [{disc_copies, [node()]}, {attributes, [key, counter]}]),
     
+	% User_properties for field is defined as:
+	% {Field, {Type, Modifier}, Null, Key, Default, Extra, MnesiaType}
+	% where Field is an atom,
+	% Type through Extra is are as defined in erlydb_field:new/6
+	% MnesiaType is the type to store the field as in mnesia.
+    
     {atomic, ok} = mnesia:create_table(language, [
    			{disc_copies, [node()]},
-   			{attributes, record_info(fields, language)}]),
+   			{attributes, record_info(fields, language)},
+            {user_properties, [{creation_year, {integer, undefined}, true, undefined, undefined, undefined, integer}]}]),
+
     {atomic, ok} = mnesia:create_table(project, [
    			{disc_copies, [node()]},	
    			{attributes, record_info(fields, project)}]),
+    
     {atomic, ok} = mnesia:create_table(person, [
    			{disc_copies, [node()]},
-   			{attributes, record_info(fields, person)}]),
+   			{attributes, record_info(fields, person)},
+            {user_properties, [{age, {integer, undefined}, true, undefined, undefined, undefined, integer}]}]),
+
     {atomic, ok} = mnesia:create_table(person_project, [
    			{type, bag},
             {disc_copies, [node()]},
    			{attributes, record_info(fields, person_project)}]),
+    
     {atomic, ok} = mnesia:create_table(customer, [
             {disc_copies, [node()]},
    			{attributes, record_info(fields, customer)}]),
+    
     {atomic, ok} = mnesia:create_table(store, [
    			{type, bag},
             {disc_copies, [node()]},
-   			{attributes, record_info(fields, store)}]),
+   			{attributes, record_info(fields, store)},
+            {user_properties, [{number, {integer, undefined}, false, primary, undefined, undefined, integer}]}]),
+    
     {atomic, ok} = mnesia:create_table(item, [
    			{type, bag},
             {disc_copies, [node()]},
-   			{attributes, record_info(fields, item)}]),
+   			{attributes, record_info(fields, item)},
+            {user_properties, [{size, {integer, undefined}, false, primary, undefined, undefined, integer},
+                               {name, {varchar, undefined}, false, primary, undefined, undefined, binary},
+                               {store_number, {integer, undefined}, true, undefined, undefined, undefined, integer}]}]),
+
     {atomic, ok} = mnesia:create_table(customer_store, [
    			{type, bag},
             {disc_copies, [node()]},
    			{attributes, record_info(fields, customer_store)}]),
+    
     {atomic, ok} = mnesia:create_table(customer_customer, [
    			{type, bag},
             {disc_copies, [node()]},
-   			{attributes, record_info(fields, customer_customer)}]),   			
+   			{attributes, record_info(fields, customer_customer)},
+            {user_properties, [{customer_id1, {integer, undefined}, false, primary, undefined, undefined, integer},
+                               {customer_id2, {integer, undefined}, false, primary, undefined, undefined, integer}]}]),            
     ok.
 
 

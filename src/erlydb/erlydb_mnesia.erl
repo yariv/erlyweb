@@ -350,10 +350,14 @@ where({{Table, Field} = From, '=', To}, #qhdesc{filters = Filters, bindings = Bi
                   bindings = erl_eval:add_binding(Var, convert(Table, Field, To), Bindings)};
 where({{_,_} = From, 'like', To}, QHDesc) when is_binary(To) ->
     where({From, 'like', erlang:binary_to_list(To)}, QHDesc);
-where({{_,_} = From, 'like', To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
+where({{Table,Field} = From, 'like', To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
     {ok, To1, _RepCount} = regexp:gsub(To, "%", ".*"),
     To2 = "\"^" ++ To1 ++ "$\"",
-    QHDesc#qhdesc{filters = ["regexp:first_match(" ++ dict:fetch(From, QLCData) ++ ", " ++ To2 ++ ") /= nomatch" | Filters]};
+    Filter = case mnesia_type(Table, Field) of
+                 binary -> "erlang:binary_to_list(" ++ dict:fetch(From, QLCData) ++ ")";
+                 _Other -> dict:fetch(From, QLCData)
+             end,
+    QHDesc#qhdesc{filters = ["regexp:first_match(" ++ Filter ++ ", " ++ To2 ++ ") /= nomatch" | Filters]};
 
 where(undefined, QHDesc) ->
     QHDesc;
@@ -499,10 +503,13 @@ get_default_user_properties(TableType, Field, 1) ->
         true -> if TableType =:= bag -> {Field, {integer, undefined}, false, primary, undefined, undefined, integer};
                    true -> {Field, {integer, undefined}, false, primary, undefined, identity, integer}
                 end;
-        _False -> {Field, {varchar, undefined}, false, primary, undefined, undefined, undefined}
+        _False -> {Field, {varchar, undefined}, false, primary, undefined, undefined, binary}
     end;
 get_default_user_properties(_TableType, Field, Index) when Index > 1 ->
-    {Field, {varchar, undefined}, true, undefined, undefined, undefined, undefined}.
+    case lists:suffix("id", atom_to_list(Field)) of
+        true -> {Field, {integer, undefined}, true, undefined, undefined, undefined, integer};
+        _False -> {Field, {varchar, undefined}, true, undefined, undefined, undefined, binary}
+	end.    
 
 
 
@@ -538,6 +545,8 @@ convert(Table, Field, Value) ->
     convert(Value, mnesia_type(Table, Field)).
 
 % FIXME there has to be some utility out there to do this conversion stuff...
+convert(undefined, _Type) ->
+    undefined;
 convert(Value, undefined) ->
     Value;
 

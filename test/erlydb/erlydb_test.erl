@@ -5,14 +5,16 @@
 -module(erlydb_test).
 -author("Yariv Sadan").
 -export(
-   [init/0,
-    test/0]).
+   [erlydb_mysql_init/0,
+    erlydb_mnesia_init/0,
+    test/0,
+    test/1]).
 
 -define(L(Obj), io:format("LOG ~w ~p\n", [?LINE, Obj])).
 -define(S(Obj), io:format("LOG ~w ~s\n", [?LINE, Obj])).
 
 
-init() ->
+erlydb_mysql_init() ->
     %% connect to the database
     erlydb:start(mysql,
 		 [{hostname, "localhost"},
@@ -24,16 +26,29 @@ init() ->
     erlydb:code_gen(mysql, [language, project, developer, musician,
 			    employee, person,
 			    customer, store, item]).
+        
+
+erlydb_mnesia_init() ->
+    erlydb:start(mnesia, []),
+    %% generate the abstraction layer modules
+    erlydb:code_gen(mnesia, [language, project, developer, musician,
+			    employee, person,
+			    customer, store, item]).    
+
 
 test() ->
-    init(),
-    
+    test(erlydb_mysql).
+
+test(Driver) ->
+    Init = list_to_atom(atom_to_list(Driver) ++ "_init"),
+    erlydb_mnesia_test:Init(),
+
 
     %% clean up old records
-    erlydb_mysql:q({esql, {delete, language}}),
-    erlydb_mysql:q({esql, {delete, project}}),
-    erlydb_mysql:q({esql, {delete, person}}),
-    erlydb_mysql:q({esql, {delete, person_project}}),
+    Driver:q({esql, {delete, language}}),
+    Driver:q({esql, {delete, project}}),
+    Driver:q({esql, {delete, person}}),
+    Driver:q({esql, {delete, person_project}}),
     
     %% Create some new records
     Languages = 
@@ -82,7 +97,7 @@ test() ->
     E3 = language:find_first({paradigm, like, "functional%"}),
     true = E3 == Erlang,
 
-    [E4, J4, R4] = language:find(),
+    [E4, J4, R4] = language:find(undefined, {order_by, id}),
     true =
 	E4 == Erlang andalso 
 	J4 == J1 andalso 
@@ -145,7 +160,7 @@ test() ->
     true = language:id(Erlang) == project:language_id(Ejabberd2),
 
     %% let's get all the projects for a language
-    [Yaws3, Ejabberd3, OpenPoker3] = language:projects(Erlang),
+    [Yaws3, Ejabberd3, OpenPoker3] = language:projects_with(Erlang, {order_by, id}),
 
     true =
 	Yaws3 == Yaws1
@@ -157,12 +172,11 @@ test() ->
 		      Erlang, {name,'=',"Yaws"}),
     Yaws4 = Yaws1,
 
-    Yaws5 = language:projects_first(
-		      Erlang),
+    Yaws5 = language:projects_first_with(Erlang, {order_by, id}),
     Yaws4 = Yaws5,
 
     Ejabberd4 = language:projects_first(
-			  Erlang, {name, like, "%e%"}),
+			  Erlang, {name, like, "%e%"}, {order_by, id}),
     Ejabberd4 = Ejabberd3,
 
 
@@ -227,12 +241,12 @@ test() ->
     [] = language:find({name, '=', "Java"}),
 	
 
-    test2(),
-    test3(),
+    test2(Driver),
+    test3(Driver),
     ok.
 
 %% test some 0.7 features
-test2() ->
+test2(_Driver) ->
     3 = developer:count(),
     developer:transaction(
       fun() ->
@@ -272,16 +286,15 @@ test2() ->
     
 
 %% test multi-field custom primary keys
-test3() ->
-    erlydb_mysql:q2("delete from customer_customer"),
-    erlydb_mysql:q2("delete from customer_store"),
-    erlydb_mysql:q2("delete from item_store"),
+test3(Driver) ->
+    Driver:q({esql, {delete, customer_customer}}),
+    Driver:q({esql, {delete, customer_store}}),    
 
     store:delete_all(),
     customer:delete_all(),
     item:delete_all(),
 
-    S1 = store:new(1, <<"dunkin">>),
+    S1 = store:new_with([{number, 1}, {name, <<"dunkin">>}]),
     S2 = store:save(S1),
 
     I1 = item:new_with([{size, 3}, {name, <<"coffee">>}, {store, S2}]),
