@@ -41,7 +41,7 @@ test() ->
 
 test(Driver) ->
     Init = list_to_atom(atom_to_list(Driver) ++ "_init"),
-    erlydb_mnesia_test:Init(),
+    erlydb_test:Init(),
 
 
     %% clean up old records

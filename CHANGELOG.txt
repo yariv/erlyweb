@@ -48,6 +48,34 @@ for instance.
 
 - Fixed some documentation bugs related to erlydb_mysql.
 
+- Added erlydb_mnesia driver.  The driver passes all tests defined in erlydb_test (some modifications
+  were made to erlydb_test to explicitly order results).  The erlydb_mnesia relies on a table called
+  counter for auto-incrementing ids.  The first field in a mnesia table is always the primary key
+  and if this field is named id then the id will be auto-incremented.  
+  
+  By default, the erlydb_mnesia driver stores all fields as binary unless the field name ends with
+  id and in that case the field is treated as an integer.  This can be customized by utilizing the
+  user_properties for a mnesia table.  The erlydb_mnesia driver will do a limited amount of type 
+  conversion utilizing these properties. The driver will recognize user_properties for a field 
+  if defined in the following format:
+  
+  {Field, {Type, Modifier}, Null, Key, Default, Extra, MnesiaType}
+  
+  where Field is an atom and must be the same as the field name,
+  Type through Extra is are as defined in erlydb_field:new/6
+  MnesiaType is the type to store the field as in mnesia.  Currently, only the following values
+  for MnesiaType are recognized:
+  
+  atom,
+  list,
+  binary,
+  integer,
+  undefined
+  
+  If the MnesiaType has a value of undefined then no type conversion is attempted for the field.
+  See test/erlydb/erlydb_mnesia_schema for an example of how to create mnesia tables with user_properties
+  
+
 v0.5
 
 - erlyweb:compile() now obey relative include paths passed as {i, Path} options. It treats the base directory as [AppDir]/src. Absolute paths also work now.
