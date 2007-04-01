@@ -662,15 +662,27 @@ update(Module, Props, Where) ->
 	    exit(Err)
     end.
 
+%% @equiv increment(Module, Fields, undefined).
 increment(Module, Fields) ->
     increment(Module, Fields, undefined).
 
+%% @doc Increment the values for the listed fields in the module's table.
+%% This executes the query
+%% ```
+%% UPDATE [table] SET [field1] = [field1] + 1, [field2] = [field2] + 1... 
+%% WHERE [where_expr]
+%% '''
+%%
+%% @spec increment(Module::atom(), Fields::[atom()], Where::where_expr()) ->
+%%   num_rows_updated::integer()
 increment(Module, Fields, Where) ->
     inc_dec(Module, Fields, Where, '+').
 
+%% @equiv decrement(Module, Fields, undefined).
 decrement(Module, Fields) ->
     decrement(Module, Fields, undefined).
 
+%% @doc Similar to {@link increment/3}, but decrements the fields' values.
 decrement(Module, Fields, Where) ->
     inc_dec(Module, Fields, Where, '-').
 
