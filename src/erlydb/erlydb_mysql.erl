@@ -47,6 +47,8 @@
 
 %% @type esql() = {esql, term()}. An ErlSQL expression.
 %% @type statement() = esql() | binary() | string()
+%% @type options() = [option()]
+%% @type option() = {pool_id, atom()} | {allow_unsafe_statements, boolean()}
 
 %% @doc Start the MySQL dispatcher using the options property list.
 %%  The available options are:
@@ -66,7 +68,7 @@
 %%
 %%  `database': a string indicating the database name.
 %%
-%%  `allow_unsafe_sql': a boolean value indicating whether the driver should
+%%  `allow_unsafe_statements': a boolean value indicating whether the driver should
 %%  accept string and/or binary SQL queries and query fragments. If you
 %%  set this value to
 %%  'true', ErlyDB lets you use string or binary Where and Extras expressions
@@ -120,7 +122,7 @@ connect(PoolId, Hostname, Port, Username, Password, Database,
 
 %% @doc Get the table names and fields for the database.
 %%
-%% @spec get_metadata(PoolId::atom()) -> gb_trees()
+%% @spec get_metadata(Options::options()) -> gb_trees()
 get_metadata(Options) ->
     {data, Res} = q2(<<"show tables">>, Options),
     Tables = mysql:get_result_rows(Res),
@@ -196,7 +198,7 @@ q(Statement) ->
     q(Statement, undefined).
 
 %% @doc Execute a statement directly against the MySQL driver. If 
-%%   Options contains the value {allow_unsafe_sql, true}, binary
+%%   Options contains the value {allow_unsafe_statements, true}, binary
 %%   and string queries as well as ErlSQL queries with binary and/or
 %%   string expressions are accepted. Otherwise, this function exits.
 %%
@@ -230,7 +232,7 @@ q2(Statement) ->
 %% @doc Execute a (binary or string) statement against the MySQL driver.
 %% ErlyDB doesn't use this function, but it's sometimes convenient for testing.
 %%
-%% @spec q2(Statement::string() | binary(), Options::proplist()) ->
+%% @spec q2(Statement::string() | binary(), Options::options()) ->
 %%   mysql_result()
 q2(Statement, Options) ->
     mysql:fetch(get_pool_id(Options), Statement).
@@ -250,7 +252,7 @@ transaction(Fun, Options) ->
     
 %% @doc Execute a raw SELECT statement.
 %%
-%% @spec select(PoolId::atom(), Statement::statement()) ->
+%% @spec select(Statement::statement(), Options::options()) ->
 %%   {ok, Rows::list()} | {error, Error}
 select(Statement, Options) ->
     select2(Statement, Options, []).
@@ -260,7 +262,7 @@ select(Statement, Options) ->
 %%   higher-level ErlyDB features.
 %%
 %% @spec select_as(Module::atom(), Statement::statement(),
-%%   FixedCols::tuple()) -> {ok, Rows} | {error, Error}
+%%   Options::options()) -> {ok, Rows} | {error, Error}
 select_as(Module, Statement, Options) ->
     select2(Statement, Options, [Module, false]).
 
@@ -323,7 +325,7 @@ prepare(Name, Stmt) ->
 %% @doc Execute a statement that was previously prepared with
 %%  prepare/2.
 %%
-%% @spec execute(Name::atom(), Options::proplist()) -> mysql_result()
+%% @spec execute(Name::atom(), Options::options()) -> mysql_result()
 execute(Name, Options) ->
     mysql:execute(get_pool_id(Options), Name).
 

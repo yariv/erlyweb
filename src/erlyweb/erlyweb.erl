@@ -101,6 +101,12 @@ compile(DocRoot) ->
 %%
 %% - `suppress_warnings' and `suppress_errors' tell ErlyWeb to not pass the
 %%   `report_warnings' and `report_errors' to compile:file/2.
+%%
+%% In addition, Options may include the option values available for
+%% for the ErlyDB driver you're using. For example, the MySQL driver
+%% accepts the option {pool_id, PoolId}, which indicates which connection
+%% pool the MySQL dispatcher should use for querying database metadata.
+%% For more information, refer to your ErlyDB driver's documentation.
 %% 
 %% @spec compile(AppDir::string(), Options::[option()]) ->
 %%  {ok, Now::datetime()} | {error, Err}

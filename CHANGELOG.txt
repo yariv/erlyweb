@@ -46,6 +46,8 @@ for instance.
 
 - Fixed the handling of includes in ErlTL.
 
+- Fixed some documentation bugs related to erlydb_mysql.
+
 v0.5
 
 - erlyweb:compile() now obey relative include paths passed as {i, Path} options. It treats the base directory as [AppDir]/src. Absolute paths also work now.
