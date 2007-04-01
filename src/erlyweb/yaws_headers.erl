@@ -22,7 +22,9 @@
 	 if_unmodified_since/1, if_unmodified_since/2,
 	 range/1, range/2, referer/1, referer/2, user_agent/1, user_agent/2,
 	 accept_ranges/1, accept_ranges/2, cookie/1, cookie/2, keep_alive/1,
-	 keep_alive/2, content_length/1, content_length/2, authorization/1,
+	 keep_alive/2, content_length/1, content_length/2,
+	 content_type/1, content_type/2,
+	 authorization/1,
 	 authorization/2, other/1, other/2]).
 	 
 
@@ -121,6 +123,12 @@ content_length(Arg) ->
 
 content_length(Arg, Val) ->
     (Arg#arg.headers)#headers{content_length = Val}.
+
+content_type(Arg) ->
+    (Arg#arg.headers)#headers.content_type.
+
+content_type(Arg, Val) ->
+    (Arg#arg.headers)#headers{content_type = Val}.
 
 authorization(Arg) ->
     (Arg#arg.headers)#headers.authorization.

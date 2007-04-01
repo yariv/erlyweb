@@ -140,7 +140,8 @@
 
 -module(erltl).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com)").
--export([compile/1, compile/2, forms_for_file/1, forms_for_data/2]).
+-export([compile/1, compile/2, forms_for_file/1, 
+	 forms_for_file/2, forms_for_data/2, forms_for_data/3]).
 
 -define(L(Msg), io:format("~b ~p~n", [?LINE, Msg])).
 
@@ -163,7 +164,13 @@ compile(FileName) ->
 %%
 %% @spec compile(FileName::string(), Options::[option()]) -> ok | {error, Err}
 compile(FileName, Options) ->
-    case forms_for_file(FileName) of
+    IncludePaths = lists:foldl(
+		     fun({i, Path}, Acc) ->
+			     [Path | Acc];
+			(_Other, Acc) ->
+			     Acc
+		     end, [], Options),
+    case forms_for_file(FileName, IncludePaths) of
 	{ok, Forms} ->
 	    case compile:forms(Forms,
 			       Options) of
@@ -195,27 +202,69 @@ compile(FileName, Options) ->
 	Err -> Err
     end.
 
+
+%% @equiv forms_for_file(Filename, []).
+forms_for_file(FileName) ->
+    forms_for_file(FileName, []).
+
 %% @doc Parse the ErlTL file and return its representation in Erlang
 %%   abstract forms.
-%% @spec forms_for_file(FileName::string()) -> {ok, [form()]} | {error, Err}
-forms_for_file(FileName) ->
+%% @spec forms_for_file(FileName::string(),
+%%   IncludePaths:[string()]) -> {ok, [form()]} | {error, Err}
+forms_for_file(FileName, IncludePaths) ->
     case file:read_file(FileName) of
 	{ok, Binary} ->
 	    BaseName = filename:rootname(filename:basename(FileName)),
-	    forms_for_data(Binary, list_to_atom(BaseName));
+	    forms_for_data(Binary, list_to_atom(BaseName), IncludePaths);
 	Err ->
 	    Err
     end.
 
+%% @equiv forms_form_data(Data, ModuleName, []).
+forms_for_data(Data, ModuleName) ->
+    forms_for_data(Data, ModuleName, []).
+
 %% @doc Parse the raw text of an ErlTL template and return its
 %%   representation in abstract forms.
-%% @spec forms_for_data(FileName::string(), ModuleName::atom()) ->
+%% @spec forms_for_data(Data::binary() | string(), ModuleName::atom(),
+%%   IncludePaths::[string()]) ->
 %%   {ok, [form()]} | {error, Err}
-forms_for_data(Data, ModuleName) when is_binary(Data) ->
-    forms_for_data(binary_to_list(Data), ModuleName);
-forms_for_data(Data, ModuleName) ->
+forms_for_data(Data, ModuleName, IncludePaths) when is_binary(Data) ->
+    forms_for_data(binary_to_list(Data), ModuleName, IncludePaths);
+forms_for_data(Data, ModuleName, IncludePaths) ->
     Lines = make_lines(Data),
-    forms(Lines, ModuleName).
+    case forms(Lines, ModuleName) of
+	{ok, Forms} ->
+	    case catch lists:map(
+			 fun({attribute, _, include, Include}) ->
+				 process_include(
+				   Include, [[], ["."] | 
+					     IncludePaths]);
+			    (Form) ->
+				 Form
+			 end, Forms)
+		       of 
+			   {'EXIT', Err} ->
+			 {error, Err};
+		       Res ->
+			 {ok, lists:flatten(Res)}
+		 end;
+	Err ->
+	    Err
+    end.
+
+process_include(Include, []) ->
+    exit({file_not_found, Include});
+process_include(Include, [Path | Rest]) ->
+    case epp:parse_file(Path ++ "/" ++ Include, [], []) of
+	{error, enoent} ->
+	    process_include(Include, Rest);
+	{ok, IncludeForms} ->
+	    lists:sublist(
+	      IncludeForms,
+	      2,
+	      length(IncludeForms) - 2)
+    end.
 
 make_lines(Str) ->
     make_lines(Str, [], []).

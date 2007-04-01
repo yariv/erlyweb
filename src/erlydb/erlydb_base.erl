@@ -605,7 +605,8 @@ insert1(Recs) ->
     Mod = get_module(hd(Recs)),
     Fields = Mod:db_fields(),
     Fields1 = [erlydb_field:name(Field) ||
-		  Field <- Fields, erlydb_field:extra(Field) =/= identity],
+		  Field <- Fields,
+		  not is_read_only(Field)],
     Rows1 = lists:map(
 	      fun(Rec) ->
 		      Rec1 = Mod:before_save(Rec),
@@ -1505,7 +1506,7 @@ make_save_statement(Rec) ->
     Module = get_module(Rec),
     Fields = [erlydb_field:name(Field) ||
 		 Field <- Module:db_fields(),
-		 not lists:member(read_only, erlydb_field:attributes(Field))],
+		 not is_read_only(Field)],
     case is_new(Rec) of
 	false ->
 	    Vals = [{Field, Module:Field(Rec)} || Field <- Fields],
@@ -1744,3 +1745,6 @@ check_limits(Val, Name, Min, Max) ->
 	    exit({invalid_value, Name, Val});
        true -> Val
     end.
+
+is_read_only(Field) ->
+    lists:member(read_only, erlydb_field:attributes(Field)).

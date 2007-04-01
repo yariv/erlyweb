@@ -315,10 +315,7 @@ get_ewc(A) ->
     get_ewc(A, lookup_app_data_module(A)).
 
 get_ewc(A, AppData) ->
-    Prefix = lists:dropwhile(
-	       fun($?) -> true;
-		  (_) -> false
-	       end, yaws_arg:appmoddata(A)),
+    Prefix = erlyweb_util:get_url_prefix(A),
     case string:tokens(Prefix, "/") of
 	[] -> {page, "/"};
 	[ComponentStr]->

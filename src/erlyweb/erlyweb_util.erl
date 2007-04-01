@@ -11,7 +11,7 @@
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
 -export([log/5, create_app/2, create_component/2, get_appname/1,
-	 get_app_root/1, 
+	 get_app_root/1, get_url_prefix/1,
 	 get_cookie/2, indexify/2]).
 
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
@@ -179,6 +179,16 @@ get_appname(A) ->
 %% @hidden
 get_app_root(A)->
     erlyweb:get_app_root(A).
+
+%% @doc Get the  of the arg's appmoddata value up to the
+%% first '?' symbol.
+%%
+%% @spec get_url_prefix(A::arg()) -> string()
+get_url_prefix(A) ->
+    lists:dropwhile(
+      fun($?) -> true;
+	 (_) -> false
+      end, yaws_arg:appmoddata(A)).
 
 
 %% @doc Get the cookie's value from the arg.

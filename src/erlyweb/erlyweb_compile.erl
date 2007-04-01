@@ -325,7 +325,8 @@ compile_file(FileName, BaseName, Extension, Type,
 			".et" ->
 			    ?Debug("Compiling ErlTL file ~p", [BaseName]),
 			    erltl:compile(FileName,
-					  Options ++ [nowarn_unused_vars]);
+					  Options ++ [nowarn_unused_vars] ++
+					  [{i, P} || P <- IncludePaths]);
 			".erl" ->
 			    ?Debug("Compiling Erlang file ~p", [BaseName]),
 			    compile_file(FileName, BaseName, Type, Options,

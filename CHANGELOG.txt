@@ -42,6 +42,10 @@ for instance.
 
 - Ensured that MaxLength is converted to a list in erlyweb_html:input().
 
+- Added content_type/1 and content_type/2 to yaws_headers.erl.
+
+- Fixed the handling of includes in ErlTL.
+
 v0.5
 
 - erlyweb:compile() now obey relative include paths passed as {i, Path} options. It treats the base directory as [AppDir]/src. Absolute paths also work now.
