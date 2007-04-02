@@ -200,6 +200,7 @@ get_erl_type(Type) ->
     case Type of
 	varchar -> binary;
 	char -> binary;
+  'character varying' -> binary;
 	binary -> binary;
 	varbinary -> binary;
 	blob -> binary;
@@ -218,6 +219,7 @@ get_erl_type(Type) ->
 	datetime -> datetime;
 	date -> date;
 	timestamp -> datetime;
+  'timestamp without time zone' -> datetime;
 	time -> time;
 	year -> integer;
 	Other -> Other
@@ -241,6 +243,7 @@ get_html_binary_input_type({Type, _Len}) ->
 get_html_binary_input_type(Type) ->
     case Type of
 	varchar -> text_field;
+  'character varying' -> text_field;
 	char -> text_field;
 	binary -> text_field;
 	varbinary -> text_field;

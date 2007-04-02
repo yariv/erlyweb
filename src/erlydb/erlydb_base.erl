@@ -1482,7 +1482,7 @@ do_save(Rec) ->
 				  HasIdentity = erlydb_field:extra(PkField)
 				      == identity,
 				  if HasIdentity ->
-					  case DriverMod:get_last_insert_id(
+					  case DriverMod:get_last_insert_id(db_table(Module),
 						 Options) of
 					      {ok, Val} ->
 						  FName = erlydb_field:name(

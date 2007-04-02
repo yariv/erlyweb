@@ -24,7 +24,7 @@
 	 select/2,
 	 select_as/3,
 	 update/2,
-	 get_last_insert_id/1]).
+	 get_last_insert_id/2]).
 
 
 
@@ -693,7 +693,7 @@ update(Statement, Options) ->
 
 %% @doc Get the id of the last inserted record.
 %%
-%% @spec get_last_insert_id(Options::options()) -> term()
-get_last_insert_id(_Options) ->
+%% @spec get_last_insert_id(Table:atom(), Options::options()) -> term()
+get_last_insert_id(_Table, _Options) ->
     Val = get(mnesia_last_insert_id),
     {ok, Val}.

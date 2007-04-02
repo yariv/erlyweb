@@ -7,6 +7,7 @@
 -export(
    [erlydb_mysql_init/0,
     erlydb_mnesia_init/0,
+    erlydb_psql_init/0,
     test/0,
     test/1]).
 
@@ -33,7 +34,15 @@ erlydb_mnesia_init() ->
     %% generate the abstraction layer modules
     erlydb:code_gen(mnesia, [language, project, developer, musician,
 			    employee, person,
-			    customer, store, item]).    
+			    customer, store, item]).  
+
+
+erlydb_psql_init() ->
+    erlydb_psql:start(),
+    %% generate the abstraction layer modules
+    erlydb:code_gen(psql, [language, project, developer, musician,
+			    employee, person,
+			    customer, store, item]).  
 
 
 test() ->

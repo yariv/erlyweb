@@ -28,7 +28,7 @@
 	 select/2,
 	 select_as/3,
 	 update/2,
-	 get_last_insert_id/1,
+	 get_last_insert_id/2,
 	 prepare/2,
 	 execute/2,
 	 execute/3,
@@ -303,7 +303,7 @@ get_update_result(Other) -> Other.
 %% @doc Get the id of the last inserted record.
 %%
 %% @spec get_last_insert_id(PoolId::atom()) -> term()
-get_last_insert_id(Options) ->
+get_last_insert_id(_Table, Options) ->
     case q2(<<"SELECT last_insert_id()">>, Options) of
 	{data, Result} ->
 	    [[Val]] = mysql:get_result_rows(Result),

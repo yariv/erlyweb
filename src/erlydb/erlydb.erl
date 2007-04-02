@@ -131,6 +131,7 @@ start(_Driver, _Options) ->
     
 
 driver_mod(mysql) -> erlydb_mysql;
+driver_mod(psql) -> erlydb_psql;
 driver_mod(mnesia) -> erlydb_mnesia;
 driver_mod(odbc) -> erlydb_odbc.
 
@@ -172,7 +173,7 @@ code_gen(Driver, Modules, Options, IncludePaths) ->
 	      end, Modules)
     end.
 
-process_module(DriverMod, Module, Metadata, Options, IncludePaths) ->
+process_module(DriverMod, Module, Metadata, Options, IncludePaths) ->   
     case smerl:for_module(Module, IncludePaths) of
 	{ok, C1} ->
 	    ModName = smerl:get_module(C1),
