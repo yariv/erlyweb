@@ -74,7 +74,17 @@ for instance.
   
   If the MnesiaType has a value of undefined then no type conversion is attempted for the field.
   See test/erlydb/erlydb_mnesia_schema for an example of how to create mnesia tables with user_properties
+
+- Added erlydb_psql driver.  The driver passes all tests defined in erlydb_test. The driver
+  is based on an Erlang-Consulting development snapshot (slightly modified to handle nested
+  transactions) added to erlyweb repository via SVN external.
   
+  erlydb_psql introduced the following change to eryldb: 
+  DriverModule:get_last_insert_id/1 is now Driver:get_last_insert_id/2 (because Postgres 
+  needs the tablename), this change affected erlydb.erl, erlydb_mysql.erl and erlydb_mnesia.erl.
+
+  To use postgresql, define database details in src/erlang-psql-driver/psql.app.src 
+  and run "make app".  
 
 v0.5
 
