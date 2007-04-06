@@ -48,7 +48,7 @@ compile(AppDir, Options) ->
 	get_option(outdir, AppDir1 ++ "ebin", Options1),
 
     file:make_dir(OutDir),
-
+    
     AppName = filename:basename(AppDir),
     AppData = get_app_data_module(AppName),
     InitialAcc =
@@ -116,9 +116,10 @@ compile(AppDir, Options) ->
     Result = 
 	if ErlyDBResult == ok ->
 		AppDataModule = make_app_data_module(
-				     AppData, AppName,
-				     ComponentTree1,
-				     Options3),
+				  AppDir1,
+				  AppData, AppName,
+				  ComponentTree1,
+				  Options3),
 		smerl:compile(AppDataModule, Options3);
 	   true -> ErlyDBResult
 	end,
@@ -143,7 +144,8 @@ get_option(Name, Default, Options) ->
 	false -> {[{Name, Default} | Options], Default}
     end.
 
-make_app_data_module(AppData, AppName, ComponentTree, Options) ->
+make_app_data_module(AppDir, AppData, AppName,
+		     ComponentTree, Options) ->
     M1 = smerl:new(AppData),
     {ok, M2} =
 	smerl:add_func(
@@ -184,7 +186,11 @@ make_app_data_module(AppData, AppName, ComponentTree, Options) ->
 	       [{clause,1,[],[],
 		 [erl_parse:abstract(AutoCompileVal)]}]}),
 
-    M7.
+    {ok, M8} =
+	smerl:add_func(
+	  M7, "get_app_dir() -> \"" ++ AppDir ++ "\"."),
+
+    M8.
 
 %% This function generates the abstract form for the
 %% AppData:get_component/3 function.
@@ -360,17 +366,25 @@ add_forms(controller, BaseName, MetaMod) ->
     M2 = add_func(M1, before_return, 3,
 		  "before_return(_FuncName, _Params, Response) -> Response."),
     case smerl:get_attribute(M2, erlyweb_magic) of
-	{ok, on} ->
+	{ok, Val} ->
+	    Base = case Val of
+		       on -> erlyweb_controller;
+		       Other -> Other
+		   end,
 	    {ModelNameStr, _} = lists:split(length(BaseName) - 11, BaseName),
 	    ModelName = list_to_atom(ModelNameStr),
-	    M3 = smerl:extend(erlyweb_controller, M2, 1),
+	    M3 = smerl:extend(Base, M2, 1),
 	    smerl:embed_all(M3, [{'Model', ModelName}]);
 	_ -> M2
     end;
 add_forms(view, _BaseName, MetaMod) ->
     case smerl:get_attribute(MetaMod, erlyweb_magic) of
-	{ok, on} ->
-	    smerl:extend(erlyweb_view, MetaMod);
+	{ok, Val} ->
+	    Base = case Val of
+		       on -> erlyweb_view;
+		       Other -> Other
+		   end,
+	    smerl:extend(Base, MetaMod);
 	_ -> MetaMod
     end;
 add_forms(_, _BaseName, MetaMod) ->

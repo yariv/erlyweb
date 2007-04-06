@@ -10,7 +10,7 @@
 
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
--export([log/5, create_app/2, create_component/2, get_appname/1,
+-export([log/5, create_app/2, create_component/3, get_appname/1,
 	 get_app_root/1, get_url_prefix/1,
 	 get_cookie/2, indexify/2]).
 
@@ -156,20 +156,24 @@ css() ->
     iolist_to_binary(Text).
 
 %% @hidden
-create_component(ComponentName, AppDir) ->
-    Files =
+create_component(ComponentName, AppDir, Magic) ->
+    MagicStr = if Magic == on ->
+		       "erlyweb";
+		  true ->
+		       Magic
+	       end,
+    Files = 
 	[{ComponentName ++ ".erl",
 	  "-module(" ++ ComponentName ++ ")."},
 	 {ComponentName ++ "_controller.erl",
 	  "-module(" ++ ComponentName ++ "_controller).\n"
-	  "-erlyweb_magic(on)."},
+	  "-erlyweb_magic(" ++ MagicStr ++")."},
 	 {ComponentName ++ "_view.erl",
 	  "-module(" ++ ComponentName ++ "_view).\n"
-	  "-erlyweb_magic(on)."}],
+	  "-erlyweb_magic(" ++ MagicStr ++ ")."}],
     lists:foreach(
       fun({FileName, Text}) ->
-	      create_file(AppDir ++ "/src/components/" ++
-			  FileName, iolist_to_binary(Text))
+	      create_file(AppDir ++ "/src/components/" ++ FileName, Text)
       end, Files).
 
 %% @hidden

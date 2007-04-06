@@ -73,7 +73,15 @@ for instance.
   undefined
   
   If the MnesiaType has a value of undefined then no type conversion is attempted for the field.
-  See test/erlydb/erlydb_mnesia_schema for an example of how to create mnesia tables with user_properties
+  See test/erlydb/erlydb_mnesia_schema for an example of how to create mnesia tables with user_properties.
+
+- Fixed a bug that caused ErlyWeb to expect the docroot directory to be a
+direct descendant of the app root directory in auto compilation.
+
+- Made erlyweb_magic(on). extensible (thanks to Jouneski). You can now
+replace 'on' with an arbitrary module name and ErlyWeb will use it as the
+base module for extending the given component file instead of
+erlyweb_view or erlyweb_controller.
 
 - Added erlydb_psql driver.  The driver passes all tests defined in erlydb_test. The driver
   is based on an Erlang-Consulting development snapshot (slightly modified to handle nested

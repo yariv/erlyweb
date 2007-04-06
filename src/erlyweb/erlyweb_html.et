@@ -18,12 +18,12 @@ join([Last], Acc) ->
 join([First | Rest], Acc) ->
   join(Rest, [[First, $/] | Acc]).
 %>
-<%@ a(PathElems, Text) %>
-<a href="<% join(PathElems) %>"><% Text %></a>
-<%@ a(PathElems, Text, Props) %>
-<a href="<% join(PathElems) %>"<%
+
+<%@ a(PathElems, Text) %><a href="<% join(PathElems) %>"><% Text %></a>
+<%@ a(PathElems, Text, Props) %><a href="<% join(PathElems) %>"<%
 	[[" ", Name,<<"=\"">>,Value,<<"\"">>] || {Name, Value} <- Props] %>><% 
 	Text %></a>
+
 <%@ table(Records) %>
 <% table(Records, undefined) %>
 

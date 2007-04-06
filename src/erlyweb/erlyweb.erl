@@ -15,6 +15,7 @@
 -export([
 	 create_app/2,
 	 create_component/2,
+	 create_component/3,
 	 compile/1,
 	 compile/2,
 	 out/1,
@@ -47,18 +48,31 @@ create_app(AppName, AppDir) ->
 	Other -> Other
     end.
 
+%% @equiv create_component(Component, AppDir, on).
+create_component(Component, AppDir) ->
+    create_component(Component, AppDir, on).
+
 %% @doc Create all the files (model, view and controller) for a component
 %%  that implements basic CRUD features for a database table.
 %%  'Component' is the name of the component and 'AppDir' is the application's
 %%  root directory.
 %%
-%% To disable the build-in CRUD features, remove the '-erlyweb_magic(on).'
-%% lines in the view and the model.
+%% The view and controller source files this function creates have the line
+%% "-erlyweb_magic(on)."
+%% This tells ErlyWeb that the module in which the line appears should extend
+%% the erlyweb_view or erlyweb_controller modules, which provide basic CRUD
+%% capabilities.
 %%
-%% @spec create_component(Component::atom(), AppDir::string()) ->
+%% You can override the default base module setting by replace 'on' with
+%% the name of the module you want to extend. You can also disable the
+%% build-in CRUD features by removing the '-erlyweb_magic(on).' lines from
+%% the view and/or controller source files.
+%%
+%% @spec create_component(Component::atom(), AppDir::string(),
+%%    Magic::on | string()) ->
 %%   ok | {error, Err}
-create_component(Component, AppDir) ->    
-    case catch erlyweb_util:create_component(Component, AppDir) of
+create_component(Component, AppDir, Magic) ->
+    case catch erlyweb_util:create_component(Component, AppDir, Magic) of
 	{'EXIT', Err} ->
 	    {error, Err};
 	Other -> Other
@@ -74,9 +88,9 @@ create_component(Component, AppDir) ->
 %%   changed (ErlyWeb does this automatically when the auto-compilation
 %%   is turned on).
 %%
-%% @spec compile(DocRoot::string()) -> ok | {error, Err}
-compile(DocRoot) ->
-    compile(DocRoot, []).
+%% @spec compile(AooDir::string()) -> ok | {error, Err}
+compile(AppDir) ->
+    compile(AppDir, []).
 
 %% @doc Compile all the files for an application using the compilation
 %%  options as described in the 'compile' module in the Erlang
@@ -131,14 +145,8 @@ out(A) ->
  	    case AppData:auto_compile() of
  		false -> ok;
  		{true, Options} ->
-  		    AppDir = yaws_arg:docroot(A),
-  		    AppDir1 = case lists:last(AppDir) of
-  				  '/' ->
-  				      filename:dirname(
-  					filename:dirname(AppDir));
-  				  _ -> filename:dirname(AppDir)
-  			      end,
-  		    case compile(AppDir1, Options) of
+		    AppDir = AppData:get_app_dir(),
+  		    case compile(AppDir, Options) of
   			{ok, _} -> ok;
   			Err -> exit(Err)
   		    end
