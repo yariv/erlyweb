@@ -344,10 +344,6 @@ where({{_,_} = From, 'is', 'null'}, #qhdesc{filters = Filters, metadata = QLCDat
 where({{_,_} = From, '=', {_,_} = To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
     % Implements an inner join, currently outer joins are not supported... 
 	QHDesc#qhdesc{filters = [dict:fetch(From, QLCData) ++ " == " ++ dict:fetch(To, QLCData) | Filters]};
-where({{Table, Field} = From, '=', To}, #qhdesc{filters = Filters, bindings = Bindings, metadata = QLCData} = QHDesc) ->
-    Var = list_to_atom("Var" ++ integer_to_list(random:uniform(100000))),
-	QHDesc#qhdesc{filters = [lists:concat([dict:fetch(From, QLCData), " == ", Var]) | Filters],
-                  bindings = erl_eval:add_binding(Var, convert(Table, Field, To), Bindings)};
 where({{_,_} = From, 'like', To}, QHDesc) when is_binary(To) ->
     where({From, 'like', erlang:binary_to_list(To)}, QHDesc);
 where({{Table,Field} = From, 'like', To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
@@ -358,6 +354,15 @@ where({{Table,Field} = From, 'like', To}, #qhdesc{filters = Filters, metadata = 
                  _Other -> dict:fetch(From, QLCData)
              end,
     QHDesc#qhdesc{filters = ["regexp:first_match(" ++ Filter ++ ", " ++ To2 ++ ") /= nomatch" | Filters]};
+where({{_, _} = From, '=', To}, QHDesc) ->
+    where({From, " == ", To}, QHDesc);
+where({{_, _} = From, Op, To}, QHDesc) when is_atom(Op) ->
+    where({From, " " ++ atom_to_list(Op) ++ " ", To}, QHDesc);
+where({{Table, Field} = From, Op, To}, #qhdesc{filters = Filters, bindings = Bindings, metadata = QLCData} = QHDesc) 
+			when is_list(Op) ->
+    Var = list_to_atom("Var" ++ integer_to_list(random:uniform(100000))),
+	QHDesc#qhdesc{filters = [lists:concat([dict:fetch(From, QLCData), Op, Var]) | Filters],
+                  bindings = erl_eval:add_binding(Var, convert(Table, Field, To), Bindings)};
 
 where(undefined, QHDesc) ->
     QHDesc;
