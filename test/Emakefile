@@ -1,0 +1,2 @@
+{"erlyweb/*", [debug_info, {outdir, "../ebin"}]}.
+{"erlydb/*", [debug_info, {outdir, "../ebin"}]}.

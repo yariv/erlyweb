@@ -21,36 +21,28 @@ erlydb_mysql_init() ->
 		 [{hostname, "localhost"},
 		  {username, "root"},
 		  {password, "password"},
-		  {database, "test"}]),
-
-    %% generate the abstraction layer modules
-    erlydb:code_gen(mysql, [language, project, developer, musician,
-			    employee, person,
-			    customer, store, item]).
-        
+		  {database, "test"}]).
 
 erlydb_mnesia_init() ->
-    erlydb:start(mnesia, []),
-    %% generate the abstraction layer modules
-    erlydb:code_gen(mnesia, [language, project, developer, musician,
-			    employee, person,
-			    customer, store, item]).  
-
+    erlydb:start(mnesia, []).
 
 erlydb_psql_init() ->
-    erlydb_psql:start(),
-    %% generate the abstraction layer modules
-    erlydb:code_gen(psql, [language, project, developer, musician,
-			    employee, person,
-			    customer, store, item]).  
+    erlydb_psql:start().
 
+
+code_gen(Database) ->
+    erlydb:code_gen(Database, [language, project, developer, musician, employee, 
+                               person, customer, store, item]).
 
 test() ->
-    test(erlydb_mysql).
+    test(mysql).
 
-test(Driver) ->
+test(Database) ->
+    Driver = list_to_atom("erlydb_" ++ atom_to_list(Database)),
     Init = list_to_atom(atom_to_list(Driver) ++ "_init"),
     erlydb_test:Init(),
+    % generate the abstraction layer modules
+    code_gen(Database),
 
 
     %% clean up old records
