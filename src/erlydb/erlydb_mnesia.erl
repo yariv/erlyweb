@@ -147,19 +147,23 @@ q2({select, Modifier, Fields, {from, Tables}, WhereExpr, Extras}, Options) ->
 q2({insert, Table, Params}, Options) ->
     {Fields, Values} = lists:unzip(Params),
     q2({insert, Table, Fields, [Values]}, Options);
-q2({insert, Table, Fields, [Values]}, _Options) ->
+q2({insert, Table, Fields, ValuesList}, _Options) ->
+    {Fields1, ValuesList1} = 
+    	case get_identity_field(Table) of
+        	undefined -> {Fields, ValuesList};
+        	Field -> NewFields = [Field | Fields],
+					 MaxId = mnesia:dirty_update_counter(counter, Table, length(ValuesList)),
+                 	 put(mnesia_last_insert_id, MaxId),
+                 	 {NewValuesList, _} = 
+                     		lists:mapfoldr(fun(Values, Id) -> {[Id | Values], Id-1} end, MaxId, ValuesList),
+                     {NewFields, NewValuesList}
+    	end,
     QLCData = get_qlc_metadata(Table),
-    {Fields1, Values1} = case dict:find({index, Table, id}, QLCData) of
-		% FIXME this really needs to be handled better, what if the auto-incrementing primary key is not called id?
-        {ok, 2} -> Id = mnesia:dirty_update_counter(counter, Table, 1),
-             % FIXME this is probably not the best way to keep track of the last inserted id...
-             put(mnesia_last_insert_id, Id),
-             {[id | Fields], [Id | Values]};
-        _Other -> {Fields, Values}
-    end,
-    ok = write(dict:fetch({new_record, Table}, QLCData), Fields1, Values1, QLCData),
-    {ok, 1};
-              
+    lists:foreach(fun(Values) -> 
+        			ok = write(dict:fetch({new_record, Table}, QLCData), Fields1, Values, QLCData) 
+                  end, ValuesList1),
+    {ok, length(ValuesList1)};
+
 
 q2({update, Table, Params}, _Options) ->
     {Fields, Values} = lists:unzip(Params),
@@ -210,10 +214,14 @@ q2({delete, Table, Where}, Options) ->
             lists:foreach(fun(Record) -> mnesia:delete_object(Record) end, Records),
             length(Records)
         end),
-    {ok, Num}.
+    {ok, Num};
     
+q2(Statement, Options) ->
+    ?L(["Unhandled statement and options: ", Statement, Options]),
+    exit("Unhandled statement").
 
- 
+
+
 select(Modifier, Fields, Tables, WhereExpr, Extras, Options) ->
     QHDesc = #qhdesc{metadata = get_qlc_metadata(Tables)},
     select(Modifier, Fields, Tables, WhereExpr, Extras, Options, QHDesc).
@@ -517,7 +525,16 @@ get_default_user_properties(_TableType, Field, Index) when Index > 1 ->
 	end.    
 
 
+%% @doc Return the first field of the given table if it is an identity field (auto-incrementing) 
+%%		or return undefined
+get_identity_field(Table) ->
+    [Field | _Rest] = table_fields(Table),
+    case get_user_properties(Table, Field) of
+        {Field, {_Type, _Modifier}, _Null, _Key, _Default, identity, _MnesiaType} -> Field;
+        _Other -> undefined
+    end.
 
+                                                                                
 %% @doc Find the field's position in the given table
 field_index(Table, Field) ->
     field_index(Field, 1, table_fields(Table)).
