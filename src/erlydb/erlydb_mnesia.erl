@@ -349,9 +349,6 @@ where({From, Op, To}, #qhdesc{metadata = QLCData} = QHDesc) when is_tuple(From) 
 
 where({{_,_} = From, 'is', 'null'}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
 	QHDesc#qhdesc{filters = [dict:fetch(From, QLCData) ++ " == undefined" | Filters]};
-%% where({{_,_} = From, '=', {_,_} = To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
-%%     % Implements an inner join, currently outer joins are not supported... 
-%% 	QHDesc#qhdesc{filters = [dict:fetch(From, QLCData) ++ " == " ++ dict:fetch(To, QLCData) | Filters]};
 where({{_,_} = From, 'like', To}, QHDesc) when is_binary(To) ->
     where({From, 'like', erlang:binary_to_list(To)}, QHDesc);
 where({{Table,Field} = From, 'like', To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
@@ -368,18 +365,11 @@ where({{_, _} = From, '=', To}, QHDesc) ->
 where({{_, _} = From, Op, To}, QHDesc) when is_atom(Op) ->
     where({From, atom_to_list(Op), To}, QHDesc);
 
-where({{_, _} = From, Op, {_, _} = To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) ->
+where({{_, _} = From, Op, {Table, Field} = To}, #qhdesc{filters = Filters, metadata = QLCData} = QHDesc) 
+		when is_atom(Table), is_atom(Field) ->
     QHDesc#qhdesc{filters = [lists:concat([dict:fetch(From, QLCData), " ", Op, " ", 
                                            dict:fetch(To, QLCData)]) | Filters]};
-                            %[dict:fetch(From, QLCData) ++ " == " ++ dict:fetch({ToTable, To}, QLCData) | Filters]};
-
-%%     Var = list_to_atom("Var" ++ integer_to_list(random:uniform(100000))),
-%% 	QHDesc#qhdesc{filters = [lists:concat([dict:fetch(From, QLCData), " ", Op, " ", Var]) | Filters],
-%%                   bindings = erl_eval:add_binding(Var, convert(Table, Field, To), Bindings)};
-
 where({{Table, Field} = From, Op, To}, #qhdesc{filters = Filters, bindings = Bindings, metadata = QLCData} = QHDesc) ->
-%    		when is_tuple(To) == false ->
-%			when is_list(Op) ->
 	case resolve_field(To, QLCData) of
         [ToTable | _] -> where({From, Op, {ToTable, To}}, QHDesc);
 		[] -> Var = list_to_atom("Var" ++ integer_to_list(random:uniform(100000))),
