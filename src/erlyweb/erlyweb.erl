@@ -154,32 +154,57 @@ out(A) ->
   	    A1 = yaws_arg:opaque(A,
   				 [{app_data_module, AppData} |
   				  yaws_arg:opaque(A)]),
- 	    handle_request(AppController:hook(A1), AppData)
+
+ 	    handle_request(A1,
+			   AppController, AppController:hook(A1),
+			   AppData)
     end.
 	    
 
-handle_request({phased, Ewc, Func}, AppData) ->
+handle_request(A,
+	       AppController,
+	       {phased, Ewc, Func}, AppData) ->
     Ewc1 = get_initial_ewc(Ewc, AppData),
-    handle_request(Ewc1, AppData,
-		fun(Data) ->
-			DataEwc = Func(Ewc1, Data),
-			render_subcomponent(DataEwc, AppData)
-		end);
-handle_request(Ewc, AppData) ->
+    handle_request(
+      A,
+      AppController,
+      Ewc1, AppData,
+      fun(Data) ->
+	      DataEwc = Func(Ewc1, Data),
+	      render_subcomponent(DataEwc, AppData)
+      end);
+handle_request(A,
+	       AppController,
+	       Ewc, AppData) ->
     Ewc1 = get_initial_ewc(Ewc, AppData),
-    handle_request(Ewc1, AppData,
-		fun(Data) ->
-			Data
-		end).
+    handle_request(
+      A,
+      AppController,
+      Ewc1, AppData,
+      fun(Data) ->
+	      Data
+      end).
 
-handle_request(Ewc, AppData, DataFun) ->
-    {response, Elems} = ewc(Ewc, AppData),
-    lists:map(
-      fun({rendered, Data}) ->
-	      {html, DataFun(Data)};
-	 (Header) ->
-	      Header
-      end, Elems).
+handle_request(A, AppController, Ewc, AppData, DataFun) ->
+    case catch ewc(Ewc, AppData) of
+	{response, Elems} ->
+	    lists:map(
+	      fun({rendered, Data}) ->
+		      {html, DataFun(Data)};
+		 (Header) ->
+		      Header
+	      end, Elems);
+	{'EXIT', _} = Err ->
+	    case catch AppController:error(A, Ewc, Err) of
+		{'EXIT', _} ->
+		    Err;
+		Other ->
+		    handle_request(A,
+				   AppController,
+				   Other,
+				   AppData)
+	    end
+    end.
       
 %% @doc Get the expanded 'ewc' tuple for the request.
 %%

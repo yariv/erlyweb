@@ -92,7 +92,9 @@ erlyweb_view or erlyweb_controller.
   needs the tablename), this change affected erlydb.erl, erlydb_mysql.erl and erlydb_mnesia.erl.
 
   To use postgresql, define database details in src/erlang-psql-driver/psql.app.src 
-  and run "make app".  
+  and run "make app".
+
+- Added an optional error handler to the app controller. If ErlyWeb catches an exit when rendering a component, it tries to pass it to the app controller's error handler. The error handler has the form error(A, Ewc, Err), where A is the arg, Ewc is the top-level component, and Err is the second element of the {'EXIT', Err} tuple.
 
 v0.5
 
