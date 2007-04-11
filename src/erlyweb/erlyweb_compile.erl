@@ -318,7 +318,10 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
 	{Err, _} -> exit(Err)
     end.
 
-
+compile_file(_FileName, [$. | _] = BaseName, _Extension, _Type,
+         _LastCompileTimeInSeconds, _Options, _IncludePaths) ->
+    ?Debug("Ignoring file ~p", [BaseName]),
+    {ok, ignore};
 compile_file(FileName, BaseName, Extension, Type,
 	     LastCompileTimeInSeconds, Options, IncludePaths) ->
     case file:read_file_info(FileName) of
