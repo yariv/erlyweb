@@ -96,6 +96,8 @@ erlyweb_view or erlyweb_controller.
 
 - Added an optional error handler to the app controller. If ErlyWeb catches an exit when rendering a component, it tries to pass it to the app controller's error handler. The error handler has the form error(A, Ewc, Err), where A is the arg, Ewc is the top-level component, and Err is the second element of the {'EXIT', Err} tuple.
 
+- Erlyweb no longer tries to compile files that begin with a period.
+
 v0.5
 
 - erlyweb:compile() now obey relative include paths passed as {i, Path} options. It treats the base directory as [AppDir]/src. Absolute paths also work now.
