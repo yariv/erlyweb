@@ -1,18 +1,127 @@
 %% @author Matthew Pflueger (matthew.pflueger@gmail.com)
 %% @copyright Matthew Pflueger 2007
-%% 
 %% @doc This module implements the Mnesia driver for ErlyDB.
 %%
 %% This is an internal ErlyDB module that you normally shouldn't have to
 %% use directly. For most situations, all you have to know
 %% about this module is the options you can pass to {@link start/1}, which
-%% is called by {@link erlydb:start/2}.
+%% is called by {@link erlydb:start/2}.  Currently (Erlyweb 0.6), no options are 
+%% recognized/used.
+%%
+%%
+%% == Contents ==
+%%
+%% {@section Introduction}<br/>
+%% {@section Conventions}<br/>
+%% {@section Types}<br/>
+%% {@section Example}<br/>
+%% {@section What's Not Supported}<br/>
+%%
+%%
+%% == Introduction ==
+%%
+%% Mnesia is Erlang's distributed DataBase Management System (DBMS).  Please read the
+%% Mnesia Reference Manual for more information about Mnesia.
+%%
+%% This driver executes Erlsql queries against Mnesia.  Most Erlsql queries are 
+%% dynamically converted into Query List Comprehension (QLC) expressions before 
+%% execution.  Please see the qlc module documentation for more information on QLC.
+%% Please read the Erlsql documentation for more information on Erlsql.
+%%
+%% This driver does not add relational support to Mnesia (constraints, 
+%% cascades, etc).  Some relational support for Mnesia has been implemented by 
+%% Ulf Wiger in the user contribution rdbms (see http://erlang.org/user.html).  
+%% For more information visit http://ulf.wiger.net/rdbms/doc/rdbms.html. You can download a more
+%% recent version of rdbms at http://ulf.wiger.net/rdbms/download/.
+%%
+%%
+%% == Conventions ==
+%%
+%% The driver uses a table named 'counter' for auto-incrementing (identity) primary key columns.
+%% (only valid for set or ordered-set tables). The 'counter' table must be created 
+%% using the following:
+%%
+%% mnesia:create_table(counter, [{disc_copies, [node()]}, {attributes, [key, counter]}])
+%%
+%% The key column will contain table names of the mnesia tables utilizing identity columns.  The
+%% counter contains the value of the last used identity (serial integer).  The counter is updated
+%% using:
+%%
+%% mnesia:dirty_update_counter(counter, Table, 1)
+%%
+%% You can initialize/start the identity of a particular table by executing the above statement
+%% with an arbitrary number (greater than 0).  The above operation is atomic (the function name
+%% is misleading).  Please read the Mnesia docs for more information.  The use of the 'counter'
+%% table is currently not customizable but that will hopefully change soon. 
+%% 
+%% All columns named 'id' or ending with 'id' are treated as integers.  If the column named 'id'
+%% is the first attribute (column) in the mnesia table, then it is also treated as an 
+%% auto-incrementing identity column.
+%%
+%%
+%% == Types ==
+%%
+%% This driver stores all fields as binary unless the field name ends with id and in that 
+%% case the field is treated as an integer (as discussed above).  This can be customized 
+%% by utilizing the user_properties for a mnesia table. The driver will do a limited 
+%% amount of type conversion utilizing these properties. The driver will recognize
+%% user_properties for a field if defined in the following format:
+%%
+%% {Field, {Type, Modifier}, Null, Key, Default, Extra, MnesiaType}
+%%
+%% where Field is an atom and must be the same as the field (attribute) name,
+%% Type through Extra is are as defined in erlydb_field:new/6
+%% MnesiaType is the type to store the field as in mnesia.
+%%
+%% Currently, only the following values for MnesiaType are recognized:
+%%
+%% atom, list, binary, integer, float, undefined
+%%
+%% The erlydb_mnesia driver will attempt to convert field values into
+%% the specified type before insertion/update/query of the record in
+%% mnesia...  If the MnesiaType has a value of undefined then no type
+%% conversion is attempted for the field.
+%%
+%%
+%% == Example ==
+%%
+%% Given the following record:
+%%
+%% -record(person, {myid, type, name, age, country, office, department, genre, instrument, created_on})
+%%
+%% Create a Mnesia table with types for the driver using:
+%% 
+%% {atomic, ok} = mnesia:create_table(person, [
+%%			{disc_copies, [node()]},
+%% 			{attributes, record_info(fields, person)},
+%%          {user_properties, [{myid, {integer, undefined}, false, primary, undefined, identity, integer},
+%%                             {type, {varchar, undefined}, false, undefined, undefined, undefined, atom},
+%%                             {age, {integer, undefined}, true, undefined, undefined, undefined, integer},
+%%                             {created_on, {datetime, undefined}, true, undefined, undefined, undefined, undefined}]}])
+%% 
+%% Note the following:
+%% 1) The primary key column is called myid and is an auto-incrementing integer column.  This is the
+%%    same as if the column had been named 'id'.
+%% 2) The type and age columns have customized types.  The driver will try to convert all values
+%%    inserted into the table into the specified types.
+%% 3) The created_on column is defined as a datetime for Erlyweb but is of type undefined for the
+%%    Mnesia driver.  This means that no type conversion will be attempted for the created_on
+%%    column resulting in a Erlang datetime tuple to be stored in the column 
+%%    {{Year, Month, Day}, {Hour, Minute, Second}}
+%%
+%% See test/erlydb/erlydb_mnesia_schema for more examples of how to create mnesia tables
+%% with user_properties... 
+%%
+%%
+%% == What's Not Supported ==
+%%
+%% This driver is very much still alpha quality.  Much is not supported but the most glaring
+%% are unions and sub-queries.
 %%
 
 %% For license information see LICENSE.txt
 
 -module(erlydb_mnesia).
-
 -author("Matthew Pflueger (matthew.pflueger@gmail.com)").
 
 -export([start/0,
@@ -572,41 +681,66 @@ mnesia_type(Table, Field) ->
 convert(Table, Field, Value) ->
     convert(Value, mnesia_type(Table, Field)).
 
+
 % FIXME there has to be some utility out there to do this conversion stuff...
 convert(undefined, _Type) ->
     undefined;
 convert(Value, undefined) ->
     Value;
 
+                        
 convert(Value, integer) when is_integer(Value) ->
+    Value;
+convert(Value, float) when is_integer(Value) ->
     Value;
 convert(Value, list) when is_integer(Value) ->
     integer_to_list(Value);
 convert(Value, atom) when is_integer(Value) ->
     list_to_atom(integer_to_list(Value));
 convert(Value, binary) when is_integer(Value) ->
-    list_to_binary(integer_to_list(Value));
+    term_to_binary(Value);
+
+
+convert(Value, integer) when is_float(Value) ->
+    trunc(Value);
+convert(Value, float) when is_float(Value) ->
+    Value;
+convert(Value, list) when is_float(Value) ->
+    float_to_list(Value);
+convert(Value, atom) when is_float(Value) ->
+    list_to_atom(float_to_list(Value));
+convert(Value, binary) when is_float(Value) ->
+    term_to_binary(Value);
+
 
 convert(Value, integer) when is_list(Value) ->
     list_to_integer(Value);
+convert(Value, float) when is_list(Value) ->
+    list_to_float(Value);
 convert(Value, list) when is_list(Value) ->
     Value;
 convert(Value, atom) when is_list(Value) ->
     list_to_atom(Value);
 convert(Value, binary) when is_list(Value) ->
-    list_to_binary(Value);
+    term_to_binary(Value);
+
 
 convert(Value, integer) when is_atom(Value) ->
     list_to_integer(atom_to_list(Value));
+convert(Value, float) when is_atom(Value) ->
+    list_to_float(atom_to_list(Value));
 convert(Value, list) when is_atom(Value) ->
     atom_to_list(Value);
 convert(Value, atom) when is_atom(Value) ->
     Value;
 convert(Value, binary) when is_atom(Value) ->
-    list_to_binary(atom_to_list(Value));
+    term_to_binary(Value);
+
 
 convert(Value, integer) when is_binary(Value) ->
     list_to_integer(binary_to_list(Value));
+convert(Value, float) when is_binary(Value) ->
+    list_to_float(binary_to_list(Value));
 convert(Value, list) when is_binary(Value) ->
     binary_to_list(Value);
 convert(Value, atom) when is_binary(Value) ->
