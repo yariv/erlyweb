@@ -698,7 +698,7 @@ convert(Value, list) when is_integer(Value) ->
 convert(Value, atom) when is_integer(Value) ->
     list_to_atom(integer_to_list(Value));
 convert(Value, binary) when is_integer(Value) ->
-    term_to_binary(Value);
+    list_to_binary(integer_to_list(Value));
 
 
 convert(Value, integer) when is_float(Value) ->
@@ -710,7 +710,7 @@ convert(Value, list) when is_float(Value) ->
 convert(Value, atom) when is_float(Value) ->
     list_to_atom(float_to_list(Value));
 convert(Value, binary) when is_float(Value) ->
-    term_to_binary(Value);
+    list_to_binary(float_to_list(Value));
 
 
 convert(Value, integer) when is_list(Value) ->
@@ -722,7 +722,7 @@ convert(Value, list) when is_list(Value) ->
 convert(Value, atom) when is_list(Value) ->
     list_to_atom(Value);
 convert(Value, binary) when is_list(Value) ->
-    term_to_binary(Value);
+    list_to_binary(Value);
 
 
 convert(Value, integer) when is_atom(Value) ->
@@ -734,7 +734,7 @@ convert(Value, list) when is_atom(Value) ->
 convert(Value, atom) when is_atom(Value) ->
     Value;
 convert(Value, binary) when is_atom(Value) ->
-    term_to_binary(Value);
+    list_to_binary(atom_to_list(Value));
 
 
 convert(Value, integer) when is_binary(Value) ->
