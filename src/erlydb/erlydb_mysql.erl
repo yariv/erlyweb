@@ -302,7 +302,7 @@ get_update_result(Other) -> Other.
 
 %% @doc Get the id of the last inserted record.
 %%
-%% @spec get_last_insert_id(PoolId::atom()) -> term()
+%% @spec get_last_insert_id(undefined, Options::options()) -> term()
 get_last_insert_id(_Table, Options) ->
     case q2(<<"SELECT last_insert_id()">>, Options) of
 	{data, Result} ->

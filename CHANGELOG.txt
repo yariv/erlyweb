@@ -15,9 +15,12 @@ SQL statements generated erlydb_base:save/1.
 relations where the modules define table names whose alphabetical ordering
 is different from that of the module names'.
 
-- Added erlydb_base:is_related/3 to check if 2 records are related in a many-to-many relation.
+- Added erlydb_base:is_related/3 to check if two records are related
+in a many-to-many relation.
 
-- The ErlyWeb request tokenizer now stops when encountering the first '?' symbol in the URL. This lets you include arbitrary GET parameters in the URL, including those containing forward slashes.
+- The ErlyWeb request tokenizer now stops when encountering the first '?'
+symbol in the URL. This lets you include GET parameters that contain forward
+slashes in URLs.
 
 - Removed the NULL checks in erlydb_base:new_from_strings/2. This function no 
 longer calls exit({null_value, Field}) when one of its non-null fields is set
@@ -38,7 +41,8 @@ for instance.
 
 - Added erlydb_base:increment() and erlydb_base:decrement().
 
-- Show compilation errors in stack sent to browser.
+- Implemented more informative error messages, including complete stack trace,
+when ErlyWeb encounters an error during auto-compilation.
 
 - Ensured that MaxLength is converted to a list in erlyweb_html:input().
 
@@ -78,7 +82,7 @@ for instance.
 - Fixed a bug that caused ErlyWeb to expect the docroot directory to be a
 direct descendant of the app root directory in auto compilation.
 
-- Made erlyweb_magic(on). extensible (thanks to Jouneski). You can now
+- Made erlyweb_magic(on). extensible (thanks, Jouneski). You can now
 replace 'on' with an arbitrary module name and ErlyWeb will use it as the
 base module for extending the given component file instead of
 erlyweb_view or erlyweb_controller.

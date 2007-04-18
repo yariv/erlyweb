@@ -146,6 +146,17 @@ This tuple lets you specify exacly which controller and
 view modules ErlyWeb uses to render the sub-component. It is considered for
 advanced uses only.</p>
 
+<p><code>{replace, Ewc}</code><br>
+This tuple, which was introduced in ErlyWeb 0.6, tells ErlyWeb to
+render a different component from the requested one (the new component, <code>Ewc</code>,
+can be described using any of the 'ewc' tuples listed above).
+This mechanism is conceptually similar to an internal redirect.
+It is useful, for example, when you want multiple components to share
+a common error screen. Instead of having multiple view functions
+check if the controller result indicates an error has occurred, you can 
+use the <code>replace</code> tuple to simply redirect the rendering to an error
+component.</p>
+
 <p>Controller functions may also return (nested) lists of
 'ewc' and 'data' tuples, telling ErlyWeb to render the items
 in their order of appearance and then send the list of their results to
@@ -154,8 +165,9 @@ This feature lets you build components that are composed of a mix of
 dynamic data and one or more sub-components.</p>
 
 <p>If a component is only supposed to be used as a subcomponent, you should
-implement the function "<code>private() -&gt; true.</code>" in its controller to
-prevent web clients from accessing the component by requesting
+implement the function "<code>private() -&gt; true.</code>" in its controller.
+This tells ErlyWeb to call <code>exit({illegal_request, Controller})</code>
+when clients try to access the component by requesting
 its corresponding URL directly.</p>
 
 <h4><a name="Returning_Arbitrary_Yaws_Tuples">Returning Arbitrary Yaws Tuples</a></h4>
@@ -281,8 +293,13 @@ song_view.et:
 
 <p>ErlyWeb applications have a module called [AppName]_app_controller,
 whose source file is in the 'src' directory by convention. The app controller
-provides the entry-point into ErlyWeb applications via the hook/1 function,
-whose signature is</p>
+provides the entry-point into ErlyWeb applications via the hook/1 function.
+Starting from ErlyWeb 0.6, the app controller can also have an error-trapping,
+error/3.</p>
+
+<h4><a name="hook/1">hook/1</a></h4>
+
+<p>The signature for hook/1 is</p>
 
 <pre>hook(A::arg()) -&gt; hook_result() | [hook_result()]
 
@@ -294,7 +311,8 @@ ewc = any `ewc' tuple
 yaws_term() = any legal Yaws appmod return value</pre>
 
 
-<p>The basic implementation of hook/1 is</p>
+<p>The simplest way of telling ErlyWeb to process a client request is to implement
+hook/1 as follows:</p>
 
 <pre>hook(A) -&gt; {ewc, A}.</pre>
 
@@ -342,6 +360,21 @@ returns only headers.</p>
 
 <p>tells ErlyWeb to embed any rendered data in html_container by passing
 the parameters <code>[A, {data, Data}]</code> to its 'index' function.</p>
+
+<h4><a name="error/3">error/3</a></h4>
+
+<p>Starting from ErlyWeb 0.6, the app controller may implement an error-trapping
+function whose signature is</p>
+
+<pre>error(A, Ewc, Err) -&gt; result()</pre>
+
+<p>When ErlyWeb catches an exit signal when rendering a component, ErlyWeb
+tries to call the app controller's error/3 function. error/3's parameters
+are the Yaws arg, the Ewc tuple representing the original request,
+and the second element of the {'EXIT', Err} tuple that ErlyWeb has caught.
+error/3 may return any of the values that
+hook/1 may return, allowing you to use ErlyWeb components to render
+an error page.</p>
 
 <h4><a name="App_Controller_Compilation_Hooks">App Controller Compilation Hooks</a></h4>
 

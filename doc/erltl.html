@@ -127,9 +127,13 @@ used for documentation only. They are discarded in compile-time.</p>
 <table width="100%" border="1"><tr><td valign="top"><a href="#compile-1">compile/1</a></td><td>Compile the ErlTL file with the default options:
    <code>[{outdir, FileDir}, report_errors, report_warnings, nowarn_unused_vars]</code>.</td></tr>
 <tr><td valign="top"><a href="#compile-2">compile/2</a></td><td>Compile the ErlTL file with user-defined options.</td></tr>
-<tr><td valign="top"><a href="#forms_for_data-2">forms_for_data/2</a></td><td>Parse the raw text of an ErlTL template and return its
+<tr><td valign="top"><a href="#forms_for_data-2">forms_for_data/2</a></td><td>Equivalent to <a href="#forms_form_data-3"><tt>forms_form_data(Data, ModuleName, [])</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#forms_for_data-3">forms_for_data/3</a></td><td>Parse the raw text of an ErlTL template and return its
     representation in abstract forms.</td></tr>
-<tr><td valign="top"><a href="#forms_for_file-1">forms_for_file/1</a></td><td>Parse the ErlTL file and return its representation in Erlang
+<tr><td valign="top"><a href="#forms_for_file-1">forms_for_file/1</a></td><td>Equivalent to <a href="#forms_for_file-2"><tt>forms_for_file(Filename, [])</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#forms_for_file-2">forms_for_file/2</a></td><td>Parse the ErlTL file and return its representation in Erlang
     abstract forms.</td></tr>
 </table>
 
@@ -154,12 +158,22 @@ used for documentation only. They are discarded in compile-time.</p>
  </p>
 
 <h3><a name="forms_for_data-2">forms_for_data/2</a></h3>
-<p><tt>forms_for_data(FileName::string(), ModuleName::atom()) -&gt; {ok, [<a href="#type-form">form()</a>]} | {error, Err}</tt></p>
+<tt>forms_for_data(Data, ModuleName) -&gt; term()
+</tt><p>Equivalent to <a href="#forms_form_data-3"><tt>forms_form_data(Data, ModuleName, [])</tt></a>.</p>
+
+
+<h3><a name="forms_for_data-3">forms_for_data/3</a></h3>
+<p><tt>forms_for_data(Data::binary() | string(), ModuleName::atom(), IncludePaths::[string()]) -&gt; {ok, [<a href="#type-form">form()</a>]} | {error, Err}</tt></p>
 <p>Parse the raw text of an ErlTL template and return its
     representation in abstract forms.</p>
 
 <h3><a name="forms_for_file-1">forms_for_file/1</a></h3>
-<p><tt>forms_for_file(FileName::string()) -&gt; {ok, [<a href="#type-form">form()</a>]} | {error, Err}</tt></p>
+<tt>forms_for_file(FileName) -&gt; term()
+</tt><p>Equivalent to <a href="#forms_for_file-2"><tt>forms_for_file(Filename, [])</tt></a>.</p>
+
+
+<h3><a name="forms_for_file-2">forms_for_file/2</a></h3>
+<p><tt>forms_for_file(FileName::string(), IncludePaths::[string()]) -&gt; {ok, [<a href="#type-form">form()</a>]} | {error, Err}</tt></p>
 <p>Parse the ErlTL file and return its representation in Erlang
     abstract forms.</p>
 </body>

@@ -31,7 +31,9 @@ exposing database fields' metadata.</p>
   metadata.</p>
 
 <h2><a name="index">Function Index</a></h2>
-<table width="100%" border="1"><tr><td valign="top"><a href="#default-1">default/1</a></td><td>Get the field's default value.</td></tr>
+<table width="100%" border="1"><tr><td valign="top"><a href="#attributes-1">attributes/1</a></td><td>Get the field's user-defined attributes.</td></tr>
+<tr><td valign="top"><a href="#attributes-2">attributes/2</a></td><td>Set the field's user-defined attributes.</td></tr>
+<tr><td valign="top"><a href="#default-1">default/1</a></td><td>Get the field's default value.</td></tr>
 <tr><td valign="top"><a href="#erl_type-1">erl_type/1</a></td><td>Get the field's corresponding Erlang type.</td></tr>
 <tr><td valign="top"><a href="#extra-1">extra/1</a></td><td>Get the field's extra metadata.</td></tr>
 <tr><td valign="top"><a href="#html_input_type-1">html_input_type/1</a></td><td>Get the field's default HTML input field type.</td></tr>
@@ -49,6 +51,16 @@ exposing database fields' metadata.</p>
 </table>
 
 <h2><a name="functions">Function Details</a></h2>
+
+<h3><a name="attributes-1">attributes/1</a></h3>
+<p><tt>attributes(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; undefined | [term()]</tt></p>
+<p>Get the field's user-defined attributes.
+ </p>
+
+<h3><a name="attributes-2">attributes/2</a></h3>
+<p><tt>attributes(Field::<a href="#type-erlydb_field">erlydb_field()</a>, Attributes::[term()]) -&gt; <a href="#type-erlydb_field">erlydb_field()</a></tt></p>
+<p>Set the field's user-defined attributes.
+ </p>
 
 <h3><a name="default-1">default/1</a></h3>
 <p><tt>default(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; undefined | term()</tt></p>

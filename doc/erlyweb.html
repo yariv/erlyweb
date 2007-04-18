@@ -24,7 +24,9 @@ ErlyWeb: The Erlang Twist on Web Framworks.
    options as described in the 'compile' module in the Erlang
    documentation (<a href="http://erlang.org" target="_top"><tt>http://erlang.org</tt></a>).</td></tr>
 <tr><td valign="top"><a href="#create_app-2">create_app/2</a></td><td>Create a new ErlyWeb application in the directory AppDir.</td></tr>
-<tr><td valign="top"><a href="#create_component-2">create_component/2</a></td><td>Create all the files (model, view and controller) for a component   
+<tr><td valign="top"><a href="#create_component-2">create_component/2</a></td><td>Equivalent to <a href="#create_component-3"><tt>create_component(Component, AppDir, on)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#create_component-3">create_component/3</a></td><td>Create all the files (model, view and controller) for a component   
 that implements basic CRUD features for a database table.</td></tr>
 <tr><td valign="top"><a href="#get_app_name-1">get_app_name/1</a></td><td>Get the name for the application as specified in the opaque
   'appname' field in the YAWS configuration.</td></tr>
@@ -38,7 +40,7 @@ that implements basic CRUD features for a database table.</td></tr>
 <h2><a name="functions">Function Details</a></h2>
 
 <h3><a name="compile-1">compile/1</a></h3>
-<p><tt>compile(DocRoot::string()) -&gt; ok | {error, Err}</tt></p>
+<p><tt>compile(AooDir::string()) -&gt; ok | {error, Err}</tt></p>
 <p><p>Compile all the files for an application. Files with the '.et'    
 extension are compiled with ErlTL.</p>
  
@@ -73,8 +75,14 @@ to your app. Just remember to turn this option off when you are in
 production mode because it will slow your app down (to turn auto_compile     
 off, just call erlyweb:compile without the auto_compile option).</p>
  
-  - <code>suppress_warnings</code> and <code>suppress_errors</code> tell ErlyWeb to not pass the
-    <code>report_warnings</code> and <code>report_errors</code> to compile:file/2.
+  <p>- <code>suppress_warnings</code> and <code>suppress_errors</code> tell ErlyWeb to not pass the
+    <code>report_warnings</code> and <code>report_errors</code> to compile:file/2.</p>
+ 
+  In addition, Options may include the option values available for
+  for the ErlyDB driver you're using. For example, the MySQL driver
+  accepts the option {pool_id, PoolId}, which indicates which connection
+  pool the MySQL dispatcher should use for querying database metadata.
+  For more information, refer to your ErlyDB driver's documentation.
  </p>
 
 <h3><a name="create_app-2">create_app/2</a></h3>
@@ -85,14 +93,27 @@ off, just call erlyweb:compile without the auto_compile option).</p>
  </p>
 
 <h3><a name="create_component-2">create_component/2</a></h3>
-<p><tt>create_component(Component::atom(), AppDir::string()) -&gt; ok | {error, Err}</tt></p>
+<tt>create_component(Component, AppDir) -&gt; term()
+</tt><p>Equivalent to <a href="#create_component-3"><tt>create_component(Component, AppDir, on)</tt></a>.</p>
+
+
+<h3><a name="create_component-3">create_component/3</a></h3>
+<p><tt>create_component(Component::atom(), AppDir::string(), Magic::on | string()) -&gt; ok | {error, Err}</tt></p>
 <p><p>Create all the files (model, view and controller) for a component   
 that implements basic CRUD features for a database table.   
 'Component' is the name of the component and 'AppDir' is the application's   
 root directory.</p>
  
-  To disable the build-in CRUD features, remove the '-erlyweb_magic(on).'
-  lines in the view and the model.
+  <p>The view and controller source files this function creates have the line  
+"-erlyweb_magic(on)."  
+This tells ErlyWeb that the module in which the line appears should extend  
+the erlyweb_view or erlyweb_controller modules, which provide basic CRUD  
+capabilities.</p>
+ 
+  You can override the default base module setting by replace 'on' with
+  the name of the module you want to extend. You can also disable the
+  build-in CRUD features by removing the '-erlyweb_magic(on).' lines from
+  the view and/or controller source files.
  </p>
 
 <h3><a name="get_app_name-1">get_app_name/1</a></h3>
