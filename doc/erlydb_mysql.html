@@ -26,6 +26,14 @@ This module implements the MySQL driver for ErlyDB.
 <p><tt>esql() = {esql, term()}</tt></p>
 <p>An ErlSQL expression.</p>
 
+<h3><a name="type-option">option()</a></h3>
+<p><tt>option() = {pool_id, atom()} | {allow_unsafe_statements, <a href="#type-boolean">boolean()</a>}</tt></p>
+
+
+<h3><a name="type-options">options()</a></h3>
+<p><tt>options() = [<a href="#type-option">option()</a>]</tt></p>
+
+
 <h3><a name="type-statement">statement()</a></h3>
 <p><tt>statement() = <a href="#type-esql">esql()</a> | binary() | string()</tt></p>
 
@@ -44,7 +52,7 @@ This module implements the MySQL driver for ErlyDB.
     update() function.</td></tr>
 <tr><td valign="top"><a href="#execute_update-3">execute_update/3</a></td><td>Execute a prepared statement with the list of parameters and
     and return the result as the the update() function.</td></tr>
-<tr><td valign="top"><a href="#get_last_insert_id-1">get_last_insert_id/1</a></td><td>Get the id of the last inserted record.</td></tr>
+<tr><td valign="top"><a href="#get_last_insert_id-2">get_last_insert_id/2</a></td><td>Get the id of the last inserted record.</td></tr>
 <tr><td valign="top"><a href="#get_metadata-1">get_metadata/1</a></td><td>Get the table names and fields for the database.</td></tr>
 <tr><td valign="top"><a href="#prepare-2">prepare/2</a></td><td>Register a prepared statement with the MySQL dispatcher.</td></tr>
 <tr><td valign="top"><a href="#q-1">q/1</a></td><td>Execute a statement against the MySQL driver with the default options.</td></tr>
@@ -77,7 +85,7 @@ This module implements the MySQL driver for ErlyDB.
  </p>
 
 <h3><a name="execute-2">execute/2</a></h3>
-<p><tt>execute(Name::atom(), Options::<a href="#type-proplist">proplist()</a>) -&gt; <a href="#type-mysql_result">mysql_result()</a></tt></p>
+<p><tt>execute(Name::atom(), Options::<a href="#type-options">options()</a>) -&gt; <a href="#type-mysql_result">mysql_result()</a></tt></p>
 <p>Execute a statement that was previously prepared with
    prepare/2.
  </p>
@@ -111,13 +119,13 @@ This module implements the MySQL driver for ErlyDB.
     and return the result as the the update() function.
  </p>
 
-<h3><a name="get_last_insert_id-1">get_last_insert_id/1</a></h3>
-<p><tt>get_last_insert_id(PoolId::atom()) -&gt; term()</tt></p>
+<h3><a name="get_last_insert_id-2">get_last_insert_id/2</a></h3>
+<p><tt>get_last_insert_id(Table::undefined, Options::<a href="#type-options">options()</a>) -&gt; term()</tt></p>
 <p>Get the id of the last inserted record.
  </p>
 
 <h3><a name="get_metadata-1">get_metadata/1</a></h3>
-<p><tt>get_metadata(PoolId::atom()) -&gt; <a href="#type-gb_trees">gb_trees()</a></tt></p>
+<p><tt>get_metadata(Options::<a href="#type-options">options()</a>) -&gt; <a href="#type-gb_trees">gb_trees()</a></tt></p>
 <p>Get the table names and fields for the database.
  </p>
 
@@ -138,7 +146,7 @@ This module implements the MySQL driver for ErlyDB.
 <h3><a name="q-2">q/2</a></h3>
 <p><tt>q(Statement::<a href="#type-statement">statement()</a>, Options::<a href="#type-options">options()</a>) -&gt; <a href="#type-mysql_result">mysql_result()</a> | <a href="#type-exit">exit({unsafe_statement, Statement})</a></tt></p>
 <p>Execute a statement directly against the MySQL driver. If
-    Options contains the value {allow_unsafe_sql, true}, binary
+    Options contains the value {allow_unsafe_statements, true}, binary
     and string queries as well as ErlSQL queries with binary and/or
     string expressions are accepted. Otherwise, this function exits.
  </p>
@@ -152,18 +160,18 @@ This module implements the MySQL driver for ErlyDB.
  </p>
 
 <h3><a name="q2-2">q2/2</a></h3>
-<p><tt>q2(Statement::string() | binary(), Options::<a href="#type-proplist">proplist()</a>) -&gt; <a href="#type-mysql_result">mysql_result()</a></tt></p>
+<p><tt>q2(Statement::string() | binary(), Options::<a href="#type-options">options()</a>) -&gt; <a href="#type-mysql_result">mysql_result()</a></tt></p>
 <p>Execute a (binary or string) statement against the MySQL driver.
   ErlyDB doesn't use this function, but it's sometimes convenient for testing.
  </p>
 
 <h3><a name="select-2">select/2</a></h3>
-<p><tt>select(PoolId::atom(), Statement::<a href="#type-statement">statement()</a>) -&gt; {ok, Rows::list()} | {error, Error}</tt></p>
+<p><tt>select(Statement::<a href="#type-statement">statement()</a>, Options::<a href="#type-options">options()</a>) -&gt; {ok, Rows::list()} | {error, Error}</tt></p>
 <p>Execute a raw SELECT statement.
  </p>
 
 <h3><a name="select_as-3">select_as/3</a></h3>
-<p><tt>select_as(Module::atom(), Statement::<a href="#type-statement">statement()</a>, FixedCols::tuple()) -&gt; {ok, Rows} | {error, Error}</tt></p>
+<p><tt>select_as(Module::atom(), Statement::<a href="#type-statement">statement()</a>, Options::<a href="#type-options">options()</a>) -&gt; {ok, Rows} | {error, Error}</tt></p>
 <p>Execute a SELECT statements for records belonging to the given module,
     returning all rows with additional data to support
     higher-level ErlyDB features.
@@ -189,7 +197,7 @@ pool, i.e. 'erlydb_mysql', should be used.</p>
  
    <p><code>database</code>: a string indicating the database name.</p>
  
-   <p><code>allow_unsafe_sql</code>: a boolean value indicating whether the driver should
+   <p><code>allow_unsafe_statements</code>: a boolean value indicating whether the driver should
    accept string and/or binary SQL queries and query fragments. If you
    set this value to
    'true', ErlyDB lets you use string or binary Where and Extras expressions

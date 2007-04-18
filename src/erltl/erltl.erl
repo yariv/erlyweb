@@ -203,14 +203,14 @@ compile(FileName, Options) ->
     end.
 
 
-%% @equiv forms_for_file(Filename, []).
+%% @equiv forms_for_file(Filename, [])
 forms_for_file(FileName) ->
     forms_for_file(FileName, []).
 
 %% @doc Parse the ErlTL file and return its representation in Erlang
 %%   abstract forms.
 %% @spec forms_for_file(FileName::string(),
-%%   IncludePaths:[string()]) -> {ok, [form()]} | {error, Err}
+%%   IncludePaths::[string()]) -> {ok, [form()]} | {error, Err}
 forms_for_file(FileName, IncludePaths) ->
     case file:read_file(FileName) of
 	{ok, Binary} ->
@@ -220,7 +220,7 @@ forms_for_file(FileName, IncludePaths) ->
 	    Err
     end.
 
-%% @equiv forms_form_data(Data, ModuleName, []).
+%% @equiv forms_form_data(Data, ModuleName, [])
 forms_for_data(Data, ModuleName) ->
     forms_for_data(Data, ModuleName, []).
 

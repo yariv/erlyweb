@@ -48,7 +48,7 @@ create_app(AppName, AppDir) ->
 	Other -> Other
     end.
 
-%% @equiv create_component(Component, AppDir, on).
+%% @equiv create_component(Component, AppDir, on)
 create_component(Component, AppDir) ->
     create_component(Component, AppDir, on).
 

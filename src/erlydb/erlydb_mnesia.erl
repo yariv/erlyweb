@@ -809,7 +809,7 @@ transaction(Fun, _Options) ->
 
 %% @doc Execute a statement against Mnesia.
 %%
-%% @spec select(Statement::statement(), Options:options()) ->
+%% @spec select(Statement::statement(), Options::options()) ->
 %%   {ok, Rows::list()} | {error, Error}
 select(Statement, Options) ->
     select2(Statement, Options, []).
@@ -855,7 +855,7 @@ update(Statement, Options) ->
 
 %% @doc Get the id of the last inserted record.
 %%
-%% @spec get_last_insert_id(Table:atom(), Options::options()) -> term()
+%% @spec get_last_insert_id(Table::atom(), Options::options()) -> term()
 get_last_insert_id(_Table, _Options) ->
     Val = get(mnesia_last_insert_id),
     {ok, Val}.

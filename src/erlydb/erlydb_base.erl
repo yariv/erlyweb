@@ -17,6 +17,9 @@
 %% and many-to-many) and mappings between Erlang modules and database tables
 %% and fields.
 %%
+%% Starting from ErlyWeb 0.6, you can add arbitrary metadata to database
+%% fields as well as define specific fields to be read-only.
+%% For more information, see {@link fields/0}.
 
 %% @type record(). An Erlang tuple containing the values for (some of)
 %% the fields of a database row, as well as additional data used by
@@ -189,6 +192,15 @@ relations() ->
 %% database fields from the table besides the id field should be exposed
 %% to records from the module.
 %% The '*' atom indicates all fields, which is the default setting.
+%%
+%% Starting from ErlyWeb 0.6, you can add arbitrary metadata to each field
+%% by describing it as a tuple of the form
+%% `{FieldName::atom(), Attributes::[term()]}'. To retrieve the list of
+%% attributes for a field in a given model, you can call
+%% `erlydb_field:attributes(Model:db_field(FieldName))'.
+%%
+%% If the list of attributes contains the atom `read_only', ErlyDB
+%% excludes the field from INSERT and UPDATE statements.
 %%
 %% Note: You are free to call the fields() function from other modules
 %% to create arbitrary field set relations.
@@ -662,7 +674,7 @@ update(Module, Props, Where) ->
 	    exit(Err)
     end.
 
-%% @equiv increment(Module, Fields, undefined).
+%% @equiv increment(Module, Fields, undefined)
 increment(Module, Fields) ->
     increment(Module, Fields, undefined).
 
@@ -674,11 +686,11 @@ increment(Module, Fields) ->
 %% '''
 %%
 %% @spec increment(Module::atom(), Fields::[atom()], Where::where_expr()) ->
-%%   num_rows_updated::integer()
+%%   NumRowsUpdated::integer()
 increment(Module, Fields, Where) ->
     inc_dec(Module, Fields, Where, '+').
 
-%% @equiv decrement(Module, Fields, undefined).
+%% @equiv decrement(Module, Fields, undefined)
 decrement(Module, Fields) ->
     decrement(Module, Fields, undefined).
 

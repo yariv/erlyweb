@@ -23,13 +23,16 @@ For an exact description of how each function in
 erlydb_base is used in generated modules, refer to the function's  
 documentation.</p>
  
-  You can override some of the default code generation behavior by
-  providing your own implementations for some of erlydb_base's functions in
-  generated modules.
-  This is useful for telling ErlyDB about relations (one-to-many
-  and many-to-many) and mappings between Erlang modules and database tables
-  and fields.
+  <p>You can override some of the default code generation behavior by  
+providing your own implementations for some of erlydb_base's functions in  
+generated modules.  
+This is useful for telling ErlyDB about relations (one-to-many  
+and many-to-many) and mappings between Erlang modules and database tables  
+and fields.</p>
  
+  Starting from ErlyWeb 0.6, you can add arbitrary metadata to database
+  fields as well as define specific fields to be read-only.
+  For more information, see <a href="#fields-0"><code>fields/0</code></a>.
 <h2><a name="types">Data Types</a></h2>
 
 <h3><a name="type-extras_expr">extras_expr()</a></h3>
@@ -96,6 +99,9 @@ fields for the module.</td></tr>
 <tr><td valign="top"><a href="#db_pk_fields-1">db_pk_fields/1</a></td><td>Return the list of fields (see @link erlydb_field)
   for which <code>erlydb_field:key(Field) == primary</code> is true.</td></tr>
 <tr><td valign="top"><a href="#db_table-1">db_table/1</a></td><td>Get the table name for the module.</td></tr>
+<tr><td valign="top"><a href="#decrement-2">decrement/2</a></td><td>Equivalent to <a href="#decrement-3"><tt>decrement(Module, Fields, undefined)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#decrement-3">decrement/3</a></td><td>Similar to <a href="#increment-3"><code>increment/3</code></a>, but decrements the fields' values.</td></tr>
 <tr><td valign="top"><a href="#delete-1">delete/1</a></td><td>Delete the record from the database.</td></tr>
 <tr><td valign="top"><a href="#delete_all-1">delete_all/1</a></td><td>Delete all records from the module and return the number of records  
 actually deleted.</td></tr>
@@ -125,9 +131,13 @@ according to the Where and Extras expressions.</td></tr>
 many-to-one relation.</td></tr>
 <tr><td valign="top"><a href="#get-2">get/2</a></td><td>A generic getter function ErlyDB uses to generate getters, e.g.</td></tr>
 <tr><td valign="top"><a href="#get_module-1">get_module/1</a></td><td>Get the name of the module to which the record belongs.</td></tr>
+<tr><td valign="top"><a href="#increment-2">increment/2</a></td><td>Equivalent to <a href="#increment-3"><tt>increment(Module, Fields, undefined)</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#increment-3">increment/3</a></td><td>Increment the values for the listed fields in the module's table.</td></tr>
 <tr><td valign="top"><a href="#insert-1">insert/1</a></td><td>Insert one or more records into the database.</td></tr>
 <tr><td valign="top"><a href="#is_new-1">is_new/1</a></td><td>Check if the record has been saved in the database.</td></tr>
 <tr><td valign="top"><a href="#is_new-2">is_new/2</a></td><td>Set the record's 'is_new' field to the given value.</td></tr>
+<tr><td valign="top"><a href="#is_related-3">is_related/3</a></td><td/></tr>
 <tr><td valign="top"><a href="#new-1">new/1</a></td><td>Create a new record with all fields set to 'undefined'.</td></tr>
 <tr><td valign="top"><a href="#new_from_strings-2">new_from_strings/2</a></td><td>Equivalent to <a href="#new_with-3"><tt>new_with(Module, Fields, fun field_from_string/2)</tt></a>.
 </td></tr>
@@ -352,6 +362,15 @@ fields for the module.</p>
 <p>Get the table name for the module.
  </p>
 
+<h3><a name="decrement-2">decrement/2</a></h3>
+<tt>decrement(Module, Fields) -&gt; term()
+</tt><p>Equivalent to <a href="#decrement-3"><tt>decrement(Module, Fields, undefined)</tt></a>.</p>
+
+
+<h3><a name="decrement-3">decrement/3</a></h3>
+<tt>decrement(Module, Fields, Where) -&gt; term()
+</tt><p>Similar to <a href="#increment-3"><code>increment/3</code></a>, but decrements the fields' values.</p>
+
 <h3><a name="delete-1">delete/1</a></h3>
 <p><tt>delete(Rec::<a href="#type-record">record()</a>) -&gt; ok | <a href="#type-exit">exit(Err)</a></tt></p>
 <p><p>Delete the record from the database. To facilitate the after_delete  
@@ -400,15 +419,12 @@ corresponding Erlang types.</p>
   <p>This function assumes field values are formatted according to the logic in
   <a href="#field_to_iolist-2"><code>field_to_iolist/2</code></a>. In addition, it checks the following ranges:</p>
  
-  <p>second: 0-59<br>
+  second: 0-59<br>
   minute: 0-59<br>
   hour: 0-23<br>
   day: 1-31<br>
   month: 1-12<br>
-  year: 1-9999<br></p>
- 
-  If you set a field to 'undefined' when erlydb_field:null(ErlyDbField)
-  returns 'true', this function exits.
+  year: 1-9999<br>
  </p>
 
 <h3><a name="field_to_iolist-1">field_to_iolist/1</a></h3>
@@ -421,23 +437,24 @@ corresponding Erlang types.</p>
 <p><tt>field_to_iolist(Val::term, Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; <a href="#type-iolist">iolist()</a></tt></p>
 <p>This function converts standard ErlyDB field values to iolists.
   This is its source code:
-  <pre>  case Val of
-    Bin when is_binary(Bin) -&gt; Val;
-    List when is_list(List) -&gt; Val;
-    Int when is_integer(Int) -&gt; integer_to_list(Val);
-    Float when is_float(Float) -&gt; float_to_list(Val);
-    {datetime, {{Year,Month,Day},{Hour,Minute,Second}}} -&gt;
-       io_lib:format("~b/~b/~b ~b:~b:~b",
-   	  [Month, Day, Year, Hour, Minute, Second]);
-    {date, {Year, Month, Day}} -&gt;
-       io_lib:format("~b/~b/~b",
-          [Month, Day, Year]);
-    {time, {Hour, Minute, Second}}  -&gt;
-       io_lib:format("~b:~b:~b", [Hour, Minute, Second]);
-    undefined -&gt; [];
-    _Other -&gt;
-       io_lib:format("~p", [Val])
-  end.</pre>
+  <pre>      case Val of
+  	Bin when is_binary(Bin) -&gt; Val;
+  	List when is_list(List) -&gt; Val;
+  	Int when is_integer(Int) -&gt; integer_to_list(Val);
+  	Float when is_float(Float) -&gt; float_to_list(Val);
+  	{datetime, {{Year,Month,Day},{Hour,Minute,Second}}} -&gt;
+  	    io_lib:format("~b/~b/~b ~2.10.0b:~2.10.0b:~2.10.0b",
+  			  [Month, Day, Year, Hour, Minute, Second]);
+  	{date, {Year, Month, Day}} -&gt;
+  	    io_lib:format("~b/~b/~b",
+  			  [Month, Day, Year]);
+  	{time, {Hour, Minute, Second}}  -&gt;
+  	    io_lib:format("~2.10.0b:~2.10.0b:~2.10.0b",
+  			  [Hour, Minute, Second]);
+  	undefined -&gt; [];
+  	_Other -&gt;
+  	    io_lib:format("~p", [Val])
+     end.</pre>
  </p>
 
 <h3><a name="fields-0">fields/0</a></h3>
@@ -447,6 +464,15 @@ You can override this function to specify which
 database fields from the table besides the id field should be exposed  
 to records from the module.  
 The '*' atom indicates all fields, which is the default setting.</p>
+ 
+  <p>Starting from ErlyWeb 0.6, you can add arbitrary metadata to each field
+  by describing it as a tuple of the form
+  <code>{FieldName::atom(), Attributes::[term()]}</code>. To retrieve the list of
+  attributes for a field in a given model, you can call
+  <code>erlydb_field:attributes(Model:db_field(FieldName))</code>.</p>
+ 
+  <p>If the list of attributes contains the atom <code>read_only</code>, ErlyDB  
+excludes the field from INSERT and UPDATE statements.</p>
  
   <p>Note: You are free to call the fields() function from other modules  
 to create arbitrary field set relations.  
@@ -607,6 +633,19 @@ defining many-to-one relations.</p>
 <p>Get the name of the module to which the record belongs.
  </p>
 
+<h3><a name="increment-2">increment/2</a></h3>
+<tt>increment(Module, Fields) -&gt; term()
+</tt><p>Equivalent to <a href="#increment-3"><tt>increment(Module, Fields, undefined)</tt></a>.</p>
+
+
+<h3><a name="increment-3">increment/3</a></h3>
+<p><tt>increment(Module::atom(), Fields::[atom()], Where::<a href="#type-where_expr">where_expr()</a>) -&gt; NumRowsUpdated::integer()</tt></p>
+<p>Increment the values for the listed fields in the module's table.
+  This executes the query
+  <pre>  UPDATE [table] SET [field1] = [field1] + 1, [field2] = [field2] + 1...
+  WHERE [where_expr]</pre>
+ </p>
+
 <h3><a name="insert-1">insert/1</a></h3>
 <p><tt>insert(Rec::<a href="#type-record">record()</a> | [<a href="#type-record">record()</a>]) -&gt; NumInserts::integer() | <a href="#type-exit">exit(Err)</a></tt></p>
 <p><p>Insert one or more records into the database.</p>
@@ -626,6 +665,10 @@ defining many-to-one relations.</p>
 <p><tt>is_new(Rec::<a href="#type-record">record()</a>, Val::<a href="#type-boolean">boolean()</a>) -&gt; NewRec::<a href="#type-record">record()</a></tt></p>
 <p>Set the record's 'is_new' field to the given value.
  </p>
+
+<h3><a name="is_related-3">is_related/3</a></h3>
+<tt>is_related(JoinTable, Rec, OtherRec) -&gt; term()
+</tt>
 
 <h3><a name="new-1">new/1</a></h3>
 <p><tt>new(Module::atom()) -&gt; <a href="#type-record">record()</a></tt></p>

@@ -191,7 +191,8 @@ attributes(Field) ->
 
 %% @doc Set the field's user-defined attributes.
 %%
-%% @spec extra(Field::erlydb_field(), Attributes::[term()]) -> erlydb_field()
+%% @spec attributes(Field::erlydb_field(), Attributes::[term()]) ->
+%%   erlydb_field()
 attributes(Field, Attributes) ->
     Field#erlydb_field{attributes = Attributes}.
 
