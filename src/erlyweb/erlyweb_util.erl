@@ -68,11 +68,17 @@ create_app(AppName, Dir) ->
 
 create_file(FileName, Bin) ->
     ?Info("creating ~p", [FileName]),
-    case file:write_file(FileName, Bin) of
-	ok ->
-	    ok;
-	Err ->
-	    exit({Err, FileName})
+    case file:open(FileName, [read]) of
+	{ok, File} ->
+	    file:close(File),
+	    exit({already_exists, FileName});
+	_ ->
+	    case file:write_file(FileName, Bin) of
+		ok ->
+		    ok;
+		Err ->
+		    exit({Err, FileName})
+	    end
     end.
 	
 app_controller(AppName) ->
@@ -157,9 +163,10 @@ css() ->
 
 %% @hidden
 create_component(ComponentName, AppDir, Magic) ->
-    MagicStr = if Magic == on ->
-		       "erlyweb";
-		  true ->
+    MagicStr = case is_atom(Magic) of
+		   true ->
+		       atom_to_list(Magic);
+		   false ->
 		       Magic
 	       end,
     Files = 

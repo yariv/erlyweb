@@ -363,29 +363,33 @@ compile_file(FileName, BaseName, Type, Options, IncludePaths) ->
     end.
 
 add_forms(controller, BaseName, MetaMod) ->
-    M0 = add_func(MetaMod, private, 0, "private() -> false."),
-    M1 = add_func(M0, before_call, 2,
-		  "before_call(FuncName, Params) -> {FuncName, Params}."),
-    M2 = add_func(M1, before_return, 3,
-		  "before_return(_FuncName, _Params, Response) -> Response."),
-    case smerl:get_attribute(M2, erlyweb_magic) of
-	{ok, Val} ->
-	    Base = case Val of
-		       on -> erlyweb_controller;
-		       Other -> Other
-		   end,
-	    {ModelNameStr, _} = lists:split(length(BaseName) - 11, BaseName),
-	    ModelName = list_to_atom(ModelNameStr),
-	    M3 = smerl:extend(Base, M2, 1),
-	    smerl:embed_all(M3, [{'Model', ModelName}]);
-	_ -> M2
-    end;
+    M2 = case smerl:get_attribute(MetaMod, erlyweb_magic) of
+	     {ok, Val} ->
+		 Base = case Val of
+			    on -> erlyweb_controller;
+			    Other -> list_to_atom(atom_to_list(Other) ++
+						  "_controller")
+			end,
+		 {ModelNameStr, _} = lists:split(length(BaseName) - 11,
+						 BaseName),
+		 ModelName = list_to_atom(ModelNameStr),
+		 M1 = smerl:extend(Base, MetaMod, 1),
+		 smerl:embed_all(M1, [{'Model', ModelName}]);
+	     _ -> MetaMod
+	 end,
+    M3 = add_func(M2, private, 0, "private() -> false."),
+    M4 = add_func(M3, before_call, 2,
+		  "before_call(FuncName, Params) -> "
+		  "{FuncName, Params}."),
+    add_func(M4, before_return, 3,
+	     "before_return(_FuncName, _Params, Response) -> "
+	     "Response.");
 add_forms(view, _BaseName, MetaMod) ->
     case smerl:get_attribute(MetaMod, erlyweb_magic) of
 	{ok, Val} ->
 	    Base = case Val of
 		       on -> erlyweb_view;
-		       Other -> Other
+		       Other -> list_to_atom(atom_to_list(Other) ++ "_view")
 		   end,
 	    smerl:extend(Base, MetaMod);
 	_ -> MetaMod

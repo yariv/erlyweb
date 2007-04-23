@@ -69,7 +69,7 @@ create_component(Component, AppDir) ->
 %% the view and/or controller source files.
 %%
 %% @spec create_component(Component::atom(), AppDir::string(),
-%%    Magic::on | string()) ->
+%%    Magic::on | atom() | string()) ->
 %%   ok | {error, Err}
 create_component(Component, AppDir, Magic) ->
     case catch erlyweb_util:create_component(Component, AppDir, Magic) of
