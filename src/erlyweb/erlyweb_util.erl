@@ -163,21 +163,24 @@ css() ->
 
 %% @hidden
 create_component(ComponentName, AppDir, Magic) ->
-    MagicStr = case is_atom(Magic) of
-		   true ->
-		       atom_to_list(Magic);
-		   false ->
-		       Magic
+    MagicStr = if Magic == on ->
+		       "erlyweb";
+		  true ->
+		       if is_atom(Magic) ->
+			       atom_to_list(Magic);
+			  true ->
+			       Magic
+		       end
 	       end,
     Files = 
 	[{ComponentName ++ ".erl",
 	  "-module(" ++ ComponentName ++ ")."},
 	 {ComponentName ++ "_controller.erl",
 	  "-module(" ++ ComponentName ++ "_controller).\n"
-	  "-erlyweb_magic(" ++ MagicStr ++")."},
+	  "-erlyweb_magic(" ++ MagicStr ++"_controller)."},
 	 {ComponentName ++ "_view.erl",
 	  "-module(" ++ ComponentName ++ "_view).\n"
-	  "-erlyweb_magic(" ++ MagicStr ++ ")."}],
+	  "-erlyweb_magic(" ++ MagicStr ++ "_view)."}],
     lists:foreach(
       fun({FileName, Text}) ->
 	      create_file(AppDir ++ "/src/components/" ++ FileName, Text)

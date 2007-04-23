@@ -367,8 +367,7 @@ add_forms(controller, BaseName, MetaMod) ->
 	     {ok, Val} ->
 		 Base = case Val of
 			    on -> erlyweb_controller;
-			    Other -> list_to_atom(atom_to_list(Other) ++
-						  "_controller")
+			    Other -> Other
 			end,
 		 {ModelNameStr, _} = lists:split(length(BaseName) - 11,
 						 BaseName),
@@ -389,7 +388,7 @@ add_forms(view, _BaseName, MetaMod) ->
 	{ok, Val} ->
 	    Base = case Val of
 		       on -> erlyweb_view;
-		       Other -> list_to_atom(atom_to_list(Other) ++ "_view")
+		       Other -> Other
 		   end,
 	    smerl:extend(Base, MetaMod);
 	_ -> MetaMod
