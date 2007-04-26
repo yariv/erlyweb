@@ -113,6 +113,11 @@ compile(AppDir) ->
 %%    production mode because it will slow your app down (to turn auto_compile
 %%    off, just call erlyweb:compile without the auto_compile option).
 %%
+%% -  `{auto_compile_exclude, Val}', where Val is a folder in docroot (or a
+%%    URL path) which gets excluded from auto-compiling. This is useful when
+%%    erlyweb is mapped to '/' and there are a lots of static files in that 
+%%    excluded folder. Example: {auto_compile_exclude, "/static"} 
+%%
 %% - `suppress_warnings' and `suppress_errors' tell ErlyWeb to not pass the
 %%   `report_warnings' and `report_errors' to compile:file/2.
 %%
@@ -145,11 +150,14 @@ out(A) ->
  	    case AppData:auto_compile() of
  		false -> ok;
  		{true, Options} ->
-		    AppDir = AppData:get_app_dir(),
-  		    case compile(AppDir, Options) of
-  			{ok, _} -> ok;
-  			Err -> exit(Err)
-  		    end
+                    case lists:keysearch(auto_compile_exclude, 1, Options) of
+	                {value, {_, Val}} -> 
+                            case string:str(yaws_arg:appmoddata(A), Val) of
+                                1 -> ok;
+				_ -> auto_compile(AppData, Options)
+                            end;
+	                false -> auto_compile(AppData, Options)
+                    end
  	    end,
   	    A1 = yaws_arg:opaque(A,
   				 [{app_data_module, AppData} |
@@ -159,7 +167,13 @@ out(A) ->
 			   AppController, AppController:hook(A1),
 			   AppData)
     end.
-	    
+	    	    
+auto_compile(AppData, Options) ->
+    AppDir = AppData:get_app_dir(),
+    case compile(AppDir, Options) of
+        {ok, _} -> ok;
+        Err -> exit(Err)
+    end.
 
 handle_request(A,
 	       AppController,

@@ -2,6 +2,11 @@ v0.6.1
 
 - Fixed erlyweb_magic.
 
+- Added compiling option: {auto_compile_exclude, Val}, where 'Val' is a
+  folder in docroot (or a URL path). This is useful when erlyweb is mapped 
+  to '/' and there are a lots of static files in that excluded folder. 
+  Example: {auto_compile_exclude, "/static"}.
+
 v0.6
 
 - Added support for read-only fields and setting for arbitrary user-defined
