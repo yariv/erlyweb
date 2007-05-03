@@ -62,7 +62,7 @@ create_app(AppName, Dir) ->
 	      end, Files),
 	    ok;
 	false ->
-	    ?Error("%p isn't a directory", [Dir]),
+	    ?Error("~p isn't a directory", [Dir]),
 	    exit({invalid_directory, Dir})
     end.
 
