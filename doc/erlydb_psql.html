@@ -1,0 +1,131 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Module erlydb_psql</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module erlydb_psql</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>This module implements the Postgresql driver for ErlyDB.
+<p>Copyright © Roberto Saccon 2007
+ </p>
+
+<p><b>Authors:</b> <a href="mailto:Roberto Saccon (rsaccon@gmail.com)"><tt>Roberto Saccon (rsaccon@gmail.com)</tt></a>.</p>
+
+<h2><a name="description">Description</a></h2><p>This module implements the Postgresql driver for ErlyDB.</p>
+ 
+  <p>Based on code initially developed by Brian Olson, see  
+(http://groups.google.com/group/erlyweb/browse_frm/thread/e1585240f790c87c)</p>
+ 
+  <p>This is an internal ErlyDB module that you normally shouldn't have to  
+use directly.</p>
+ 
+  <p>Postgresql driver is an OTP application.  
+Define database details and authetication credentials for the driver pool  
+in psql.app.src and run 'make app' to crate an OTP-ish ebin/psql.app</p>
+ 
+  For license information see LICENSE.txt
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#get_last_insert_id-2">get_last_insert_id/2</a></td><td>Get the id of the last inserted record.</td></tr>
+<tr><td valign="top"><a href="#get_metadata-1">get_metadata/1</a></td><td>Get the table names and fields for the database.</td></tr>
+<tr><td valign="top"><a href="#q-1">q/1</a></td><td>Execute a statement directly against the PostgreSQL driver.</td></tr>
+<tr><td valign="top"><a href="#q-2">q/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#q2-1">q2/1</a></td><td>Execute a (binary or string) statement against the Postgresql driver
+  using the default options.</td></tr>
+<tr><td valign="top"><a href="#q2-2">q2/2</a></td><td>Execute a (binary or string) statement against the MySQL driver.</td></tr>
+<tr><td valign="top"><a href="#select-2">select/2</a></td><td>Execute a raw SELECT statement.</td></tr>
+<tr><td valign="top"><a href="#select_as-3">select_as/3</a></td><td>Execute a SELECT statements for records belonging to the given module,
+    returning all rows with additional data to support
+    higher-level ErlyDB features.</td></tr>
+<tr><td valign="top"><a href="#start-0">start/0</a></td><td>Starts the psql and sql applications up if they are not
+  already started.</td></tr>
+<tr><td valign="top"><a href="#stop-0">stop/0</a></td><td>Stops the psql and sql applications.</td></tr>
+<tr><td valign="top"><a href="#transaction-2">transaction/2</a></td><td>Models a transaction.</td></tr>
+<tr><td valign="top"><a href="#update-2">update/2</a></td><td>Execute a INSERT, DELETE or UPDATE statement.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="get_last_insert_id-2">get_last_insert_id/2</a></h3>
+<div class="spec">
+<p><tt>get_last_insert_id(TableName::atom(), Options::<a href="#type-proplist">proplist()</a>) -&gt; term()</tt></p>
+</div><p>Get the id of the last inserted record.
+ </p>
+
+<h3 class="function"><a name="get_metadata-1">get_metadata/1</a></h3>
+<div class="spec">
+<p><tt>get_metadata() -&gt; term()</tt></p>
+</div><p>Get the table names and fields for the database.</p>
+
+<h3 class="function"><a name="q-1">q/1</a></h3>
+<div class="spec">
+<p><tt>q() -&gt; term()</tt></p>
+</div><p>Execute a statement directly against the PostgreSQL driver. If
+  Options contains the value {allow_unsafe_sql, true}, binary and string
+  queries as well as ErlSQL queries with binary and/or string expressions are
+  accepted. Otherwise the function crashes.</p>
+
+<h3 class="function"><a name="q-2">q/2</a></h3>
+<div class="spec">
+<p><tt>q() -&gt; term()</tt></p>
+</div>
+
+<h3 class="function"><a name="q2-1">q2/1</a></h3>
+<div class="spec">
+<p><tt>q2(Statement::string() | binary()) -&gt; <a href="#type-psql_result">psql_result()</a></tt></p>
+</div><p>Execute a (binary or string) statement against the Postgresql driver
+  using the default options.
+ </p>
+
+<h3 class="function"><a name="q2-2">q2/2</a></h3>
+<div class="spec">
+<p><tt>q2(Statement::string() | binary(), Options::<a href="#type-proplist">proplist()</a>) -&gt; <a href="#type-psql_result">psql_result()</a></tt></p>
+</div><p>Execute a (binary or string) statement against the MySQL driver.
+ </p>
+
+<h3 class="function"><a name="select-2">select/2</a></h3>
+<div class="spec">
+<p><tt>select(PoolId::atom(), Statement::<a href="#type-statement">statement()</a>) -&gt; {ok, Rows::list()} | {error, Error}</tt></p>
+</div><p>Execute a raw SELECT statement.
+ </p>
+
+<h3 class="function"><a name="select_as-3">select_as/3</a></h3>
+<div class="spec">
+<p><tt>select_as(Module::atom(), Statement::<a href="#type-statement">statement()</a>, FixedCols::tuple()) -&gt; {ok, Rows} | {error, Error}</tt></p>
+</div><p>Execute a SELECT statements for records belonging to the given module,
+    returning all rows with additional data to support
+    higher-level ErlyDB features.
+ </p>
+
+<h3 class="function"><a name="start-0">start/0</a></h3>
+<div class="spec">
+<p><tt>start() -&gt; term()</tt></p>
+</div><p>Starts the psql and sql applications up if they are not
+  already started. Any errors that are returned are ignored.
+ </p>
+
+<h3 class="function"><a name="stop-0">stop/0</a></h3>
+<div class="spec">
+<p><tt>stop() -&gt; term()</tt></p>
+</div><p>Stops the psql and sql applications.</p>
+
+<h3 class="function"><a name="transaction-2">transaction/2</a></h3>
+<div class="spec">
+<p><tt>transaction() -&gt; term()</tt></p>
+</div><p>Models a transaction. If an error occurs in the function provided, then
+  the transaction will rollback. Otherwise it will commit.</p>
+
+<h3 class="function"><a name="update-2">update/2</a></h3>
+<div class="spec">
+<p><tt>update(Statement::<a href="#type-statement">statement()</a>, Options::<a href="#type-options">options()</a>) -&gt; {ok, NumAffected} | {error, Err}</tt></p>
+</div><p>Execute a INSERT, DELETE or UPDATE statement.
+ </p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, May 6 2007, 09:27:12.</i></p>
+</body>
+</html>

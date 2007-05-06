@@ -150,19 +150,17 @@ out(A) ->
  	    case AppData:auto_compile() of
  		false -> ok;
  		{true, Options} ->
-                    case lists:keysearch(auto_compile_exclude, 1, Options) of
-	                {value, {_, Val}} -> 
-                            case string:str(yaws_arg:appmoddata(A), Val) of
-                                1 -> ok;
+        case lists:keysearch(auto_compile_exclude, 1, Options) of
+	    {value, {_, Val}} -> 
+          case string:str(yaws_arg:appmoddata(A), Val) of
+        1 -> ok;
 				_ -> auto_compile(AppData, Options)
-                            end;
-	                false -> auto_compile(AppData, Options)
-                    end
+          end;
+	    false -> auto_compile(AppData, Options)
+        end
  	    end,
-  	    A1 = yaws_arg:opaque(A,
-  				 [{app_data_module, AppData} |
-  				  yaws_arg:opaque(A)]),
-
+  	  A1 = yaws_arg:opaque(A,
+  				 [{app_data_module, AppData} | yaws_arg:opaque(A)]),
  	    handle_request(A1,
 			   AppController, AppController:hook(A1),
 			   AppData)
@@ -199,24 +197,26 @@ handle_request(A,
 	      Data
       end).
 
-handle_request(A, AppController, Ewc, AppData, DataFun) ->
+handle_request(A, AppController, Ewc, AppData, DataFun) -> 
     case catch ewc(Ewc, AppData) of
-	{response, Elems} ->
-	    lists:map(
-	      fun({rendered, Data}) ->
-		      {html, DataFun(Data)};
-		 (Header) ->
-		      Header
-	      end, Elems);
-	{'EXIT', _} = Err ->
+	{response, Elems} -> 
+ 	    lists:map(
+ 	        fun({rendered, Data}) -> 
+        {html, DataFun(Data)};
+          ({rendered, MimeType, Data}) -> 
+        {content, MimeType, DataFun(Data)};
+          (Header) ->
+ 		    Header
+ 	    end, Elems);
+  {'EXIT', _} = Err ->
 	    case catch AppController:error(A, Ewc, Err) of
 		{'EXIT', _} ->
 		    Err;
 		Other ->
 		    handle_request(A,
-				   AppController,
-				   Other,
-				   AppData)
+				  AppController,
+				  Other,
+				  AppData)
 	    end
     end.
       
@@ -289,7 +289,7 @@ ewc({ewc, Component, FuncName, Params}, AppData) ->
 
 ewc({ewc, Controller, View, FuncName, [A | _] = Params}, AppData) ->
     {FuncName1, Params1} = Controller:before_call(FuncName, Params),
-    Response = apply(Controller, FuncName1, Params1),
+    Response = apply(Controller, FuncName1, Params1),    
     Response1 = Controller:before_return(FuncName1, Params1, Response),
     Response2 = case Response1 of
 		    {response, _} ->
@@ -304,9 +304,16 @@ ewc({ewc, Controller, View, FuncName, [A | _] = Params}, AppData) ->
 				{response, [{body, Body}]}
 			end
 		end,
-    handle_response(A, Response2, View, FuncName1, AppData);
+    Response3 = handle_response(A, Response2, View, FuncName1, AppData),
+    [_A | ParamsRest] = Params1, 
+    Rendered = case Response3 of
+  {response, [{rendered, Val2}]} -> Val2;
+  {response, [{rendered, _MimeType, Val2}]} -> Val2
+    end,
+    catch Controller:after_render(FuncName1, ParamsRest, Rendered),
+    Response3;
 
-ewc(Other, _AppData) -> {response, [Other]}.
+ewc(Other, _AppData) ->  {response, [Other]}.
 
 
 is_redirect(A, Elem) ->
@@ -338,16 +345,17 @@ ewr2(A, PathElems) ->
     {redirect_local, [AppDir | Path]}.
 
 handle_response(A, {response, Elems}, View, FuncName, AppData) ->
-    Elems2 = 
-	lists:map(
-	  fun({body, Ewc}) ->
+    Elems2 = lists:map( 
+  	    fun({body, Ewc}) ->
 		  {rendered, View:FuncName(render_subcomponent(Ewc, AppData))};
-	     ({replace, Ewc})  when is_tuple(Ewc), element(1, Ewc) ==
+        ({body, MimeType, Ewc}) ->
+		  {rendered, MimeType, View:FuncName(render_subcomponent(Ewc, AppData))};
+	      ({replace, Ewc})  when is_tuple(Ewc), element(1, Ewc) ==
 				    'ewc'->
 		  {rendered, render_subcomponent(Ewc, AppData)};
-	     ({replace, Ewc}) ->
+	      ({replace, Ewc}) ->
 		  exit({expecting_ewc_tuple, Ewc});
-	     (Elem) ->
+	      (Elem) ->
 		  ewr(A, Elem)
 	  end, Elems),
     {response, Elems2}.

@@ -7,6 +7,15 @@ v0.6.1
   to '/' and there are a lots of static files in that excluded folder. 
   Example: {auto_compile_exclude, "/static"}.
 
+- Added after_render/3 controller hook. This allows to access the 
+  an iolist of the rendered output.
+
+- Added the possibliy of using  ErlTl templates for non-HTML. Any MIME 
+  type can be specified with {response, [{body, MimeType, Body}]} as
+  return value for controller functions.
+
+- regenerated documentation and added docs / cleandocs option to Makefile
+
 v0.6
 
 - Added support for read-only fields and setting for arbitrary user-defined

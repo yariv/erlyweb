@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Module erlyweb_forms</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module erlyweb_forms</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>This module contains a few functions useful when working with
+  HTML forms in ErlyWeb.
+<p>Copyright © Yariv Sadan 2006-2007</p>
+
+<p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivsblog@gmail.com"><tt>yarivsblog@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com)" target="_top">http://yarivsblog.com)</a></tt>].</p>
+
+<h2><a name="description">Description</a></h2>This module contains a few functions useful when working with
+  HTML forms in ErlyWeb.
+ 
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#to_recs-2">to_recs/2</a></td><td>to_recs/2 helps process POST requests containing fields that  
+belong to multiple records from one or more ErlyDB models.</td></tr>
+<tr><td valign="top"><a href="#validate-3">validate/3</a></td><td>validate/3 helps validate the inputs of arbitary forms.</td></tr>
+<tr><td valign="top"><a href="#validate1-3">validate1/3</a></td><td>validate1/3 is similar to validate/3, but it expects the parameter
+  list to match the field list both in the number of elements and in their
+  order.</td></tr>
+<tr><td valign="top"><a href="#validate_rec-2">validate_rec/2</a></td><td>When a form has fields that correspond to the fields of an ErlyDB  
+record, validate_rec/2 helps validate the values of the record's fields.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="to_recs-2">to_recs/2</a></h3>
+<div class="spec">
+<p><tt>to_recs(A::<a href="#type-arg">arg()</a> | [{ParamName::string(), ParamVal::term()}], ModelDescs::[{Prefix::string(), Model::atom()}]) -&gt; [Record::tuple()]</tt></p>
+</div><p><p>to_recs/2 helps process POST requests containing fields that  
+belong to multiple records from one or more ErlyDB models.</p>
+ 
+  <p>This function is useful when <a href="erlydb_base.html#new_fields_from_strs-3"><code>erlydb_base:new_fields_from_strs/3</code></a>  
+isn't sufficient because the latter is only designed to map POST  
+parameters to the fields of a single record.</p>
+ 
+  <p>This function expects each form field to be mapped to its corresponding  
+record by being named with a unique prefix identifying  
+the record to which the form field belongs.</p>
+ 
+  For example, suppose you have to process an HTML form whose fields
+  represent a house and 2 cars. The house's fields have the
+  prefix "house_" and the cars' fields have the prefixes "car1_" and
+  "car2_". The arg's POST parameters are
+  <code>[{"house_rooms", "3"}, {"car1_year", "2007"}, {"car2_year", "2006"}]</code>.
+  With such a setup, calling <code>to_recs(A, [{"house_", house}, {"car1_", car},
+  {"car2_", car}])</code>
+  returns the list <code>[House, Car1, Car2]</code>, where <code>house:rooms(House) == "3"</code>,
+  <code>car:year(Car1) == "2007"</code> and <code>car:year(Car2) == "2006"</code>. All other
+  fields are <code>undefined</code>.
+ </p>
+
+<h3 class="function"><a name="validate-3">validate/3</a></h3>
+<div class="spec">
+<p><tt>validate(A::<a href="#type-arg">arg()</a> | <a href="#type-proplist">proplist()</a>, Fields::[string()], Fun::function()) -&gt; {Values::[term()], Errors::[term()]} | <a href="#type-exit">exit({missing_param, Field})</a></tt></p>
+</div><p><p>validate/3 helps validate the inputs of arbitary forms.  
+It accepts a Yaws arg  
+(or the arg's POST data in the form of a name-value property list), a  
+list of parameter names to validate, and a validation function, and returns  
+a tuple of the form {Values, Errors}.  
+'Values' contains the list of values for the checked parameters  
+and 'Errors' is a list of errors returned from the validation function.  
+If no validation errors occured, this list is empty.</p>
+ 
+  <p>If the name of a field is missing from the arg's POST data, this function  
+calls exit({missing_param, Name}).</p>
+ 
+  <p>The validation function takes two parameters: the parameter name and  
+its value, and it may return one of the following values:</p>
+ 
+  <p>- <code>ok</code> means the parameter's value is valid</p>
+ 
+  <p>- <code>{ok, Val}</code> means the parameter's value is valid, and it also lets you    
+set the value inserted into 'Values' for this parameter.</p>
+ 
+  <p>- <code>{error, Err}</code> indicates the parameter didn't validate. Err is inserted    
+into 'Errors'.</p>
+ 
+  <p>- <code>{error, Err, Val}</code> indicates the parameter didn't validate. Err is    
+inserted into 'Errors' and Val is inserted into 'Values' instead of    
+the parameter's original value.</p>
+ 
+  For forms that modify or create ErlyDB records, it's generally more
+  convenient to use <a href="#to_recs-2"><code>to_recs/2</code></a>.
+ </p>
+
+<h3 class="function"><a name="validate1-3">validate1/3</a></h3>
+<div class="spec">
+<p><tt>validate1(Params::<a href="#type-proplist">proplist()</a> | <a href="#type-arg">arg()</a>, Fields::[string()], Fun::function()) -&gt; {Vals, Errs} | <a href="#type-exit">exit({missing_params, [string()]})</a> | <a href="#type-exit">exit({unexpected_params, <a href="#type-proplist">proplist()</a>})</a> | <a href="#type-exit">exit({unexpected_param, string()})</a></tt></p>
+</div><p>validate1/3 is similar to validate/3, but it expects the parameter
+  list to match the field list both in the number of elements and in their
+  order. validate1/3 is more efficient and is also stricter than validate/3.</p>
+<p><b>See also:</b> <a href="#validate-3">validate/3</a>.</p>
+
+<h3 class="function"><a name="validate_rec-2">validate_rec/2</a></h3>
+<div class="spec">
+<p><tt>validate_rec(Rec::<a href="#type-erlydb_record">erlydb_record()</a>, Fun::function()) -&gt; {Rec1::<a href="#type-erlydb_record">erlydb_record()</a>, Errs::[term()]}</tt></p>
+</div><p><p>When a form has fields that correspond to the fields of an ErlyDB  
+record, validate_rec/2 helps validate the values of the record's fields.</p>
+ 
+  <p>validate_rec/2 accepts an ErlyDB record and a validation function.
+  It folds over all the fields of the record (obtained by calling
+  <a href="erlydb_base.html#db_field_names-0"><code>erlydb_base:db_field_names/0</code></a>), calling the validation function  
+with each field's existing value. The validation function's  
+return value indicates if the field's value is valid,  
+and it may also define the record field's final value.</p>
+ 
+  <p>The result of validate_rec/2 is a tuple of the form <code>{Rec1, Errs}</code>, where  
+the first element is the modified record and the second element is  
+a list of errors accumulated by the calls to the validation function.</p>
+ 
+  <p>The validation function takes 3 parameters: the field name (an atom),
+  the current value (this can be any term, but it's usually a string,
+  especially if the record came from <a href="#to_recs-2"><code>to_recs/2</code></a>), and the record
+  after folding over all the previous fields. It returns
+  <code>ok</code>, <code>{ok, NewVal}</code>, <code>{error, Err}</code>, or <code>{error, Err, NewVal}</code>.</p>
+ 
+  validate_rec/2 is especially useful in conjunction with <a href="#to_recs-2"><code>to_recs/2</code></a>.
+  A common pattern is to create the records for the submitted form using
+  to_recs/2 and then validate their fields using validate_rec/2.
+ </p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, May 6 2007, 09:27:11.</i></p>
+</body>
+</html>

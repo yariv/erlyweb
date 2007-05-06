@@ -19,19 +19,18 @@
 
 -author("Roberto Saccon (rsaccon@gmail.com)").
 
--export(
-  [start/0, 
-   stop/0, 
-   get_metadata/1,
-	 q/1, 
-   q/2, 
-   q2/1,
-   q2/2, 
-   transaction/2,
-   select/2,
-	 select_as/3,
-   update/2,
-   get_last_insert_id/2]).
+-export([start/0, 
+  stop/0, 
+  get_metadata/1,
+  q/1, 
+  q/2, 
+  q2/1,
+  q2/2, 
+  transaction/2,
+  select/2,
+  select_as/3,
+  update/2,
+  get_last_insert_id/2]).
 
 
 %% Useful for debugging
@@ -45,53 +44,52 @@
 %% @todo catch when a connection is not possible:
 %% for example, it returns {connection_failed, econnrefused}
 start() ->
-	  application:load(psql),
-	  application:start(psql).
+    application:load(psql),
+    application:start(psql).
    
 
 %% @doc Stops the psql and sql applications.
 stop() ->
-	  application:stop(psql).
+    application:stop(psql).
 
 
 table_names_sql(SchemaName) ->
-	  "select tablename from pg_tables where schemaname = '" ++ SchemaName ++ "'".
+    "select tablename from pg_tables where schemaname = '" ++ SchemaName ++ "'".
 	
 column_attributes_sql(TableName) ->
-	  "SELECT a.attname, format_type(a.atttypid, a.atttypmod), d.adsrc, a.attnotnull" ++
-	  "	FROM pg_attribute a LEFT JOIN pg_attrdef d" ++
-	  "	ON a.attrelid = d.adrelid AND a.attnum = d.adnum" ++
-	  "	WHERE a.attrelid = '" ++ TableName ++ "'::regclass" ++
-	  "	AND a.attnum > 0 AND NOT a.attisdropped" ++
-	  "	ORDER BY a.attnum".
+    "SELECT a.attname, format_type(a.atttypid, a.atttypmod), d.adsrc, a.attnotnull" ++
+    " FROM pg_attribute a LEFT JOIN pg_attrdef d" ++
+    " ON a.attrelid = d.adrelid AND a.attnum = d.adnum" ++
+    " WHERE a.attrelid = '" ++ TableName ++ "'::regclass" ++
+    " AND a.attnum > 0 AND NOT a.attisdropped" ++
+    " ORDER BY a.attnum".
 
 constraints_sql(TableName, SchemaName) ->
-	  "SELECT column_name, constraint_name  FROM " ++
-    "information_schema.constraint_column_usage where " ++
-	  "table_name = '" ++ TableName ++ "' AND table_schema = '" ++ SchemaName ++ "'".
+    "SELECT column_name, constraint_name  FROM" ++
+    "information_schema.constraint_column_usage where" ++
+    "table_name = '" ++ TableName ++ "' AND table_schema = '" ++ SchemaName ++ "'".
 
 %% @doc Get the table names and fields for the database.
 get_metadata(_Options) ->
     Pid = psql:allocate(),
-	  Schema = "public",
+    Schema = "public",
     TableNames = q3(Pid, table_names_sql(Schema)),
-	  ConstraintInfo = lists:flatten(
-	 	  [q3(Pid, constraints_sql(element(1, Name), Schema)) || 
-		   Name <- TableNames]),
+    ConstraintInfo = lists:flatten(
+      [q3(Pid, constraints_sql(element(1, Name), Schema)) || Name <- TableNames]),
     Result = case catch lists:foldl(fun(Table, TablesTree) ->
-      get_metadata(Pid, Table, ConstraintInfo, TablesTree)
+        get_metadata(Pid, Table, ConstraintInfo, TablesTree)
       end, gb_trees:empty(), TableNames) of
 	{error, _} = Err -> Err;
-  Tree -> {ok, Tree}
+        Tree -> {ok, Tree}
     end,
     psql:free(),
     Result.
 
 get_metadata(Pid, Table, ConstraintInfo, TablesTree) ->
-	  Columns = q3(Pid, column_attributes_sql(element(1, Table))),
-	  Fields = [new_field(Column, element(1, Table), ConstraintInfo) || Column <- Columns],
+    Columns = q3(Pid, column_attributes_sql(element(1, Table))),
+    Fields = [new_field(Column, element(1, Table), ConstraintInfo) || Column <- Columns],
     TableName = list_to_atom(element(1, Table)),
-	  gb_trees:enter(TableName, lists:reverse(Fields), TablesTree).
+    gb_trees:enter(TableName, lists:reverse(Fields), TablesTree).
                                                           
 new_field(FieldInfo, TableName, ConstraintInfo) ->
 	  Name = element(1, FieldInfo),
@@ -146,22 +144,22 @@ parse_default(DefaultStr) ->
 %% queries as well as ErlSQL queries with binary and/or string expressions are
 %% accepted. Otherwise the function crashes.
 q(Statement) ->
-	  q(Statement, undefined).           
+    q(Statement, undefined).           
 
 
 q({esql, Statement}, Options) ->
-	  case allow_unsafe_statements(Options) of
-	true -> 
-	    {ok, q2(erlsql:unsafe_sql(Statement), Options)};
-	_ ->
-			case catch erlsql:sql(Statement) of
-		{error, _} = Err ->
-			  exit(Err);
-		Sql ->
-				{ok, q2(Sql, Options)}
+    case allow_unsafe_statements(Options) of
+  true -> 
+      {ok, q2(erlsql:unsafe_sql(Statement), Options)};
+  _ ->
+      case catch erlsql:sql(Statement) of
+    {error, _} = Err ->
+        exit(Err);
+    Sql ->
+        {ok, q2(Sql, Options)}
         %% TODO: catch errors
-			end
-	end.
+      end
+    end.
 
 
 %% @doc Execute a (binary or string) statement against the Postgresql driver
@@ -196,9 +194,9 @@ q3(Pid, Sql) ->
 
 
 allow_unsafe_statements(undefined) ->
-	  false;
+    false;
 allow_unsafe_statements(Options) ->
-	  proplists:get_value(allow_unsafe_statements, Options).
+    proplists:get_value(allow_unsafe_statements, Options).
 
 
 %% get_pool_id(undefined) ->
@@ -251,9 +249,9 @@ get_select_result({ok, _Rows}=Result, undefined) ->
     Result;
 get_select_result({ok, Rows}, FixedVals)->
     Result = lists:foldl(fun(Fields, Acc) ->
-		    Row = FixedVals ++ lists_to_binaries(tuple_to_list(Fields)),
-		    [list_to_tuple(Row) | Acc]
-	      end, [], Rows),
+      Row = FixedVals ++ lists_to_binaries(tuple_to_list(Fields)),
+      [list_to_tuple(Row) | Acc]
+    end, [], Rows),
     {ok, Result};
 
 get_select_result(Other, _) -> 
@@ -281,7 +279,8 @@ get_update_result({ok, <<"INSERT", Rest/binary>>}) ->
 get_update_result({ok, <<"DELETE", Rest/binary>>}) -> 
     {ok, get_update_element(1, Rest)};  
 get_update_result({ok, <<"UPDATE", Rest/binary>>}) -> 
-    {ok, get_update_element(1, Rest)};                                                                                                                                                                          
+    {ok, get_update_element(1, Rest)};
+            
 get_update_result(Other) -> 
     Other.
 

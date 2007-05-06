@@ -180,14 +180,15 @@ form `{response, Elems}' from controller functions.
 
 The second element in the `{response, Elems}' is a list of values that
 ErlyWeb should return to Yaws verbatim, with the exception of the (optional)
-`{body, Body}' tuple and any of the `ewr' tuples listed above (ErlyWeb
-translates the latter into their `redirect_local' equivalents). If,
-in addition to returning standard Yaws tuples, you want ErlyWeb to
-render the response's body using the component's view, you can
-include the `{body, Body}' tuple in `Elems'. `Body' may be any single `ewc'
-or `data' tuple, or a list thereof. ErlyWeb renders the elements of `Body',
-sends the result to the view function, and embeds the resulting iolist in
-an `{html, Iolist}' tuple prior to returning it to Yaws.
+`{body, Body}' for HTML or `{body, MimeType, Body}' tuple and any of the `ewr' 
+tuples listed above (ErlyWeb translates the latter into their `redirect_local' 
+equivalents). If, in addition to returning standard Yaws tuples, you want 
+ErlyWeb to render the response's body using the component's view, you can
+include the `{body, Body}' or `{body, MimeType, Body}' tuple in `Elems'. 
+`Body' may be any single `ewc' or `data' tuple, or a list thereof. 
+ErlyWeb renders the elements of `Body', sends the result to the view function, 
+and embeds the resulting iolist in an `{html, Iolist}' tuple prior to 
+returning it to Yaws.
 
 There is currently a restriction on the usage of `{response, Elems}': only the
 top-level component for the request may return the
@@ -225,6 +226,18 @@ By implementing the before_return/3 hook, you can change all return values
 based on the names and/or parameters of their originating controller
 functions. This hook can simplify the definition of response elements
 such HTTP headers common to some or all of a controller's functions.
+
+ErlyWeb lets you implement the after_render/3 hook in controllers to get 
+access to the rendered output. Teh 
+
+The signature of after_render/2 is
+
+```
+after_render(FuncName::atom(), Params::[term()], Rendered::iolist()) ->
+  Ignored::any().
+'''
+
+You can use the after_render/3 hook to implement a granular caching system.
 
 == Views ==
 
