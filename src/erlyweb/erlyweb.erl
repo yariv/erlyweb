@@ -306,11 +306,13 @@ ewc({ewc, Controller, View, FuncName, [A | _] = Params}, AppData) ->
 		end,
     Response3 = handle_response(A, Response2, View, FuncName1, AppData),
     [_A | ParamsRest] = Params1, 
-    Rendered = case Response3 of
-  {response, [{rendered, Val2}]} -> Val2;
-  {response, [{rendered, _MimeType, Val2}]} -> Val2
+    case Response3 of
+	{response, [{rendered, Val2}]} -> 
+	    catch Controller:after_render(FuncName1, ParamsRest, Val2);
+	{response, [{rendered, _MimeType, Val3}]} ->
+	    catch Controller:after_render(FuncName1, ParamsRest, Val3);
+	_ -> done
     end,
-    catch Controller:after_render(FuncName1, ParamsRest, Rendered),
     Response3;
 
 ewc(Other, _AppData) ->  {response, [Other]}.
