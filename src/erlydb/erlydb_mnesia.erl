@@ -75,7 +75,7 @@
 %%
 %% Currently, only the following values for MnesiaType are recognized:
 %%
-%% atom, list, binary, integer, float, undefined
+%% atom, list, binary, integer, float, datetime, date, time, undefined
 %%
 %% The erlydb_mnesia driver will attempt to convert field values into
 %% the specified type before insertion/update/query of the record in
@@ -107,7 +107,15 @@
 %% 3) The created_on column is defined as a datetime for Erlyweb but is of type undefined for the
 %%    Mnesia driver.  This means that no type conversion will be attempted for the created_on
 %%    column resulting in a Erlang datetime tuple to be stored in the column 
-%%    {{Year, Month, Day}, {Hour, Minute, Second}}
+%%    {{Year, Month, Day}, {Hour, Minute, Second}} or {datetime, {{Year, Month, Day},{Hour,Minute,Second}}}
+%%    depending on how you create the record (creating a record from strings will result in the
+%%    tuple beginning with datetime).
+%% 4) Changing the user property for the created_on column to specify a mnesia type of datetime like
+%%    {created_on, {datetime, undefined}, true, undefined, undefined, undefined, datetime}
+%%    will result in the erlang date time tuple {{Year,Month,Day},{Hour,Minute,Second}}
+%%    to be stored regardless of how the record was created (ie. it will strip the redundant
+%%    datetime atom from the tuple
+%%
 %%
 %% See test/erlydb/erlydb_mnesia_schema for more examples of how to create mnesia tables
 %% with user_properties... 
@@ -746,8 +754,21 @@ convert(Value, list) when is_binary(Value) ->
 convert(Value, atom) when is_binary(Value) ->
     list_to_atom(binary_to_list(Value));
 convert(Value, binary) when is_binary(Value) ->
-    Value.
+    Value;
 
+
+convert({datetime, Value}, datetime) ->
+    Value;
+convert(Value, datetime) ->
+    Value;
+convert({date, Value}, date) ->
+    Value;
+convert(Value, date) ->
+    Value;
+convert({time, Value}, time) ->
+    Value;
+convert(Value, time) ->
+    Value.
 
 
 resolve_field(From, QLCData) ->

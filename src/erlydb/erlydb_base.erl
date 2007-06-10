@@ -392,20 +392,27 @@ field_to_iolist(Val) ->
 %% @doc This function converts standard ErlyDB field values to iolists.
 %% This is its source code:
 %% ```
-%%     case Val of
+%%
+%%	Type = 	if 
+%%        		Field =:= undefined -> undefined;
+%%     			true -> erlydb_field:erl_type(Field)
+%%    		end,
+%%
+%%  case Val of
 %% 	Bin when is_binary(Bin) -> Val;
 %% 	List when is_list(List) -> Val;
 %% 	Int when is_integer(Int) -> integer_to_list(Val);
 %% 	Float when is_float(Float) -> float_to_list(Val);
-%% 	{datetime, {{Year,Month,Day},{Hour,Minute,Second}}} ->
-%% 	    io_lib:format("~b/~b/~b ~2.10.0b:~2.10.0b:~2.10.0b",
-%% 			  [Month, Day, Year, Hour, Minute, Second]);
-%% 	{date, {Year, Month, Day}} ->
-%% 	    io_lib:format("~b/~b/~b",
-%% 			  [Month, Day, Year]);
-%% 	{time, {Hour, Minute, Second}}  ->
-%% 	    io_lib:format("~2.10.0b:~2.10.0b:~2.10.0b",
-%% 			  [Hour, Minute, Second]);
+%%
+%%  {datetime, {{_Year,_Month,_Day},{_Hour,_Minute,_Second}} = DateTime} -> 
+%%        format_datetime(DateTime);
+%%  {{_Year,_Month,_Day},{_Hour,_Minute,_Second}} = DateTime when Type =:= datetime -> 
+%%        format_datetime(DateTime);
+%%	{date, {_Year,_Month,_Day} = Date} -> format_date(Date);
+%%  {_Year,_Month,_Day} = Date when Type =:= date -> format_date(Date);
+%%	{time, {_Hour,_Minute,_Second} = Time}  -> format_time(Time);
+%%  {_Hour,_Minute,_Second} = Time when Type =:= time -> format_time(Time);
+%%    
 %% 	undefined -> [];
 %% 	_Other ->
 %% 	    io_lib:format("~p", [Val])
@@ -413,25 +420,39 @@ field_to_iolist(Val) ->
 %% '''
 %%
 %% @spec field_to_iolist(Val::term, Field::erlydb_field()) -> iolist()
-field_to_iolist(Val, _Field) ->
+field_to_iolist(Val, Field) ->
+    Type = 	if 
+           		Field =:= undefined -> undefined;
+       			true -> erlydb_field:erl_type(Field)
+    		end,
+    
     case Val of
 	Bin when is_binary(Bin) -> Val;
 	List when is_list(List) -> Val;
 	Int when is_integer(Int) -> integer_to_list(Val);
 	Float when is_float(Float) -> float_to_list(Val);
-	{datetime, {{Year,Month,Day},{Hour,Minute,Second}}} ->
-	    io_lib:format("~b/~b/~b ~2.10.0b:~2.10.0b:~2.10.0b",
-			  [Month, Day, Year, Hour, Minute, Second]);
-	{date, {Year, Month, Day}} ->
-	    io_lib:format("~b/~b/~b",
-			  [Month, Day, Year]);
-	{time, {Hour, Minute, Second}}  ->
-	    io_lib:format("~2.10.0b:~2.10.0b:~2.10.0b",
-			  [Hour, Minute, Second]);
+    
+	{datetime, {{_Year,_Month,_Day},{_Hour,_Minute,_Second}} = DateTime} -> 
+        format_datetime(DateTime);
+    {{_Year,_Month,_Day},{_Hour,_Minute,_Second}} = DateTime when Type =:= datetime -> 
+        format_datetime(DateTime);
+	{date, {_Year,_Month,_Day} = Date} -> format_date(Date);
+    {_Year,_Month,_Day} = Date when Type =:= date -> format_date(Date);
+	{time, {_Hour,_Minute,_Second} = Time}  -> format_time(Time);
+    {_Hour,_Minute,_Second} = Time when Type =:= time -> format_time(Time);
+    
 	undefined -> [];
 	_Other ->
 	    io_lib:format("~p", [Val])
     end.
+
+
+format_datetime({{Year,Month,Day},{Hour,Minute,Second}}) ->
+    io_lib:format("~b/~b/~b ~2.10.0b:~2.10.0b:~2.10.0b", [Year, Month, Day, Hour, Minute, Second]).
+format_date({Year, Month, Day}) ->
+    io_lib:format("~b/~b/~b", [Year, Month, Day]).
+format_time({Hour, Minute, Second}) ->
+    io_lib:format("~2.10.0b:~2.10.0b:~2.10.0b",[Hour, Minute, Second]).
 
 
 %% @doc Create a new record with all fields set to 'undefined'.
