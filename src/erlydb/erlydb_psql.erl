@@ -19,18 +19,18 @@
 
 -author("Roberto Saccon (rsaccon@gmail.com)").
 
--export([start/0, 
-  stop/0, 
-  get_metadata/1,
-  q/1, 
-  q/2, 
-  q2/1,
-  q2/2, 
-  transaction/2,
-  select/2,
-  select_as/3,
-  update/2,
-  get_last_insert_id/2]).
+-export([start/0,
+         stop/0, 
+         get_metadata/1,
+         q/1, 
+         q/2, 
+         q2/1,
+         q2/2, 
+         transaction/2,
+         select/2,
+         select_as/3,
+         update/2,
+         get_last_insert_id/2]).
 
 
 %% Useful for debugging
@@ -55,7 +55,7 @@ stop() ->
 
 table_names_sql(SchemaName) ->
     "select tablename from pg_tables where schemaname = '" ++ SchemaName ++ "'".
-	
+        
 column_attributes_sql(TableName) ->
     "SELECT a.attname, format_type(a.atttypid, a.atttypmod), d.adsrc, a.attnotnull" ++
     " FROM pg_attribute a LEFT JOIN pg_attrdef d" ++
@@ -75,13 +75,14 @@ get_metadata(_Options) ->
     Schema = "public",
     TableNames = q3(Pid, table_names_sql(Schema)),
     ConstraintInfo = lists:flatten(
-      [q3(Pid, constraints_sql(element(1, Name), Schema)) || Name <- TableNames]),
+                       [q3(Pid, constraints_sql(element(1, Name), Schema)) || Name <- TableNames]),
     Result = case catch lists:foldl(fun(Table, TablesTree) ->
-        get_metadata(Pid, Table, ConstraintInfo, TablesTree)
-      end, gb_trees:empty(), TableNames) of
-	{error, _} = Err -> Err;
-        Tree -> {ok, Tree}
-    end,
+                                            get_metadata(Pid, Table, ConstraintInfo, TablesTree)
+                                    end, 
+                                    gb_trees:empty(), TableNames) of
+                 {error, _} = Err -> Err;
+                 Tree -> {ok, Tree}
+             end,
     psql:free(),
     Result.
 
@@ -92,39 +93,37 @@ get_metadata(Pid, Table, ConstraintInfo, TablesTree) ->
     gb_trees:enter(TableName, lists:reverse(Fields), TablesTree).
                                                           
 new_field(FieldInfo, TableName, ConstraintInfo) ->
-	  Name = element(1, FieldInfo),
-	  Type = parse_type(element(2, FieldInfo)),
-	  {Default, Extra} = parse_default(element(3, FieldInfo)),
-	  NotNull = case element(4, FieldInfo) of
-      true -> false;
-      false -> true
-    end,
-	  Keys = lists:map(fun(Elem) ->
-	      CName = TableName ++ "_pkey",
-		    case element(2, Elem) of
-		        CName -> element(1, Elem);
-			      _ -> none
-	      end  
-    end,
-	  ConstraintInfo),    
-	  Key = case lists:member(Name, Keys) of
-	true ->
-	    primary;
-	 _ ->
-	    undefined
-	  end,
-	  erlydb_field:new(list_to_atom(Name), Type, NotNull, Key, Default, Extra).
+    Name = element(1, FieldInfo),
+    Type = parse_type(element(2, FieldInfo)),
+    {Default, Extra} = parse_default(element(3, FieldInfo)),
+    NotNull = case element(4, FieldInfo) of
+                  true -> false;
+                  false -> true
+              end,
+    Keys = lists:map(fun(Elem) ->
+                             CName = TableName ++ "_pkey",
+                             case element(2, Elem) of
+                                 CName -> element(1, Elem);
+                                 _ -> none
+                             end  
+                     end,
+                     ConstraintInfo),    
+    Key = case lists:member(Name, Keys) of
+              true -> primary;
+              _ -> undefined
+          end,
+    erlydb_field:new(list_to_atom(Name), Type, NotNull, Key, Default, Extra).
 
 
 parse_type(TypeStr) ->
-  case string:chr(TypeStr, 40) of  %% 40 == '('
-	    0 ->
-	  {list_to_atom(TypeStr), undefined};
-	    Idx ->
-	  {TypeStr1, [_| Vals]} = lists:split(Idx - 1, TypeStr),
-	  {ok, [Len], _} = io_lib:fread("~d", Vals),
-	  {list_to_atom(TypeStr1), Len}
-  end.
+    case string:chr(TypeStr, 40) of  %% 40 == '('
+        0 ->
+            {list_to_atom(TypeStr), undefined};
+       Idx ->
+            {TypeStr1, [_| Vals]} = lists:split(Idx - 1, TypeStr),
+            {ok, [Len], _} = io_lib:fread("~d", Vals),
+            {list_to_atom(TypeStr1), Len}
+    end.
 
 
 parse_default([]) ->
@@ -132,11 +131,11 @@ parse_default([]) ->
  
 parse_default(DefaultStr) ->
     case string:str(DefaultStr, "nextval") of
-  0 -> 
-      Default = hd(string:tokens(DefaultStr, "::")),  
-      {Default, undefined};    
-  _ ->
-      {undefined, identity}
+        0 -> 
+            Default = hd(string:tokens(DefaultStr, "::")),  
+            {Default, undefined};    
+        _ ->
+            {undefined, identity}
     end.
 
 %% @doc Execute a statement directly against the PostgreSQL driver. If
@@ -149,16 +148,16 @@ q(Statement) ->
 
 q({esql, Statement}, Options) ->
     case allow_unsafe_statements(Options) of
-  true -> 
-      {ok, q2(erlsql:unsafe_sql(Statement), Options)};
-  _ ->
-      case catch erlsql:sql(Statement) of
-    {error, _} = Err ->
-        exit(Err);
-    Sql ->
-        {ok, q2(Sql, Options)}
-        %% TODO: catch errors
-      end
+        true -> 
+            {ok, q2(erlsql:unsafe_sql(Statement), Options)};
+        _ ->
+            case catch erlsql:sql(Statement) of
+                {error, _} = Err ->
+                    exit(Err);
+                Sql ->
+                    {ok, q2(Sql, Options)}
+                    %% TODO: catch errors
+            end
     end.
 
 
@@ -184,12 +183,12 @@ q2(Statement, _Options) ->
 
 q3(Pid, Sql) ->    
     case psql:sql_query(Pid, Sql) of     
-  {_FieldInfo,[{_Status, Rows}]} ->      
-      Rows;
-  [{Status, _Rows}] ->
-      Status;
-  Other ->
-      Other
+        {_FieldInfo,[{_Status, Rows}]} ->      
+            Rows;
+        [{Status, _Rows}] ->
+            Status;
+        Other ->
+            Other
     end.
 
 
@@ -202,7 +201,7 @@ allow_unsafe_statements(Options) ->
 %% get_pool_id(undefined) ->
 %%   erlydb_psql;
 %% get_pool_id(Options) ->
-%% 	 case proplists:get_value(pool_name, Options) of
+%%       case proplists:get_value(pool_name, Options) of
 %% undefined -> erlydb_psql;
 %% Other -> Other
 %%   end.
@@ -214,14 +213,14 @@ transaction(Fun, _Options) ->
     Pid = psql:allocate(),
     psql:transaction(Pid),
     case catch Fun() of
-  {'EXIT', Reason} ->
-      psql:rollback(Pid),
-      psql:free(),
-      {aborted, Reason};
-  Val ->
-	    psql:commit(Pid),
-      psql:free(),
-      {atomic, Val}
+        {'EXIT', Reason} ->
+            psql:rollback(Pid),
+            psql:free(),
+            {aborted, Reason};
+        Val ->
+            psql:commit(Pid),
+            psql:free(),
+            {atomic, Val}
     end.
 
 
@@ -249,9 +248,9 @@ get_select_result({ok, _Rows}=Result, undefined) ->
     Result;
 get_select_result({ok, Rows}, FixedVals)->
     Result = lists:foldl(fun(Fields, Acc) ->
-      Row = FixedVals ++ lists_to_binaries(tuple_to_list(Fields)),
-      [list_to_tuple(Row) | Acc]
-    end, [], Rows),
+                                 Row = FixedVals ++ lists_to_binaries(tuple_to_list(Fields)),
+                                 [list_to_tuple(Row) | Acc]
+                         end, [], Rows),
     {ok, Result};
 
 get_select_result(Other, _) -> 
@@ -298,6 +297,7 @@ get_last_insert_id(Table, Options) ->
     TableName = atom_to_list(Table),   
     Sql = "SELECT currval('" ++ TableName ++ "_id_seq');", 
     case q2(Sql, Options) of
-  [{N}] ->  {ok, N};
-  Err -> exit(Err)   
+        [{N}] ->  {ok, N};
+        Err -> exit(Err)   
     end.
+    
