@@ -212,14 +212,9 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
 
     ok = smerl:compile(M22),
 
-    {Fields, FieldNames} = get_db_fields(Module, DbFields),
-
-io:format("Fields ~p~n", [Fields]),  
-io:format("FieldNames ~p~n", [FieldNames]),  
+    {Fields, FieldNames} = get_db_fields(Module, DbFields), 
     
     PkFields = [Field || Field <- Fields, erlydb_field:key(Field) == primary],
-
-%%io:format("PkFields ~p~n", [PkFields]),
     
     {ok, M24} = smerl:curry_replace(M22, db_pk_fields, 1, [PkFields]),
 
@@ -308,9 +303,6 @@ get_db_fields(Module, DbFields) ->
 
 		DefinedFields2 = PkFields ++ DefinedFields1,
 
-%% io:format("DbFields ~p~n", [DbFields]),
-%% io:format("DefinedFields2 ~p~n", [DefinedFields2]),
-
 		InvalidFieldNames =
 		    [Name || {Name, Atts} <- DefinedFields2,
 				  not lists:member(Name, DbFieldNames) 
@@ -323,7 +315,6 @@ get_db_fields(Module, DbFields) ->
 			lists:foldr(
 			  fun(Field, Acc) ->
 				  FieldName = erlydb_field:name(Field),
-%% io:format("FieldName ~p~n", [FieldName]),
 				  case lists:keysearch(
 					 FieldName, 1, DefinedFields2) of
 				      {value, {_Name, Atts}} ->
@@ -337,8 +328,6 @@ get_db_fields(Module, DbFields) ->
 		    _ -> exit({no_such_fields, {Module, InvalidFieldNames}})
 		end
 	end,
-
-%% io:format("DbFields1 ~p~n", [DbFields1]),
 
     DbFieldNames1 = [erlydb_field:name(Field) || Field <- DbFields1],
 

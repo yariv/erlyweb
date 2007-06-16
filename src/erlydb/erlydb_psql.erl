@@ -93,16 +93,13 @@ get_metadata(Pid, Table, ConstraintInfo, TablesTree) ->
     gb_trees:enter(TableName, lists:reverse(Fields), TablesTree).
                                                           
 new_field(FieldInfo, TableName, ConstraintInfo) ->
-%% io:format("FieldInfo ~p~n", [FieldInfo]),
-%% io:format("Tablename ~p~n", [TableName]),
-%% io:format("ConstraintInfo ~p~n", [ConstraintInfo]),
     Name = element(1, FieldInfo),
     Type = parse_type(element(2, FieldInfo)),
     {Default, Extra} = parse_default(element(3, FieldInfo)),
-    NotNull = case element(4, FieldInfo) of
-                  true -> false;
-                  false -> true
-              end,
+    Null = case element(4, FieldInfo) of
+               true -> false;
+               false -> true
+           end,
     Keys = lists:map(fun(Elem) ->
                              CName = TableName ++ "_pkey",
                              case element(2, Elem) of
@@ -115,7 +112,7 @@ new_field(FieldInfo, TableName, ConstraintInfo) ->
               true -> primary;
               _ -> undefined
           end,
-    erlydb_field:new(list_to_atom(Name), Type, NotNull, Key, Default, Extra).
+    erlydb_field:new(list_to_atom(Name), Type, Null, Key, Default, Extra).
 
 
 parse_type(TypeStr) ->
