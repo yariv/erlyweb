@@ -19,10 +19,10 @@ v0.6.1
 - fixed a bug in erlydb_psl (typo in SQL statement for Metadata)
 
 - added transient fields, to use the feature one needs to overwrite in the
-model the fields/0 function with the complete list of persistent fields plus
-the transient fields in any desired order (which will be effective in the 
-generated model funcitons), e.g.:
-  fields() -> [mydbfield, {mytransientfield, [transient]}, mydbfield2]. 
+  model the fields/0 function with the complete list of persistent fields plus
+  the transient fields in any desired order (which will be effective in the 
+  generated model functions), e.g.:
+    fields() -> [mydbfield, {mytransientfield, [transient]}, mydbfield2]. 
 
 v0.6
 
