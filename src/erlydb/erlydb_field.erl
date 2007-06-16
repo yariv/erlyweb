@@ -37,7 +37,8 @@
     default/1,
     extra/1,
     attributes/1,
-    attributes/2
+    attributes/2,
+    is_transient/1
    ]).
 
 -record(erlydb_field,
@@ -195,6 +196,12 @@ attributes(Field) ->
 %%   erlydb_field()
 attributes(Field, Attributes) ->
     Field#erlydb_field{attributes = Attributes}.
+
+%% @doc Transient flag of field's user-defined attributes.
+%%
+%% @spec is_transient(Field::erlydb_field()) -> true | false]
+is_transient(Field) ->
+  lists:member(transient, Field#erlydb_field.attributes).
 
 get_erl_type({Type, _Len}) -> get_erl_type(Type);
 get_erl_type(Type) ->

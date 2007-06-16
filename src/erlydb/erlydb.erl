@@ -213,8 +213,13 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
     ok = smerl:compile(M22),
 
     {Fields, FieldNames} = get_db_fields(Module, DbFields),
+
+io:format("Fields ~p~n", [Fields]),  
+io:format("FieldNames ~p~n", [FieldNames]),  
     
     PkFields = [Field || Field <- Fields, erlydb_field:key(Field) == primary],
+
+%%io:format("PkFields ~p~n", [PkFields]),
     
     {ok, M24} = smerl:curry_replace(M22, db_pk_fields, 1, [PkFields]),
 
@@ -281,7 +286,8 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
 %% fields/0 and type_field/0 functions as (potentially)
 %% implemented by the user as well as the database metadata for the table.
 %%
-%% Throw an error if any user-defined fields aren't in the database.
+%% Throw an error if any user-defined non-transient fields aren't in the 
+%% database.
 get_db_fields(Module, DbFields) ->
     DbFieldNames = [erlydb_field:name(Field) || Field <- DbFields],
     DbFields1 =
@@ -302,14 +308,22 @@ get_db_fields(Module, DbFields) ->
 
 		DefinedFields2 = PkFields ++ DefinedFields1,
 
+%% io:format("DbFields ~p~n", [DbFields]),
+%% io:format("DefinedFields2 ~p~n", [DefinedFields2]),
+
 		InvalidFieldNames =
-		    [Name || {Name, _Atts} <- DefinedFields2,
-				  not lists:member(Name, DbFieldNames)],
+		    [Name || {Name, Atts} <- DefinedFields2,
+				  not lists:member(Name, DbFieldNames) 
+                                 and not lists:member(transient, Atts)],
+
 		case InvalidFieldNames of
 		    [] ->
+                        DbFields2 = [ add_transient_field(Field, DbFields) || 
+                                        Field <- DefinedFields2],
 			lists:foldr(
 			  fun(Field, Acc) ->
 				  FieldName = erlydb_field:name(Field),
+%% io:format("FieldName ~p~n", [FieldName]),
 				  case lists:keysearch(
 					 FieldName, 1, DefinedFields2) of
 				      {value, {_Name, Atts}} ->
@@ -319,10 +333,12 @@ get_db_fields(Module, DbFields) ->
 				      false ->
 					  Acc
 				  end
-			  end, [], DbFields);
+			  end, [], DbFields2);
 		    _ -> exit({no_such_fields, {Module, InvalidFieldNames}})
 		end
 	end,
+
+%% io:format("DbFields1 ~p~n", [DbFields1]),
 
     DbFieldNames1 = [erlydb_field:name(Field) || Field <- DbFields1],
 
@@ -340,6 +356,16 @@ get_db_fields(Module, DbFields) ->
 	end,
     Res.
 
+add_transient_field({Name, Atts}, DbFields) ->
+    case lists:member(transient, Atts) of
+        true ->
+            erlydb_field:new(Name, {varchar, undefined}, true, 
+                             undefined, undefined, undefined);
+        _ ->
+            {value, Val} = lists:keysearch(Name, 2, DbFields),
+            Val
+    end.     
+                     
 set_attributes(Field, Atts) ->
     Atts1 = case erlydb_field:extra(Field) == identity orelse 
 		erlydb_field:type(Field) == timestamp of

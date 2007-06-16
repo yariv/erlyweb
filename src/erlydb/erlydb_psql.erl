@@ -66,8 +66,8 @@ column_attributes_sql(TableName) ->
 
 constraints_sql(TableName, SchemaName) ->
     "SELECT column_name, constraint_name  FROM" ++
-    "information_schema.constraint_column_usage where" ++
-    "table_name = '" ++ TableName ++ "' AND table_schema = '" ++ SchemaName ++ "'".
+    " information_schema.constraint_column_usage where" ++
+    " table_name = '" ++ TableName ++ "' AND table_schema = '" ++ SchemaName ++ "'".
 
 %% @doc Get the table names and fields for the database.
 get_metadata(_Options) ->
@@ -93,6 +93,9 @@ get_metadata(Pid, Table, ConstraintInfo, TablesTree) ->
     gb_trees:enter(TableName, lists:reverse(Fields), TablesTree).
                                                           
 new_field(FieldInfo, TableName, ConstraintInfo) ->
+%% io:format("FieldInfo ~p~n", [FieldInfo]),
+%% io:format("Tablename ~p~n", [TableName]),
+%% io:format("ConstraintInfo ~p~n", [ConstraintInfo]),
     Name = element(1, FieldInfo),
     Type = parse_type(element(2, FieldInfo)),
     {Default, Extra} = parse_default(element(3, FieldInfo)),

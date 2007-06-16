@@ -1793,3 +1793,6 @@ check_limits(Val, Name, Min, Max) ->
 
 is_read_only(Field) ->
     lists:member(read_only, erlydb_field:attributes(Field)).
+
+is_transient(Field) ->
+    lists:member(transient, erlydb_field:attributes(Field)).
