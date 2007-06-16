@@ -202,6 +202,14 @@ relations() ->
 %% If the list of attributes contains the atom `read_only', ErlyDB
 %% excludes the field from INSERT and UPDATE statements.
 %%
+%% It is also possible to add transient fields which do not exist in the 
+%% database schema. To add transient fields it is currently necessary to 
+%% overwrite the fields/0 function with the complete list of persistent 
+%% fields plus the transient fields in any desired order (which also will be
+%% effective in the generated model functions), e.g.:
+%%
+%% ``fields() -> [mydbfield, {mytransientfield, [transient]}, mydbfield2]''
+%%
 %% Note: You are free to call the fields() function from other modules
 %% to create arbitrary field set relations.
 %% For example, in a module called 'artist', you could have the function
