@@ -292,7 +292,7 @@ get_db_fields(Module, DbFields) ->
 		DefinedFields1 =
 		    lists:map(fun({_Name, _Atts} = F) -> F;
 				 (Name) -> {Name, []}
-			      end, DefinedFields),
+			      end, lists:usort(DefinedFields)),
 		
 		PkFields = [{erlydb_field:name(Field), []} ||
 			       Field <- DbFields,

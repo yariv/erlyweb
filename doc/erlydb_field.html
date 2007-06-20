@@ -2,18 +2,16 @@
 <html>
 <head>
 <title>Module erlydb_field</title>
-<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+<link rel="stylesheet" type="text/css" href="stylesheet.css">
 </head>
 <body bgcolor="white">
-<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<hr>
 
 <h1>Module erlydb_field</h1>
-<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>This module contains data structures and functions for  
+This module contains data structures and functions for  
 exposing database fields' metadata.
 <p>Copyright © Yariv Sadan 2006-2007
  </p>
-
+<ul><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
 <p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivsblog@gmail.com"><tt>yarivsblog@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com" target="_top">http://yarivsblog.com</a></tt>].</p>
 
 <h2><a name="description">Description</a></h2><p>This module contains data structures and functions for  
@@ -27,18 +25,19 @@ exposing database fields' metadata.</p>
   refer to <a href="erlydb_base.html"><code>erlydb_base</code></a>.
 <h2><a name="types">Data Types</a></h2>
 
-<h3 class="typedecl"><a name="type-erlydb_field">erlydb_field()</a></h3>
+<h3><a name="type-erlydb_field">erlydb_field()</a></h3>
 <p><b>abstract datatype</b>: <tt>erlydb_field()</tt></p>
 <p>An opaque structure holding database field
   metadata.</p>
 
 <h2><a name="index">Function Index</a></h2>
-<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#attributes-1">attributes/1</a></td><td>Get the field's user-defined attributes.</td></tr>
+<table width="100%" border="1"><tr><td valign="top"><a href="#attributes-1">attributes/1</a></td><td>Get the field's user-defined attributes.</td></tr>
 <tr><td valign="top"><a href="#attributes-2">attributes/2</a></td><td>Set the field's user-defined attributes.</td></tr>
 <tr><td valign="top"><a href="#default-1">default/1</a></td><td>Get the field's default value.</td></tr>
 <tr><td valign="top"><a href="#erl_type-1">erl_type/1</a></td><td>Get the field's corresponding Erlang type.</td></tr>
 <tr><td valign="top"><a href="#extra-1">extra/1</a></td><td>Get the field's extra metadata.</td></tr>
 <tr><td valign="top"><a href="#html_input_type-1">html_input_type/1</a></td><td>Get the field's default HTML input field type.</td></tr>
+<tr><td valign="top"><a href="#is_transient-1">is_transient/1</a></td><td>Transient flag of field's user-defined attributes.</td></tr>
 <tr><td valign="top"><a href="#key-1">key/1</a></td><td>Get the field's key definition.</td></tr>
 <tr><td valign="top"><a href="#maxlength-1">maxlength/1</a></td><td>If this is a text field, get its max length.</td></tr>
 <tr><td valign="top"><a href="#modifier-1">modifier/1</a></td><td>Get the field's modifier.</td></tr>
@@ -54,28 +53,24 @@ exposing database fields' metadata.</p>
 
 <h2><a name="functions">Function Details</a></h2>
 
-<h3 class="function"><a name="attributes-1">attributes/1</a></h3>
-<div class="spec">
+<h3><a name="attributes-1">attributes/1</a></h3>
 <p><tt>attributes(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; undefined | [term()]</tt></p>
-</div><p>Get the field's user-defined attributes.
+<p>Get the field's user-defined attributes.
  </p>
 
-<h3 class="function"><a name="attributes-2">attributes/2</a></h3>
-<div class="spec">
+<h3><a name="attributes-2">attributes/2</a></h3>
 <p><tt>attributes(Field::<a href="#type-erlydb_field">erlydb_field()</a>, Attributes::[term()]) -&gt; <a href="#type-erlydb_field">erlydb_field()</a></tt></p>
-</div><p>Set the field's user-defined attributes.
+<p>Set the field's user-defined attributes.
  </p>
 
-<h3 class="function"><a name="default-1">default/1</a></h3>
-<div class="spec">
+<h3><a name="default-1">default/1</a></h3>
 <p><tt>default(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; undefined | term()</tt></p>
-</div><p>Get the field's default value.
+<p>Get the field's default value.
  </p>
 
-<h3 class="function"><a name="erl_type-1">erl_type/1</a></h3>
-<div class="spec">
+<h3><a name="erl_type-1">erl_type/1</a></h3>
 <p><tt>erl_type(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; binary | integer | float | date | time | datetime</tt></p>
-</div><p><p>Get the field's corresponding Erlang type. Possible values are  
+<p><p>Get the field's corresponding Erlang type. Possible values are  
 'binary', 'integer', 'float', 'date', 'time', and 'datetime'.</p>
  
   <p>Date, time and datetime fields have the following forms:</p>
@@ -85,66 +80,61 @@ exposing database fields' metadata.</p>
   {datetime, {{Year, Month, Day}, {Hour, Minute, Second}}}</pre>
  </p>
 
-<h3 class="function"><a name="extra-1">extra/1</a></h3>
-<div class="spec">
+<h3><a name="extra-1">extra/1</a></h3>
 <p><tt>extra(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; undefined | identity</tt></p>
-</div><p>Get the field's extra metadata.
+<p>Get the field's extra metadata.
  </p>
 
-<h3 class="function"><a name="html_input_type-1">html_input_type/1</a></h3>
-<div class="spec">
+<h3><a name="html_input_type-1">html_input_type/1</a></h3>
 <p><tt>html_input_type(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; text_field | text_area | select</tt></p>
-</div><p>Get the field's default HTML input field type.
+<p>Get the field's default HTML input field type.
   Possible values are 'text_field', 'text_area' and 'select'.
  </p>
 
-<h3 class="function"><a name="key-1">key/1</a></h3>
-<div class="spec">
-<p><tt>key(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; undefined | primary | unique | multiple</tt></p>
-</div><p>Get the field's key definition.
+<h3><a name="is_transient-1">is_transient/1</a></h3>
+<p><tt>is_transient(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; true | false</tt></p>
+<p>Transient flag of field's user-defined attributes.
  </p>
 
-<h3 class="function"><a name="maxlength-1">maxlength/1</a></h3>
-<div class="spec">
+<h3><a name="key-1">key/1</a></h3>
+<p><tt>key(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; undefined | primary | unique | multiple</tt></p>
+<p>Get the field's key definition.
+ </p>
+
+<h3><a name="maxlength-1">maxlength/1</a></h3>
 <p><tt>maxlength(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; term()</tt></p>
-</div><p>If this is a text field, get its max length. This is identical to
+<p>If this is a text field, get its max length. This is identical to
   modifier/1.
  </p>
 
-<h3 class="function"><a name="modifier-1">modifier/1</a></h3>
-<div class="spec">
+<h3><a name="modifier-1">modifier/1</a></h3>
 <p><tt>modifier(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; term()</tt></p>
-</div><p>Get the field's modifier.
+<p>Get the field's modifier.
  </p>
 
-<h3 class="function"><a name="name-1">name/1</a></h3>
-<div class="spec">
+<h3><a name="name-1">name/1</a></h3>
 <p><tt>name(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; atom()</tt></p>
-</div><p>Get the field's name.
+<p>Get the field's name.
  </p>
 
-<h3 class="function"><a name="name_bin-1">name_bin/1</a></h3>
-<div class="spec">
+<h3><a name="name_bin-1">name_bin/1</a></h3>
 <p><tt>name_bin(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; binary()</tt></p>
-</div><p>Get the field's name as a binary.
+<p>Get the field's name as a binary.
  </p>
 
-<h3 class="function"><a name="name_str-1">name_str/1</a></h3>
-<div class="spec">
+<h3><a name="name_str-1">name_str/1</a></h3>
 <p><tt>name_str(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; string()</tt></p>
-</div><p>Get the field's name as a string.
+<p>Get the field's name as a string.
  </p>
 
-<h3 class="function"><a name="new-0">new/0</a></h3>
-<div class="spec">
+<h3><a name="new-0">new/0</a></h3>
 <p><tt>new() -&gt; <a href="#type-erlydb_field">erlydb_field()</a></tt></p>
-</div><p>Create a new erlydb_field record.
+<p>Create a new erlydb_field record.
  </p>
 
-<h3 class="function"><a name="new-6">new/6</a></h3>
-<div class="spec">
+<h3><a name="new-6">new/6</a></h3>
 <p><tt>new(Name::atom(), Type::{Type::atom(), Modifier::term()}, Null::<a href="#type-boolean">boolean()</a>, Key::term(), Default::term(), Extra::term()) -&gt; <a href="#type-erlydb_field">erlydb_field()</a></tt></p>
-</div><p><p>Create a new erlydb_field record initialized with the given values.</p>
+<p><p>Create a new erlydb_field record initialized with the given values.</p>
  
   <p>'Type' is the DBMS datatype, ('integer', 'varchar', etc.), represented  
 as an atom.</p>
@@ -165,27 +155,20 @@ The possible values are 'primary', 'unique', 'multiple' and 'undefined'.</p>
   Currently, the possible values are 'identity' and 'undefined'
  </p>
 
-<h3 class="function"><a name="null-1">null/1</a></h3>
-<div class="spec">
+<h3><a name="null-1">null/1</a></h3>
 <p><tt>null(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; <a href="#type-boolean">boolean()</a></tt></p>
-</div><p>Get the field's 'null' status.
+<p>Get the field's 'null' status.
  </p>
 
-<h3 class="function"><a name="options-1">options/1</a></h3>
-<div class="spec">
+<h3><a name="options-1">options/1</a></h3>
 <p><tt>options(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; term()</tt></p>
-</div><p>If this is an enum field, get its list of options. This is identical to
+<p>If this is an enum field, get its list of options. This is identical to
   modifier/1.
  </p>
 
-<h3 class="function"><a name="type-1">type/1</a></h3>
-<div class="spec">
+<h3><a name="type-1">type/1</a></h3>
 <p><tt>type(Field::<a href="#type-erlydb_field">erlydb_field()</a>) -&gt; term()</tt></p>
-</div><p>Get the field's type.
+<p>Get the field's type.
  </p>
-<hr>
-
-<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, May 6 2007, 09:27:12.</i></p>
 </body>
 </html>

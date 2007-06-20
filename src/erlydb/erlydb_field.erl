@@ -199,7 +199,7 @@ attributes(Field, Attributes) ->
 
 %% @doc Transient flag of field's user-defined attributes.
 %%
-%% @spec is_transient(Field::erlydb_field()) -> true | false]
+%% @spec is_transient(Field::erlydb_field()) -> true | false
 is_transient(Field) ->
   lists:member(transient, Field#erlydb_field.attributes).
 

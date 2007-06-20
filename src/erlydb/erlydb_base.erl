@@ -439,24 +439,24 @@ field_to_iolist(Val, Field) ->
 	List when is_list(List) -> Val;
 	Int when is_integer(Int) -> integer_to_list(Val);
 	Float when is_float(Float) -> float_to_list(Val);
-    
-	{datetime, {{_Year,_Month,_Day},{_Hour,_Minute,_Second}} = DateTime} -> 
-        format_datetime(DateTime);
-    {{_Year,_Month,_Day},{_Hour,_Minute,_Second}} = DateTime when Type =:= datetime -> 
+	{datetime, {{_Year,_Month,_Day},{_Hour,_Minute,_Second}}
+	 = DateTime} -> 
+	    format_datetime(DateTime);
+	{{_Year,_Month,_Day},{_Hour,_Minute,_Second}}
+	= DateTime when Type =:= datetime -> 
         format_datetime(DateTime);
 	{date, {_Year,_Month,_Day} = Date} -> format_date(Date);
-    {_Year,_Month,_Day} = Date when Type =:= date -> format_date(Date);
+	{_Year,_Month,_Day} = Date when Type =:= date -> format_date(Date);
 	{time, {_Hour,_Minute,_Second} = Time}  -> format_time(Time);
-    {_Hour,_Minute,_Second} = Time when Type =:= time -> format_time(Time);
-    
+	{_Hour,_Minute,_Second} = Time when Type =:= time -> format_time(Time);
 	undefined -> [];
 	_Other ->
 	    io_lib:format("~p", [Val])
     end.
 
-
 format_datetime({{Year,Month,Day},{Hour,Minute,Second}}) ->
-    io_lib:format("~b/~b/~b ~2.10.0b:~2.10.0b:~2.10.0b", [Year, Month, Day, Hour, Minute, Second]).
+    io_lib:format("~b/~b/~b ~2.10.0b:~2.10.0b:~2.10.0b",
+		  [Year, Month, Day, Hour, Minute, Second]).
 format_date({Year, Month, Day}) ->
     io_lib:format("~b/~b/~b", [Year, Month, Day]).
 format_time({Hour, Minute, Second}) ->
@@ -602,7 +602,7 @@ field_from_string(ErlyDbField, Str) ->
 	    {datetime, {make_date(Year, Month, Day),
 			make_time(Hour, Minute, Second)}};
 	date -> 
-	    [Month, Day, Year] = fread_vals("~d/~d/~d", Str),
+	    [Year, Month, Day] = fread_vals("~d/~d/~d", Str),
 	    {date, make_date(Year, Month, Day)};
 	time ->
 	    [Hour, Minute, Second] = fread_vals("~d:~d:~d", Str),

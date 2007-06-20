@@ -40,7 +40,10 @@ list(A, Model, Page) when is_integer(Page) ->
 		    id ->
 			Id = Model:field_to_iolist(Val),
 			erlyweb_html:a(
-			  [erlyweb:get_app_root(A),
+			  [case erlyweb:get_app_root(A) of
+			       "/" -> "";
+			       Root -> Root
+			   end,
 			   atom_to_list(Model),
 			   <<"edit">>, Id], Id);
 		    _ ->
