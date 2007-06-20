@@ -383,18 +383,29 @@ add_forms(controller, BaseName, MetaMod) ->
     add_func(M4, before_return, 3,
 	     "before_return(_FuncName, _Params, Response) -> "
 	     "Response.");
-add_forms(view, _BaseName, MetaMod) ->
+add_forms(view, BaseName, MetaMod) ->
+    add_forms1(erlyweb_view, BaseName, MetaMod);
+add_forms(_, BaseName, MetaMod) ->
+    add_forms1(undefined, BaseName, MetaMod).
+
+add_forms1(SubstitutionMod, BaseName, MetaMod) ->
     case smerl:get_attribute(MetaMod, erlyweb_magic) of
 	{ok, Val} ->
 	    Base = case Val of
-		       on -> erlyweb_view;
+		       on -> if SubstitutionMod == undefined ->
+				     exit({invalid_erlyweb_magic_declaration,
+					   {in_module, BaseName},
+					   "only controllers and views may "
+					   "declare '-erlyweb_magic(on).'"});
+				true ->
+				     SubstitutionMod
+			     end;
 		       Other -> Other
 		   end,
 	    smerl:extend(Base, MetaMod);
 	_ -> MetaMod
-    end;
-add_forms(_, _BaseName, MetaMod) ->
-     MetaMod.
+    end.
+
 
 add_func(MetaMod, Name, Arity, Str) ->
     case smerl:get_func(MetaMod, Name, Arity) of
