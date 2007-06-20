@@ -2,17 +2,15 @@
 <html>
 <head>
 <title>Module erltl</title>
-<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+<link rel="stylesheet" type="text/css" href="stylesheet.css">
 </head>
 <body bgcolor="white">
-<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<hr>
 
 <h1>Module erltl</h1>
-<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>ErlTL is a simple Erlang template language.
+ErlTL is a simple Erlang template language.
 <p>Copyright © Yariv Sadan 2006-2007
  </p>
-
+<ul><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
 <p><b>Version:</b> 0.9.3</p>
 <p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivsblog@gmail.com"><tt>yarivsblog@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com" target="_top">http://yarivsblog.com</a></tt>].</p>
 
@@ -126,7 +124,7 @@ used for documentation only. They are discarded in compile-time.</p>
   &lt;/tr&gt;</pre>
  
 <h2><a name="index">Function Index</a></h2>
-<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#compile-1">compile/1</a></td><td>Compile the ErlTL file with the default options:
+<table width="100%" border="1"><tr><td valign="top"><a href="#compile-1">compile/1</a></td><td>Compile the ErlTL file with the default options:
    <code>[{outdir, FileDir}, report_errors, report_warnings, nowarn_unused_vars]</code>.</td></tr>
 <tr><td valign="top"><a href="#compile-2">compile/2</a></td><td>Compile the ErlTL file with user-defined options.</td></tr>
 <tr><td valign="top"><a href="#forms_for_data-2">forms_for_data/2</a></td><td>Equivalent to <a href="#forms_form_data-3"><tt>forms_form_data(Data, ModuleName, [])</tt></a>.
@@ -141,10 +139,9 @@ used for documentation only. They are discarded in compile-time.</p>
 
 <h2><a name="functions">Function Details</a></h2>
 
-<h3 class="function"><a name="compile-1">compile/1</a></h3>
-<div class="spec">
+<h3><a name="compile-1">compile/1</a></h3>
 <p><tt>compile(FileName::string()) -&gt; ok | {error, Err}</tt></p>
-</div><p><p>Compile the ErlTL file with the default options:
+<p><p>Compile the ErlTL file with the default options:
    <code>[{outdir, FileDir}, report_errors, report_warnings, nowarn_unused_vars]</code>.   
 (FileDir is the directory of the source file.)</p>
  
@@ -152,41 +149,32 @@ used for documentation only. They are discarded in compile-time.</p>
    (the old code is purged if necessary).
  </p>
 
-<h3 class="function"><a name="compile-2">compile/2</a></h3>
-<div class="spec">
+<h3><a name="compile-2">compile/2</a></h3>
 <p><tt>compile(FileName::string(), Options::[<a href="#type-option">option()</a>]) -&gt; ok | {error, Err}</tt></p>
-</div><p>Compile the ErlTL file with user-defined options. The options are
+<p>Compile the ErlTL file with user-defined options. The options are
   described in the documentation for the 'compile' module.
   For more information, visit
   <a href="http://erlang.org/doc/doc-5.5.1/lib/compiler-4.4.1/doc/html/compile.html" target="_top"><tt>http://erlang.org/doc/doc-5.5.1/lib/compiler-4.4.1/doc/html/compile.html</tt></a>
  </p>
 
-<h3 class="function"><a name="forms_for_data-2">forms_for_data/2</a></h3>
-<div class="spec">
-<p><tt>forms_for_data() -&gt; term()</tt></p>
-</div><p>Equivalent to <a href="#forms_form_data-3"><tt>forms_form_data(Data, ModuleName, [])</tt></a>.</p>
+<h3><a name="forms_for_data-2">forms_for_data/2</a></h3>
+<tt>forms_for_data(Data, ModuleName) -&gt; term()
+</tt><p>Equivalent to <a href="#forms_form_data-3"><tt>forms_form_data(Data, ModuleName, [])</tt></a>.</p>
 
 
-<h3 class="function"><a name="forms_for_data-3">forms_for_data/3</a></h3>
-<div class="spec">
+<h3><a name="forms_for_data-3">forms_for_data/3</a></h3>
 <p><tt>forms_for_data(Data::binary() | string(), ModuleName::atom(), IncludePaths::[string()]) -&gt; {ok, [<a href="#type-form">form()</a>]} | {error, Err}</tt></p>
-</div><p>Parse the raw text of an ErlTL template and return its
+<p>Parse the raw text of an ErlTL template and return its
     representation in abstract forms.</p>
 
-<h3 class="function"><a name="forms_for_file-1">forms_for_file/1</a></h3>
-<div class="spec">
-<p><tt>forms_for_file() -&gt; term()</tt></p>
-</div><p>Equivalent to <a href="#forms_for_file-2"><tt>forms_for_file(Filename, [])</tt></a>.</p>
+<h3><a name="forms_for_file-1">forms_for_file/1</a></h3>
+<tt>forms_for_file(FileName) -&gt; term()
+</tt><p>Equivalent to <a href="#forms_for_file-2"><tt>forms_for_file(Filename, [])</tt></a>.</p>
 
 
-<h3 class="function"><a name="forms_for_file-2">forms_for_file/2</a></h3>
-<div class="spec">
+<h3><a name="forms_for_file-2">forms_for_file/2</a></h3>
 <p><tt>forms_for_file(FileName::string(), IncludePaths::[string()]) -&gt; {ok, [<a href="#type-form">form()</a>]} | {error, Err}</tt></p>
-</div><p>Parse the ErlTL file and return its representation in Erlang
+<p>Parse the ErlTL file and return its representation in Erlang
     abstract forms.</p>
-<hr>
-
-<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, May 6 2007, 09:27:11.</i></p>
 </body>
 </html>

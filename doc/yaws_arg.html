@@ -2,19 +2,17 @@
 <html>
 <head>
 <title>Module yaws_arg</title>
-<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+<link rel="stylesheet" type="text/css" href="stylesheet.css">
 </head>
 <body bgcolor="white">
-<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<hr>
 
 <h1>Module yaws_arg</h1>
-<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>  
+  
 This module provides functions for getting and setting  
 values of a Yaws 'arg' record.
 <p>Copyright © Yariv Sadan 2006-2007
  </p>
-
+<ul><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
 <p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivsblog@gmail.com"><tt>yarivsblog@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com" target="_top">http://yarivsblog.com</a></tt>].</p>
 
 <h2><a name="description">Description</a></h2><p>  
@@ -30,216 +28,178 @@ having to include yaws_api.hrl.</p>
   with the modified value.
  
 <h2><a name="index">Function Index</a></h2>
-<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#appmod_prepath-1">appmod_prepath/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#appmod_prepath-2">appmod_prepath/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#appmoddata-1">appmoddata/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#appmoddata-2">appmoddata/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#clidata-1">clidata/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#clidata-2">clidata/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#client_ip_port-1">client_ip_port/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#client_ip_port-2">client_ip_port/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#clisock-1">clisock/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#clisock-2">clisock/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#cont-1">cont/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#cont-2">cont/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#docroot-1">docroot/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#docroot-2">docroot/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#fullpath-1">fullpath/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#fullpath-2">fullpath/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#headers-1">headers/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#headers-2">headers/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#method-1">method/1</a></td><td></td></tr>
+<table width="100%" border="1"><tr><td valign="top"><a href="#appmod_prepath-1">appmod_prepath/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#appmod_prepath-2">appmod_prepath/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#appmoddata-1">appmoddata/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#appmoddata-2">appmoddata/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#clidata-1">clidata/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#clidata-2">clidata/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#client_ip_port-1">client_ip_port/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#client_ip_port-2">client_ip_port/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#clisock-1">clisock/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#clisock-2">clisock/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#cont-1">cont/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#cont-2">cont/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#docroot-1">docroot/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#docroot-2">docroot/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#fullpath-1">fullpath/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#fullpath-2">fullpath/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#headers-1">headers/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#headers-2">headers/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#method-1">method/1</a></td><td/></tr>
 <tr><td valign="top"><a href="#new-0">new/0</a></td><td>Create a new 'arg' record.</td></tr>
-<tr><td valign="top"><a href="#opaque-1">opaque/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#opaque-2">opaque/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#pathinfo-1">pathinfo/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#pathinfo-2">pathinfo/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#pid-1">pid/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#pid-2">pid/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#querydata-1">querydata/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#querydata-2">querydata/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#req-1">req/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#req-2">req/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#server_path-1">server_path/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#server_path-2">server_path/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#state-1">state/1</a></td><td></td></tr>
-<tr><td valign="top"><a href="#state-2">state/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#opaque-1">opaque/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#opaque-2">opaque/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#pathinfo-1">pathinfo/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#pathinfo-2">pathinfo/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#pid-1">pid/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#pid-2">pid/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#querydata-1">querydata/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#querydata-2">querydata/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#req-1">req/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#req-2">req/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#server_path-1">server_path/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#server_path-2">server_path/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#state-1">state/1</a></td><td/></tr>
+<tr><td valign="top"><a href="#state-2">state/2</a></td><td/></tr>
 </table>
 
 <h2><a name="functions">Function Details</a></h2>
 
-<h3 class="function"><a name="appmod_prepath-1">appmod_prepath/1</a></h3>
-<div class="spec">
-<p><tt>appmod_prepath() -&gt; term()</tt></p>
-</div>
+<h3><a name="appmod_prepath-1">appmod_prepath/1</a></h3>
+<tt>appmod_prepath(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="appmod_prepath-2">appmod_prepath/2</a></h3>
-<div class="spec">
-<p><tt>appmod_prepath() -&gt; term()</tt></p>
-</div>
+<h3><a name="appmod_prepath-2">appmod_prepath/2</a></h3>
+<tt>appmod_prepath(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="appmoddata-1">appmoddata/1</a></h3>
-<div class="spec">
-<p><tt>appmoddata() -&gt; term()</tt></p>
-</div>
+<h3><a name="appmoddata-1">appmoddata/1</a></h3>
+<tt>appmoddata(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="appmoddata-2">appmoddata/2</a></h3>
-<div class="spec">
-<p><tt>appmoddata() -&gt; term()</tt></p>
-</div>
+<h3><a name="appmoddata-2">appmoddata/2</a></h3>
+<tt>appmoddata(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="clidata-1">clidata/1</a></h3>
-<div class="spec">
-<p><tt>clidata() -&gt; term()</tt></p>
-</div>
+<h3><a name="clidata-1">clidata/1</a></h3>
+<tt>clidata(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="clidata-2">clidata/2</a></h3>
-<div class="spec">
-<p><tt>clidata() -&gt; term()</tt></p>
-</div>
+<h3><a name="clidata-2">clidata/2</a></h3>
+<tt>clidata(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="client_ip_port-1">client_ip_port/1</a></h3>
-<div class="spec">
-<p><tt>client_ip_port() -&gt; term()</tt></p>
-</div>
+<h3><a name="client_ip_port-1">client_ip_port/1</a></h3>
+<tt>client_ip_port(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="client_ip_port-2">client_ip_port/2</a></h3>
-<div class="spec">
-<p><tt>client_ip_port() -&gt; term()</tt></p>
-</div>
+<h3><a name="client_ip_port-2">client_ip_port/2</a></h3>
+<tt>client_ip_port(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="clisock-1">clisock/1</a></h3>
-<div class="spec">
-<p><tt>clisock() -&gt; term()</tt></p>
-</div>
+<h3><a name="clisock-1">clisock/1</a></h3>
+<tt>clisock(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="clisock-2">clisock/2</a></h3>
-<div class="spec">
-<p><tt>clisock() -&gt; term()</tt></p>
-</div>
+<h3><a name="clisock-2">clisock/2</a></h3>
+<tt>clisock(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="cont-1">cont/1</a></h3>
-<div class="spec">
-<p><tt>cont() -&gt; term()</tt></p>
-</div>
+<h3><a name="cont-1">cont/1</a></h3>
+<tt>cont(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="cont-2">cont/2</a></h3>
-<div class="spec">
-<p><tt>cont() -&gt; term()</tt></p>
-</div>
+<h3><a name="cont-2">cont/2</a></h3>
+<tt>cont(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="docroot-1">docroot/1</a></h3>
-<div class="spec">
-<p><tt>docroot() -&gt; term()</tt></p>
-</div>
+<h3><a name="docroot-1">docroot/1</a></h3>
+<tt>docroot(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="docroot-2">docroot/2</a></h3>
-<div class="spec">
-<p><tt>docroot() -&gt; term()</tt></p>
-</div>
+<h3><a name="docroot-2">docroot/2</a></h3>
+<tt>docroot(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="fullpath-1">fullpath/1</a></h3>
-<div class="spec">
-<p><tt>fullpath() -&gt; term()</tt></p>
-</div>
+<h3><a name="fullpath-1">fullpath/1</a></h3>
+<tt>fullpath(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="fullpath-2">fullpath/2</a></h3>
-<div class="spec">
-<p><tt>fullpath() -&gt; term()</tt></p>
-</div>
+<h3><a name="fullpath-2">fullpath/2</a></h3>
+<tt>fullpath(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="headers-1">headers/1</a></h3>
-<div class="spec">
-<p><tt>headers() -&gt; term()</tt></p>
-</div>
+<h3><a name="headers-1">headers/1</a></h3>
+<tt>headers(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="headers-2">headers/2</a></h3>
-<div class="spec">
-<p><tt>headers() -&gt; term()</tt></p>
-</div>
+<h3><a name="headers-2">headers/2</a></h3>
+<tt>headers(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="method-1">method/1</a></h3>
-<div class="spec">
-<p><tt>method() -&gt; term()</tt></p>
-</div>
+<h3><a name="method-1">method/1</a></h3>
+<tt>method(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="new-0">new/0</a></h3>
-<div class="spec">
-<p><tt>new() -&gt; term()</tt></p>
-</div><p>Create a new 'arg' record.</p>
+<h3><a name="new-0">new/0</a></h3>
+<tt>new() -&gt; term()
+</tt><p>Create a new 'arg' record.</p>
 
-<h3 class="function"><a name="opaque-1">opaque/1</a></h3>
-<div class="spec">
-<p><tt>opaque() -&gt; term()</tt></p>
-</div>
+<h3><a name="opaque-1">opaque/1</a></h3>
+<tt>opaque(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="opaque-2">opaque/2</a></h3>
-<div class="spec">
-<p><tt>opaque() -&gt; term()</tt></p>
-</div>
+<h3><a name="opaque-2">opaque/2</a></h3>
+<tt>opaque(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="pathinfo-1">pathinfo/1</a></h3>
-<div class="spec">
-<p><tt>pathinfo() -&gt; term()</tt></p>
-</div>
+<h3><a name="pathinfo-1">pathinfo/1</a></h3>
+<tt>pathinfo(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="pathinfo-2">pathinfo/2</a></h3>
-<div class="spec">
-<p><tt>pathinfo() -&gt; term()</tt></p>
-</div>
+<h3><a name="pathinfo-2">pathinfo/2</a></h3>
+<tt>pathinfo(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="pid-1">pid/1</a></h3>
-<div class="spec">
-<p><tt>pid() -&gt; term()</tt></p>
-</div>
+<h3><a name="pid-1">pid/1</a></h3>
+<tt>pid(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="pid-2">pid/2</a></h3>
-<div class="spec">
-<p><tt>pid() -&gt; term()</tt></p>
-</div>
+<h3><a name="pid-2">pid/2</a></h3>
+<tt>pid(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="querydata-1">querydata/1</a></h3>
-<div class="spec">
-<p><tt>querydata() -&gt; term()</tt></p>
-</div>
+<h3><a name="querydata-1">querydata/1</a></h3>
+<tt>querydata(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="querydata-2">querydata/2</a></h3>
-<div class="spec">
-<p><tt>querydata() -&gt; term()</tt></p>
-</div>
+<h3><a name="querydata-2">querydata/2</a></h3>
+<tt>querydata(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="req-1">req/1</a></h3>
-<div class="spec">
-<p><tt>req() -&gt; term()</tt></p>
-</div>
+<h3><a name="req-1">req/1</a></h3>
+<tt>req(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="req-2">req/2</a></h3>
-<div class="spec">
-<p><tt>req() -&gt; term()</tt></p>
-</div>
+<h3><a name="req-2">req/2</a></h3>
+<tt>req(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="server_path-1">server_path/1</a></h3>
-<div class="spec">
-<p><tt>server_path() -&gt; term()</tt></p>
-</div>
+<h3><a name="server_path-1">server_path/1</a></h3>
+<tt>server_path(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="server_path-2">server_path/2</a></h3>
-<div class="spec">
-<p><tt>server_path() -&gt; term()</tt></p>
-</div>
+<h3><a name="server_path-2">server_path/2</a></h3>
+<tt>server_path(Arg, Val) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="state-1">state/1</a></h3>
-<div class="spec">
-<p><tt>state() -&gt; term()</tt></p>
-</div>
+<h3><a name="state-1">state/1</a></h3>
+<tt>state(Arg) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="state-2">state/2</a></h3>
-<div class="spec">
-<p><tt>state() -&gt; term()</tt></p>
-</div>
-<hr>
-
-<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, May 6 2007, 09:27:10.</i></p>
+<h3><a name="state-2">state/2</a></h3>
+<tt>state(Arg, Val) -&gt; term()
+</tt>
 </body>
 </html>

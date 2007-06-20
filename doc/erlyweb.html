@@ -2,17 +2,15 @@
 <html>
 <head>
 <title>Module erlyweb</title>
-<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+<link rel="stylesheet" type="text/css" href="stylesheet.css">
 </head>
 <body bgcolor="white">
-<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<hr>
 
 <h1>Module erlyweb</h1>
-<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>ErlyWeb: The Erlang Twist on Web Framworks.
+ErlyWeb: The Erlang Twist on Web Framworks.
 <p>Copyright © Yariv Sadan 2006-2007
  </p>
-
+<ul><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
 <p><b>Authors:</b> Yariv Sadan (<a href="mailto:yarivsblog@gmail.com"><tt>yarivsblog@gmail.com</tt></a>) [<em>web site:</em> <tt><a href="http://yarivsblog.com" target="_top">http://yarivsblog.com</a></tt>].</p>
 
 <h2><a name="description">Description</a></h2><p>ErlyWeb: The Erlang Twist on Web Framworks.</p>
@@ -21,7 +19,7 @@
   applications and components. It is also the module set as the YAWS
   appmod for ErlyWeb applications.
 <h2><a name="index">Function Index</a></h2>
-<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#compile-1">compile/1</a></td><td>Compile all the files for an application.</td></tr>
+<table width="100%" border="1"><tr><td valign="top"><a href="#compile-1">compile/1</a></td><td>Compile all the files for an application.</td></tr>
 <tr><td valign="top"><a href="#compile-2">compile/2</a></td><td>Compile all the files for an application using the compilation
    options as described in the 'compile' module in the Erlang
    documentation (<a href="http://erlang.org" target="_top"><tt>http://erlang.org</tt></a>).</td></tr>
@@ -33,7 +31,7 @@ that implements basic CRUD features for a database table.</td></tr>
 <tr><td valign="top"><a href="#get_app_name-1">get_app_name/1</a></td><td>Get the name for the application as specified in the opaque
   'appname' field in the YAWS configuration.</td></tr>
 <tr><td valign="top"><a href="#get_app_root-1">get_app_root/1</a></td><td>Get the relative URL for the application's root path.</td></tr>
-<tr><td valign="top"><a href="#get_ewc-1">get_ewc/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#get_ewc-1">get_ewc/1</a></td><td/></tr>
 <tr><td valign="top"><a href="#get_initial_ewc-1">get_initial_ewc/1</a></td><td>Get the expanded 'ewc' tuple for the request.</td></tr>
 <tr><td valign="top"><a href="#out-1">out/1</a></td><td>This is the out/1 function that Yaws calls when passing
    HTTP requests to the ErlyWeb appmod.</td></tr>
@@ -41,10 +39,9 @@ that implements basic CRUD features for a database table.</td></tr>
 
 <h2><a name="functions">Function Details</a></h2>
 
-<h3 class="function"><a name="compile-1">compile/1</a></h3>
-<div class="spec">
+<h3><a name="compile-1">compile/1</a></h3>
 <p><tt>compile(AooDir::string()) -&gt; ok | {error, Err}</tt></p>
-</div><p><p>Compile all the files for an application. Files with the '.et'    
+<p><p>Compile all the files for an application. Files with the '.et'    
 extension are compiled with ErlTL.</p>
  
     This function returns <code>{ok, Now}</code>, where Now is
@@ -55,10 +52,9 @@ extension are compiled with ErlTL.</p>
     is turned on).
  </p>
 
-<h3 class="function"><a name="compile-2">compile/2</a></h3>
-<div class="spec">
+<h3><a name="compile-2">compile/2</a></h3>
 <p><tt>compile(AppDir::string(), Options::[<a href="#type-option">option()</a>]) -&gt; {ok, Now::<a href="#type-datetime">datetime()</a>} | {error, Err}</tt></p>
-</div><p><p>Compile all the files for an application using the compilation
+<p><p>Compile all the files for an application using the compilation
    options as described in the 'compile' module in the Erlang
    documentation (<a href="http://erlang.org" target="_top"><tt>http://erlang.org</tt></a>).   
 ErlyWeb also lets you define the following options:</p>
@@ -94,24 +90,21 @@ excluded folder. Example: {auto_compile_exclude, "/static"}</p>
   For more information, refer to your ErlyDB driver's documentation.
  </p>
 
-<h3 class="function"><a name="create_app-2">create_app/2</a></h3>
-<div class="spec">
+<h3><a name="create_app-2">create_app/2</a></h3>
 <p><tt>create_app(AppName::string(), AppDir::string()) -&gt; ok | {error, Err}</tt></p>
-</div><p>Create a new ErlyWeb application in the directory AppDir.
+<p>Create a new ErlyWeb application in the directory AppDir.
   This function creates the standard ErlyWeb directory structure as well as
   a few basic files for a rudimantary application.
  </p>
 
-<h3 class="function"><a name="create_component-2">create_component/2</a></h3>
-<div class="spec">
-<p><tt>create_component() -&gt; term()</tt></p>
-</div><p>Equivalent to <a href="#create_component-3"><tt>create_component(Component, AppDir, on)</tt></a>.</p>
+<h3><a name="create_component-2">create_component/2</a></h3>
+<tt>create_component(Component, AppDir) -&gt; term()
+</tt><p>Equivalent to <a href="#create_component-3"><tt>create_component(Component, AppDir, on)</tt></a>.</p>
 
 
-<h3 class="function"><a name="create_component-3">create_component/3</a></h3>
-<div class="spec">
+<h3><a name="create_component-3">create_component/3</a></h3>
 <p><tt>create_component(Component::atom(), AppDir::string(), Magic::on | atom() | string()) -&gt; ok | {error, Err}</tt></p>
-</div><p><p>Create all the files (model, view and controller) for a component   
+<p><p>Create all the files (model, view and controller) for a component   
 that implements basic CRUD features for a database table.   
 'Component' is the name of the component and 'AppDir' is the application's   
 root directory.</p>
@@ -128,28 +121,24 @@ capabilities.</p>
   the view and/or controller source files.
  </p>
 
-<h3 class="function"><a name="get_app_name-1">get_app_name/1</a></h3>
-<div class="spec">
+<h3><a name="get_app_name-1">get_app_name/1</a></h3>
 <p><tt>get_app_name(A::<a href="#type-arg">arg()</a>) -&gt; AppName::string() | <a href="#type-exit">exit(Err)</a></tt></p>
-</div><p>Get the name for the application as specified in the opaque
+<p>Get the name for the application as specified in the opaque
   'appname' field in the YAWS configuration.
  </p>
 
-<h3 class="function"><a name="get_app_root-1">get_app_root/1</a></h3>
-<div class="spec">
+<h3><a name="get_app_root-1">get_app_root/1</a></h3>
 <p><tt>get_app_root(A::<a href="#type-arg">arg()</a>) -&gt; string()</tt></p>
-</div><p>Get the relative URL for the application's root path.
+<p>Get the relative URL for the application's root path.
  </p>
 
-<h3 class="function"><a name="get_ewc-1">get_ewc/1</a></h3>
-<div class="spec">
-<p><tt>get_ewc() -&gt; term()</tt></p>
-</div>
+<h3><a name="get_ewc-1">get_ewc/1</a></h3>
+<tt>get_ewc(A) -&gt; term()
+</tt>
 
-<h3 class="function"><a name="get_initial_ewc-1">get_initial_ewc/1</a></h3>
-<div class="spec">
+<h3><a name="get_initial_ewc-1">get_initial_ewc/1</a></h3>
 <p><tt>get_initial_ewc(Ewc::{ewc, A::<a href="#type-arg">arg()</a>}) -&gt; {page, Path::string()} | {ewc, Controller::atom(), View::atom(), Function::atom(), Params::[string()]} | <a href="#type-exit">exit({no_such_function, Err})</a> | <a href="#type-exit">exit({illegal_request, Controller})</a></tt></p>
-</div><p><p>Get the expanded 'ewc' tuple for the request.</p>
+<p><p>Get the expanded 'ewc' tuple for the request.</p>
  
   <p>This function can  
 be useful in the app controller in case the application requires special  
@@ -170,15 +159,10 @@ logic for handling client requests for different components.</p>
  </p>
 <p><b>See also:</b> <a href="#handle_request-1">handle_request/1</a>.</p>
 
-<h3 class="function"><a name="out-1">out/1</a></h3>
-<div class="spec">
+<h3><a name="out-1">out/1</a></h3>
 <p><tt>out(A::<a href="#type-yaws_arg">yaws_arg()</a>) -&gt; <a href="#type-ret_val">ret_val()</a></tt></p>
-</div><p>This is the out/1 function that Yaws calls when passing
+<p>This is the out/1 function that Yaws calls when passing
    HTTP requests to the ErlyWeb appmod.
  </p>
-<hr>
-
-<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, May 6 2007, 09:27:11.</i></p>
 </body>
 </html>
