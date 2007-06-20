@@ -24,6 +24,12 @@ v0.6.1
   generated model functions), e.g.:
     fields() -> [mydbfield, {mytransientfield, [transient]}, mydbfield2]. 
 
+- tweaked the default printing and parsing of date/time values
+
+- duplicates are now removed from the result of fields/0 in ErlyDB models
+
+- added support for erlyweb_magic in models.
+
 v0.6
 
 - Added support for read-only fields and setting for arbitrary user-defined
