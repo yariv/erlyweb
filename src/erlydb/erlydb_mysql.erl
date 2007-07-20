@@ -79,26 +79,26 @@
 %%
 %% @spec start(StartOptions::proplist()) -> ok | {error, Error}
 start(Options) ->
-    start1(Options, fun mysql:start/6).
+    start1(Options, fun mysql:start/7).
 
 %% @doc This function is similar to {@link start/1}, only it calls
 %% mysql:start_link() instead of mysql:start().
 %%
 %% @spec start_link(StartOptions::proplist()) -> ok | {error, Error}
 start_link(Options) ->
-    start1(Options, fun mysql:start_link/6).
+    start1(Options, fun mysql:start_link/7).
 
 start1(Options, Fun) ->
-    [PoolId, Hostname, Port, Username, Password, Database] =
+    [PoolId, Hostname, Port, Username, Password, Database, LogFun] =
 	lists:foldl(
 	  fun(Key, Acc) ->
 		  [proplists:get_value(Key, Options) | Acc]
 	  end, [],
 	  lists:reverse([pool_id, hostname, port, username,
-			 password, database])),
+			 password, database, logfun])),
 
     PoolId1 = if PoolId == undefined -> ?Epid; true -> PoolId end,
-    Fun(PoolId1, Hostname, Port, Username, Password, Database).
+    Fun(PoolId1, Hostname, Port, Username, Password, Database, LogFun).
     
 
 %% @doc Call connect/7 with Port set to 3306 and Reconnect set to 'true'.
