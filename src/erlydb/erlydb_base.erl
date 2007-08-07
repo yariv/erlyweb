@@ -1203,7 +1203,8 @@ make_add_related_many_to_many_query(JoinTable, Rec, OtherRecs) ->
 		lists:map(
 		  fun(OtherRec) ->
 			  [R1, R2] = 
-			      sort_records(Mod, Rec, OtherRec, Fields),
+			      sort_records(Mod, Rec, OtherMod, OtherRec,
+					   Fields),
 			  lists:foldl(
 			    fun({PkField, _FkField1, _FkField2}, Acc) ->
 				    [Mod:PkField(R1), Mod:PkField(R2) | Acc]
@@ -1359,7 +1360,7 @@ get_join_table_fields(Rec, OtherRec) ->
     case db_table(Mod) == db_table(OtherMod) of
 	true ->
 	    Fields = Mod:get_pk_fk_fields2(),
-	    [Rec1, Rec2] = sort_records(Mod, Rec, OtherRec, Fields),
+	    [Rec1, Rec2] = sort_records(Mod, Rec, OtherMod, OtherRec, Fields),
 	    lists:foldl(
 	      fun({PkField, FkField1, FkField2}, Acc) ->
 		      [{FkField1, Mod:PkField(Rec1)},
@@ -1375,15 +1376,15 @@ get_join_table_fields(Rec, OtherRec) ->
 	      end, Fields1, OtherMod:get_pk_fk_fields())
     end.
 
-sort_records(_Mod, R1, R2, []) -> [R1, R2];
-sort_records(Mod, R1, R2, [{PkField, _, _} | Rest]) ->
-    case Mod:PkField(R1) < Mod:PkField(R2) of
+sort_records(_Mod1, R1, _Mod2, R2, []) -> [R1, R2];
+sort_records(Mod1, R1, Mod2, R2, [{PkField, _, _} | Rest]) ->
+    case Mod1:PkField(R1) < Mod2:PkField(R2) of
 	true ->
 	    [R1, R2];
 	_ ->
-	    case Mod:PkField(R1) == Mod:PkField(R2) of
+	    case Mod1:PkField(R1) == Mod2:PkField(R2) of
 		true ->
-		    sort_records(Mod, R1, R2, Rest);
+		    sort_records(Mod1, R1, Mod2, R2, Rest);
 		false ->
 		    [R2, R1]
 	    end
