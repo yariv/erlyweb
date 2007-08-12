@@ -757,6 +757,11 @@ convert(Value, binary) when is_binary(Value) ->
     Value;
 
 
+convert(Value, binary) ->
+    % catch all
+    Value;
+
+
 convert({datetime, Value}, datetime) ->
     Value;
 convert(Value, datetime) ->
