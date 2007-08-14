@@ -111,8 +111,8 @@
 	 to_src/2
 	]).
 
--define(L(Obj), io:format("LOG ~w ~p\n", [?LINE, Obj])).
--define(S(Obj), io:format("LOG ~w ~s\n", [?LINE, Obj])).	 
+-define(L(Obj), io:format("LOG ~s ~w ~p\n", [?FILE, ?LINE, Obj])).
+-define(S(Obj), io:format("LOG ~s ~w ~s\n", [?FILE, ?LINE, Obj])).	 
 
 -include_lib("kernel/include/file.hrl").
 
@@ -580,7 +580,10 @@ compile(MetaMod, Options) ->
 
     Forms1 = [{attribute, 1, file, {FileName, 1}} | Forms],
     Forms2 = Forms1 ++ lists:reverse(MetaMod#meta_mod.forms),
-    case compile:forms(Forms2, Options) of       
+
+    %% apply any parse transforms, if necessary
+    Forms3 = apply_parse_transforms(Forms2),
+    case compile:forms(Forms3, Options) of       
 	{ok, Module, Bin} ->
 	    Res = 
 		case lists:keysearch(outdir, 1, Options) of
@@ -608,6 +611,20 @@ compile(MetaMod, Options) ->
 	Err ->
 	    Err
     end.
+
+apply_parse_transforms(Forms) ->
+    {ParseTransforms, Rest} =
+	lists:partition(
+	  fun({attribute,_,compile,{parse_transform,_}}) ->
+		  true;
+	     (_) ->
+		  false
+	  end, Forms),
+    lists:foldl(
+      fun({attribute,_,compile,{parse_transform,PTMod}}, Acc) ->
+	      lists:reverse(PTMod:parse_transform(Acc, []))
+      end, Rest, ParseTransforms).
+		  
 
 %% @doc Change the name of the function represented by the form.
 %%
