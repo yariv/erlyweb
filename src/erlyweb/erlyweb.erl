@@ -343,8 +343,8 @@ ewr2(A, PathElems) ->
     Path = lists:foldr(
 	     fun(Elem, []) -> [Elem];
 		(Elem, Acc) -> [Elem, $/ | Acc]
-	     end, [], Elems),
-    {redirect_local, [AppDir | Path]}.
+	     end, [], [AppDir | Elems]),
+    {redirect_local, Path}.
 
 handle_response(A, {response, Elems}, View, FuncName, AppData) ->
     Elems2 = lists:map( 
@@ -424,6 +424,7 @@ get_app_name(A) ->
     end.
 
 %% @doc Get the relative URL for the application's root path.
+%% 
 %%
 %% @spec get_app_root(A::arg()) -> string()
 get_app_root(A) ->
@@ -433,12 +434,8 @@ get_app_root(A) ->
 	  length(ServerPath) -
 	  length(yaws_arg:appmoddata(A)),
 	  ServerPath),
-    if First == [] ->
-   	    "/";
-       true ->
-   	    First
-    end.
-
+    First.
+  
 lookup_app_data_module(A) ->
     proplists:get_value(app_data_module, yaws_arg:opaque(A)).
 

@@ -10,8 +10,8 @@
 
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
--export([log/5, create_app/2, create_component/3, get_appname/1,
-	 get_app_root/1, get_url_prefix/1,
+-export([log/5, create_app/2, create_component/3,
+	 get_url_prefix/1,
 	 get_cookie/2, indexify/2]).
 
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
@@ -185,14 +185,6 @@ create_component(ComponentName, AppDir, Magic) ->
       fun({FileName, Text}) ->
 	      create_file(AppDir ++ "/src/components/" ++ FileName, Text)
       end, Files).
-
-%% @hidden
-get_appname(A) ->
-    erlyweb:get_app_name(A).
-
-%% @hidden
-get_app_root(A)->
-    erlyweb:get_app_root(A).
 
 %% @doc Get the  of the arg's appmoddata value up to the
 %% first '?' symbol.

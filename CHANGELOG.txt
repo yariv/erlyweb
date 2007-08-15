@@ -1,3 +1,25 @@
+v0.6.2
+
+- Fixed the action paths in erlyweb_view. NOTE: the behavior of
+erlyweb:get_app_root() has changed. It used to return "/" when
+the appmod was set to "/", but now it just returns an empty string. (yarivvv)
+
+- Enabled the use of parse transforms in files compile with smerl
+  (this fix allows using QLC and Mnemosyne in controller files). (yarivvv)
+
+- Added methods in smerl so that for_module/2 works for dynamically inserted 
+modules as well.  Note that if we don't have debug_info, we have to retrieve
+module information by epp:parse_file, the module contents are not updated, 
+hence they do not contain dynamically inserted information from erlydb_base.erl.
+This is the best we can do in this situation, and giving partial information 
+is better than giving nothing. (haoboy)
+
+- Added option {logfun, LogFun} to erlydb_mysql:start() so that we can pass in 
+a LogFun option to control mysql driver's logging.  In production mode, this 
+allows us to pass in a dummy logger so that all database logging is disabled. (haoboy)
+
+- Added a catch all when converting binaries in to/from mnesia (matthew.pflueger)
+
 v0.6.1
 
 - Fixed erlyweb_magic.
