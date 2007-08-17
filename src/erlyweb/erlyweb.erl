@@ -150,22 +150,23 @@ out(A) ->
  	    case AppData:auto_compile() of
  		false -> ok;
  		{true, Options} ->
-        case lists:keysearch(auto_compile_exclude, 1, Options) of
-	    {value, {_, Val}} -> 
-          case string:str(yaws_arg:appmoddata(A), Val) of
-        1 -> ok;
+		    case lists:keysearch(auto_compile_exclude, 1, Options) of
+			{value, {_, Val}} -> 
+			    case string:str(yaws_arg:appmoddata(A), Val) of
+				1 -> ok;
 				_ -> auto_compile(AppData, Options)
-          end;
-	    false -> auto_compile(AppData, Options)
-        end
+			    end;
+			false -> auto_compile(AppData, Options)
+		    end
  	    end,
-  	  A1 = yaws_arg:opaque(A,
-  				 [{app_data_module, AppData} | yaws_arg:opaque(A)]),
+	    A1 = yaws_arg:opaque(A,
+  				 [{app_data_module, AppData} |
+				  yaws_arg:opaque(A)]),
  	    handle_request(A1,
 			   AppController, AppController:hook(A1),
 			   AppData)
     end.
-	    	    
+
 auto_compile(AppData, Options) ->
     AppDir = AppData:get_app_dir(),
     case compile(AppDir, Options) of
@@ -176,11 +177,11 @@ auto_compile(AppData, Options) ->
 handle_request(A,
 	       AppController,
 	       {phased, Ewc, Func}, AppData) ->
-    Ewc1 = get_initial_ewc(Ewc, AppData),
+    {Ewc1, Rest} = get_initial_ewc(Ewc, AppData),
     handle_request(
       A,
       AppController,
-      Ewc1, AppData,
+      Ewc1, Rest, AppData,
       fun(Data) ->
 	      DataEwc = Func(Ewc1, Data),
 	      render_subcomponent(DataEwc, AppData)
@@ -188,38 +189,38 @@ handle_request(A,
 handle_request(A,
 	       AppController,
 	       Ewc, AppData) ->
-    Ewc1 = get_initial_ewc(Ewc, AppData),
+    {Ewc1, Rest} = get_initial_ewc(Ewc, AppData),
     handle_request(
       A,
       AppController,
-      Ewc1, AppData,
+      Ewc1, Rest, AppData,
       fun(Data) ->
 	      Data
       end).
 
-handle_request(A, AppController, Ewc, AppData, DataFun) -> 
+handle_request(A, AppController, Ewc, Rest, AppData, DataFun) -> 
     case catch ewc(Ewc, AppData) of
 	{response, Elems} -> 
- 	    lists:map(
- 	        fun({rendered, Data}) -> 
-        {html, DataFun(Data)};
-          ({rendered, MimeType, Data}) -> 
-        {content, MimeType, DataFun(Data)};
-          (Header) ->
- 		    Header
- 	    end, Elems);
-  {'EXIT', _} = Err ->
+ 	    Rest ++ lists:map(
+		      fun({rendered, Data}) -> 
+			      {html, DataFun(Data)};
+			 ({rendered, MimeType, Data}) -> 
+			      {content, MimeType, DataFun(Data)};
+			 (Header) ->
+			      Header
+		      end, Elems);
+	{'EXIT', _} = Err ->
 	    case catch AppController:error(A, Ewc, Err) of
 		{'EXIT', _} ->
 		    Err;
 		Other ->
 		    handle_request(A,
-				  AppController,
-				  Other,
-				  AppData)
+				   AppController,
+				   Other,
+				   AppData)
 	    end
     end.
-      
+
 %% @doc Get the expanded 'ewc' tuple for the request.
 %%
 %% This function can
@@ -249,23 +250,36 @@ handle_request(A, AppController, Ewc, AppData, DataFun) ->
 get_initial_ewc({ewc, A} = Ewc) ->
     AppData = lookup_app_data_module(A),
     get_initial_ewc(Ewc, AppData).
-
 get_initial_ewc({ewc, A}, AppData) ->
     case get_ewc(A, AppData) of
 	{ewc, Controller, _View, _FuncName, _Params} = Ewc ->
 	    case Controller:private() of
 		true -> exit({illegal_request, Controller});
-		false -> Ewc
+		false -> {Ewc, []}
 	    end;
-	Ewc -> Ewc
+	Ewc -> {Ewc, []}
     end;
-get_initial_ewc(Ewc, _AppData) -> Ewc.
-	    
+get_initial_ewc({response, Elems} = Resp, AppData) ->
+    case lists:partition(
+	   fun({body, _}) -> true;
+	      (_) -> false
+	   end, Elems) of
+	{[], Rest} ->
+	    {undefined, Rest};
+	{[{body, Body}], Rest} ->
+	    {element(1, get_initial_ewc(Body, AppData)), Rest};
+	{_Bodies, _Rest} ->
+	    exit({multiple_response_bodies, Resp})
+    end;
+get_initial_ewc(Ewc, _AppData) -> {Ewc, []}.
+
+    
+
 ewc(Ewcs, AppData) when is_list(Ewcs) ->
     Rendered = lists:map(
-	    fun(Ewc) ->
-		    render_subcomponent(Ewc, AppData)
-	    end, Ewcs),
+		 fun(Ewc) ->
+			 render_subcomponent(Ewc, AppData)
+		 end, Ewcs),
     {response, [{rendered, Rendered}]};
 
 ewc({data, Data}, _AppData) -> {response, [{rendered, Data}]};
@@ -314,7 +328,6 @@ ewc({ewc, Controller, View, FuncName, [A | _] = Params}, AppData) ->
 	_ -> done
     end,
     Response3;
-
 ewc(Other, _AppData) ->  {response, [Other]}.
 
 
@@ -330,9 +343,9 @@ ewr(A, ewr) -> ewr2(A, []);
 ewr(A, {ewr, Component}) -> ewr2(A, [Component]);
 ewr(A, {ewr, Component, FuncName}) -> ewr2(A, [Component, FuncName]);
 ewr(A, {ewr, Component, FuncName, Params}) ->
-	    Params1 = [erlydb_base:field_to_iolist(Param) ||
-			  Param <- Params],
-	    ewr2(A, [Component, FuncName | Params1]);
+    Params1 = [erlydb_base:field_to_iolist(Param) ||
+		  Param <- Params],
+    ewr2(A, [Component, FuncName | Params1]);
 ewr(_A, Other) -> Other.
 
 ewr2(A, PathElems) ->
@@ -348,18 +361,20 @@ ewr2(A, PathElems) ->
 
 handle_response(A, {response, Elems}, View, FuncName, AppData) ->
     Elems2 = lists:map( 
-  	    fun({body, Ewc}) ->
-		  {rendered, View:FuncName(render_subcomponent(Ewc, AppData))};
-        ({body, MimeType, Ewc}) ->
-		  {rendered, MimeType, View:FuncName(render_subcomponent(Ewc, AppData))};
-	      ({replace, Ewc})  when is_tuple(Ewc), element(1, Ewc) ==
-				    'ewc'->
-		  {rendered, render_subcomponent(Ewc, AppData)};
-	      ({replace, Ewc}) ->
-		  exit({expecting_ewc_tuple, Ewc});
-	      (Elem) ->
-		  ewr(A, Elem)
-	  end, Elems),
+	       fun({body, Ewc}) ->
+		       {rendered, View:FuncName(
+				    render_subcomponent(Ewc, AppData))};
+		  ({body, MimeType, Ewc}) ->
+		       {rendered, MimeType,
+			View:FuncName(render_subcomponent(Ewc, AppData))};
+		  ({replace, Ewc})  when is_tuple(Ewc), element(1, Ewc) ==
+					 'ewc'->
+		       {rendered, render_subcomponent(Ewc, AppData)};
+		  ({replace, Ewc}) ->
+		       exit({expecting_ewc_tuple, Ewc});
+		  (Elem) ->
+		       ewr(A, Elem)
+	       end, Elems),
     {response, Elems2}.
 
 render_subcomponent(Ewc, AppData) ->
@@ -435,7 +450,7 @@ get_app_root(A) ->
 	  length(yaws_arg:appmoddata(A)),
 	  ServerPath),
     First.
-  
+
 lookup_app_data_module(A) ->
     proplists:get_value(app_data_module, yaws_arg:opaque(A)).
 
