@@ -209,6 +209,9 @@ get_cookie(Name, A) ->
 %% list of components. This function is useful for rewriting the Arg in the
 %% app controller prior to handling incoming requests.
 %%
+%% @deprecated This function is deprecated. Implement catch_all/3 in your
+%% controllers instead.
+%%
 %% @spec indexify(A::arg(), ComponentNames::[string()]) -> arg()
 indexify(A, ComponentNames) ->
     Appmod = yaws_arg:appmoddata(A),

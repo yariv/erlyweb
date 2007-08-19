@@ -1,11 +1,19 @@
 v0.6.2
 
+- Fixed the app controller hook/1 return value handling, letting you return
+the {response, Elems} tuple just like regular controller functions. You can
+even use {response, Elems} as the Ewc element in {phased, Ewc, Fun}. (yariv)
+
 - Fixed the action paths in erlyweb_view. NOTE: the behavior of
 erlyweb:get_app_root() has changed. It used to return "/" when
-the appmod was set to "/", but now it just returns an empty string. (yarivvv)
+the appmod was set to "/", but now it just returns an empty string. (yariv)
 
 - Enabled the use of parse transforms in files compile with smerl
-  (this fix allows using QLC and Mnemosyne in controller files). (yarivvv)
+  (this fix allows using QLC and Mnemosyne in controller files). (yariv)
+
+- Added the optional catch_all/3 function to controllers. catch_all()
+is called when the client request a function that doesn't exist.
+Also, deprecated erlyweb_util:indexify().
 
 - Added methods in smerl so that for_module/2 works for dynamically inserted 
 modules as well.  Note that if we don't have debug_info, we have to retrieve

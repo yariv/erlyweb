@@ -223,16 +223,22 @@ handle_request(A, AppController, Ewc, Rest, AppData, DataFun) ->
 
 %% @doc Get the expanded 'ewc' tuple for the request.
 %%
-%% This function can
-%% be useful in the app controller in case the application requires special
+%% This function can be useful in the app controller in case the
+%% application requires special
 %% logic for handling client requests for different components.
 %%
 %% If the request is for a component whose controller implements the function
 %% `private() -> true.', this function calls
 %%  `exit({illegal_request, Controller})'.
 %%
-%% If the request matches a component but no function in the component's
-%% controller, this function calls `exit({no_such_function, Err})'.
+%% If the request matches an existing component but no function in the
+%% component's controller, and the controller exports `catch_all/3',
+%% this function returns
+%% `{ewc, Controller, View, catch_all, [A, Function, Params]}'.
+%%
+%% Otherwise, if the request matches a component but no function in the
+%% component's controller, this function calls
+%% `exit({no_such_function, Err})'.
 %%
 %% If the request doesn't match any components, this function returns
 %% `{page, Path}', where Path is the arg's appmoddata field.
@@ -245,7 +251,8 @@ handle_request(A, AppController, Ewc, Rest, AppData, DataFun) ->
 %%   {ewc, Controller::atom(), View::atom(), Function::atom(),
 %%     Params::[string()]} |
 %%   exit({no_such_function, Err}) |
-%%   exit({illegal_request, Controller})
+%%   exit({illegal_request, Controller}) |
+%%   exit({illegal_request, {Component, FuncName}}) |
 %% @see handle_request/1
 get_initial_ewc({ewc, A} = Ewc) ->
     AppData = lookup_app_data_module(A),
@@ -296,7 +303,7 @@ ewc({ewc, Component, FuncName, Params}, AppData) ->
 	{error, no_such_component} ->
 	    exit({no_such_component, Component, FuncName, length(Params)});
 	{error, no_such_function} ->
-	    exit({no_such_function, Component, FuncName, length(Params)});
+	    exit({no_such_function, {Component, FuncName, length(Params)}});
 	{ok, Ewc} ->
 	    ewc(Ewc, AppData)
     end;
@@ -416,10 +423,7 @@ get_ewc(ComponentStr, FuncStr, [A | _] = Params,
 		   end,
 	    {page, Path};
 	{error, no_such_function} ->
-	    exit({no_such_function,
-		  {ComponentStr, FuncStr, length(Params),
-		   "You tried to invoke a controller function that doesn't "
-		   "exist or that isn't exported"}});
+	    exit({no_such_function, {ComponentStr, FuncStr, length(Params)}});
 	{ok, Component} ->
 	    Component
     end.
@@ -434,9 +438,10 @@ get_app_name(A) ->
 	    exit({missing_appname,
 		  "Did you forget to add the 'appname = [name]' "
 		  "to the <opaque> directive in yaws.conf?"});
-	AppName ->
-	    AppName
+	Val ->
+	    Val
     end.
+
 
 %% @doc Get the relative URL for the application's root path.
 %% 
