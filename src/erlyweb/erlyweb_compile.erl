@@ -266,7 +266,7 @@ get_body_for_func(ComponentStr, Func, Params) ->
 
 addFinalClauses(Clauses, ComponentStr, Exports) ->
     {LastBody, FuncParam, ParamsParam} =
-	case lists:member({catch_all,3}, Exports) of
+	case lists:member({catch_all,2}, Exports) of
 	    false ->
 		{[{tuple,1,
 		  [{atom,1,error},
@@ -276,11 +276,12 @@ addFinalClauses(Clauses, ComponentStr, Exports) ->
 	    true ->
 		{get_body_for_func(ComponentStr, catch_all,
 				   {cons,1,
-				    {call,1,{atom,1,hd},[{var,1,'Params'}]},
-				    {cons,1,
-				     {var,1,'Func'},
-				     {cons,1,{call,1,{atom,1,tl},
-					      [{var,1,'Params'}]},{nil,1}}}}),
+				     {call,1,{atom,1,hd},[{var,1,'Params'}]},
+				     {cons,1,
+				      {cons,1,
+				       {var,1,'Func'},
+				       {call,1,{atom,1,tl},[{var,1,'Params'}]}},
+				      {nil,1}}}),
 		 'Func',
 		 'Params'}
 				   
