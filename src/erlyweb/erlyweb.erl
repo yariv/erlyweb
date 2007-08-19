@@ -177,7 +177,7 @@ auto_compile(AppData, Options) ->
 handle_request(A,
 	       AppController,
 	       {phased, Ewc, Func}, AppData) ->
-    {Ewc1, Rest} = get_initial_ewc(Ewc, AppData),
+    {Ewc1, Rest} = get_initial_ewc1(Ewc, AppData),
     handle_request(
       A,
       AppController,
@@ -189,7 +189,7 @@ handle_request(A,
 handle_request(A,
 	       AppController,
 	       Ewc, AppData) ->
-    {Ewc1, Rest} = get_initial_ewc(Ewc, AppData),
+    {Ewc1, Rest} = get_initial_ewc1(Ewc, AppData),
     handle_request(
       A,
       AppController,
@@ -254,10 +254,15 @@ handle_request(A, AppController, Ewc, Rest, AppData, DataFun) ->
 %%   exit({illegal_request, Controller}) |
 %%   exit({illegal_request, {Component, FuncName}}) |
 %% @see handle_request/1
-get_initial_ewc({ewc, A} = Ewc) ->
+get_initial_ewc(Ewc) ->
+    element(1, get_initial_ewc1(Ewc)).
+get_initial_ewc(Ewc, AppData) ->
+    element(1, get_initial_ewc1(Ewc, AppData)).
+
+get_initial_ewc1({ewc, A} = Ewc) ->
     AppData = lookup_app_data_module(A),
-    get_initial_ewc(Ewc, AppData).
-get_initial_ewc({ewc, A}, AppData) ->
+    get_initial_ewc1(Ewc, AppData).
+get_initial_ewc1({ewc, A}, AppData) ->
     case get_ewc(A, AppData) of
 	{ewc, Controller, _View, _FuncName, _Params} = Ewc ->
 	    case Controller:private() of
@@ -266,7 +271,7 @@ get_initial_ewc({ewc, A}, AppData) ->
 	    end;
 	Ewc -> {Ewc, []}
     end;
-get_initial_ewc({response, Elems} = Resp, AppData) ->
+get_initial_ewc1({response, Elems} = Resp, AppData) ->
     case lists:partition(
 	   fun({body, _}) -> true;
 	      (_) -> false
@@ -278,7 +283,7 @@ get_initial_ewc({response, Elems} = Resp, AppData) ->
 	{_Bodies, _Rest} ->
 	    exit({multiple_response_bodies, Resp})
     end;
-get_initial_ewc(Ewc, _AppData) -> {Ewc, []}.
+get_initial_ewc1(Ewc, _AppData) -> {Ewc, []}.
 
     
 
