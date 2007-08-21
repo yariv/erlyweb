@@ -27,6 +27,14 @@ ErlyWeb is designed to work with Yaws, a
 high-performance Erlang web server. For more information on Yaws, visit
 [http://yaws.hyber.org].
 
+== Installation ==
+
+To install ErlyWeb, obtain the latest zip file from [http://erlyweb.org]
+and unzip it in your root Erlang code path. This path varies depending on your
+operating system (on OS X, it's '/usr/local/lib/erlang/lib'). If you don't know
+your path, you can discover it by starting the Erlang shell and calling
+"code:lib_dir()." (note that the last directory of the code path always
+erlang/lib).
 
 == Directory Structure ==
 ErlyWeb applications have the following directory structure:
@@ -294,20 +302,48 @@ html_container_view.et:
 </html>
 '''
 
-The example below shows the implementation of a simple component called
-'song', which nests the title of a song in html_container:
+The example below shows how to pass multiple 'song' components into an 'album'
+container, and show the result in the 'home' component.
 
 song_controller.erl:
 ```
-index(A) ->
-  {ewc, html_container, [A, {data, "Back in the USSR"}]}.
+index(A, Num, Title) ->
+  {data, {integer_to_list(Num), Title}}.
 '''
 
 song_view.et:
 ```
-<%@ index(Data) %>
-<% Data %>
+<%@ index({Num, Title}) %>
+<% Num %>: <% Title %><br/>
 '''
+
+album_controller.erl:
+```
+index(A, Title, Songs) ->
+  [{data, Title}, Songs].
+'''
+
+album_view.et:
+```
+<% index([Title, Songs]) %>
+album title: <% Title %><br/>
+songs:</br>
+<% Songs %>
+
+home_controller.erl:
+```
+index(A) ->
+  Songs =
+    [{ewc, song, [A, 1, <<"Back in the U.S.S.R">>]},
+     {ewc, song, [A, 2, <<"Dear Prudence">>]}],
+  {ewc, album, [A, <<"White Album">>, Songs]}.
+'''
+
+home_view.et:
+```
+<% index(Album) %>
+Your favorite album is:<br/>
+<% Album %>
 
 == The App Controller ==
 
@@ -324,14 +360,18 @@ The signature for hook/1 is
 ```
 hook(A::arg()) -> hook_result() | [hook_result()]
 
-hook_result = ewc() | yaws_term() |
-  {phased, Ewc::ewc(), fun(ExpandedEwc::ewc(), Data::iolist()) ->
-	FinalEwc::ewc()}
+hook_result = ewc() | yaws_term() | response() |
+  {phased, Ewc::ewc() | Response::response(),
+    fun(ExpandedEwc::ewc(), Data::iolist()) ->
+      FinalEwc::ewc()}
 
-ewc = any `ewc' tuple
+ewc() = any `ewc' tuple
 yaws_term() = any legal Yaws appmod return value
+response() = a tuple of the form {response, [Elems::response_elem()]}
+response_elem() = yaws_term() | {body, ewc()}
 '''
 
+(Note: support for the response() return value was introduced in ErlyWeb 6.2.)
 
 The simplest way of telling ErlyWeb to process a client request is to implement
 hook/1 as follows:

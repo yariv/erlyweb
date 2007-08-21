@@ -150,22 +150,23 @@ out(A) ->
  	    case AppData:auto_compile() of
  		false -> ok;
  		{true, Options} ->
-        case lists:keysearch(auto_compile_exclude, 1, Options) of
-	    {value, {_, Val}} -> 
-          case string:str(yaws_arg:appmoddata(A), Val) of
-        1 -> ok;
+		    case lists:keysearch(auto_compile_exclude, 1, Options) of
+			{value, {_, Val}} -> 
+			    case string:str(yaws_arg:appmoddata(A), Val) of
+				1 -> ok;
 				_ -> auto_compile(AppData, Options)
-          end;
-	    false -> auto_compile(AppData, Options)
-        end
+			    end;
+			false -> auto_compile(AppData, Options)
+		    end
  	    end,
-  	  A1 = yaws_arg:opaque(A,
-  				 [{app_data_module, AppData} | yaws_arg:opaque(A)]),
+	    A1 = yaws_arg:opaque(A,
+  				 [{app_data_module, AppData} |
+				  yaws_arg:opaque(A)]),
  	    handle_request(A1,
 			   AppController, AppController:hook(A1),
 			   AppData)
     end.
-	    	    
+
 auto_compile(AppData, Options) ->
     AppDir = AppData:get_app_dir(),
     case compile(AppDir, Options) of
@@ -176,11 +177,11 @@ auto_compile(AppData, Options) ->
 handle_request(A,
 	       AppController,
 	       {phased, Ewc, Func}, AppData) ->
-    Ewc1 = get_initial_ewc(Ewc, AppData),
+    {Ewc1, Rest} = get_initial_ewc1(Ewc, AppData),
     handle_request(
       A,
       AppController,
-      Ewc1, AppData,
+      Ewc1, Rest, AppData,
       fun(Data) ->
 	      DataEwc = Func(Ewc1, Data),
 	      render_subcomponent(DataEwc, AppData)
@@ -188,50 +189,56 @@ handle_request(A,
 handle_request(A,
 	       AppController,
 	       Ewc, AppData) ->
-    Ewc1 = get_initial_ewc(Ewc, AppData),
+    {Ewc1, Rest} = get_initial_ewc1(Ewc, AppData),
     handle_request(
       A,
       AppController,
-      Ewc1, AppData,
+      Ewc1, Rest, AppData,
       fun(Data) ->
 	      Data
       end).
 
-handle_request(A, AppController, Ewc, AppData, DataFun) -> 
+handle_request(A, AppController, Ewc, Rest, AppData, DataFun) -> 
     case catch ewc(Ewc, AppData) of
 	{response, Elems} -> 
- 	    lists:map(
- 	        fun({rendered, Data}) -> 
-        {html, DataFun(Data)};
-          ({rendered, MimeType, Data}) -> 
-        {content, MimeType, DataFun(Data)};
-          (Header) ->
- 		    Header
- 	    end, Elems);
-  {'EXIT', _} = Err ->
+ 	    Rest ++ lists:map(
+		      fun({rendered, Data}) -> 
+			      {html, DataFun(Data)};
+			 ({rendered, MimeType, Data}) -> 
+			      {content, MimeType, DataFun(Data)};
+			 (Header) ->
+			      Header
+		      end, Elems);
+	{'EXIT', _} = Err ->
 	    case catch AppController:error(A, Ewc, Err) of
 		{'EXIT', _} ->
 		    Err;
 		Other ->
 		    handle_request(A,
-				  AppController,
-				  Other,
-				  AppData)
+				   AppController,
+				   Other,
+				   AppData)
 	    end
     end.
-      
+
 %% @doc Get the expanded 'ewc' tuple for the request.
 %%
-%% This function can
-%% be useful in the app controller in case the application requires special
+%% This function can be useful in the app controller in case the
+%% application requires special
 %% logic for handling client requests for different components.
 %%
 %% If the request is for a component whose controller implements the function
 %% `private() -> true.', this function calls
 %%  `exit({illegal_request, Controller})'.
 %%
-%% If the request matches a component but no function in the component's
-%% controller, this function calls `exit({no_such_function, Err})'.
+%% If the request matches an existing component but no function in the
+%% component's controller, and the controller exports `catch_all/3',
+%% this function returns
+%% `{ewc, Controller, View, catch_all, [A, Function, Params]}'.
+%%
+%% Otherwise, if the request matches a component but no function in the
+%% component's controller, this function calls
+%% `exit({no_such_function, Err})'.
 %%
 %% If the request doesn't match any components, this function returns
 %% `{page, Path}', where Path is the arg's appmoddata field.
@@ -246,26 +253,44 @@ handle_request(A, AppController, Ewc, AppData, DataFun) ->
 %%   exit({no_such_function, Err}) |
 %%   exit({illegal_request, Controller})
 %% @see handle_request/1
-get_initial_ewc({ewc, A} = Ewc) ->
-    AppData = lookup_app_data_module(A),
-    get_initial_ewc(Ewc, AppData).
+get_initial_ewc(Ewc) ->
+    element(1, get_initial_ewc1(Ewc)).
+get_initial_ewc(Ewc, AppData) ->
+    element(1, get_initial_ewc1(Ewc, AppData)).
 
-get_initial_ewc({ewc, A}, AppData) ->
+get_initial_ewc1({ewc, A} = Ewc) ->
+    AppData = lookup_app_data_module(A),
+    get_initial_ewc1(Ewc, AppData).
+get_initial_ewc1({ewc, A}, AppData) ->
     case get_ewc(A, AppData) of
 	{ewc, Controller, _View, _FuncName, _Params} = Ewc ->
 	    case Controller:private() of
 		true -> exit({illegal_request, Controller});
-		false -> Ewc
+		false -> {Ewc, []}
 	    end;
-	Ewc -> Ewc
+	Ewc -> {Ewc, []}
     end;
-get_initial_ewc(Ewc, _AppData) -> Ewc.
-	    
+get_initial_ewc1({response, Elems} = Resp, AppData) ->
+    case lists:partition(
+	   fun({body, _}) -> true;
+	      (_) -> false
+	   end, Elems) of
+	{[], Rest} ->
+	    {undefined, Rest};
+	{[{body, Body}], Rest} ->
+	    {element(1, get_initial_ewc(Body, AppData)), Rest};
+	{_Bodies, _Rest} ->
+	    exit({multiple_response_bodies, Resp})
+    end;
+get_initial_ewc1(Ewc, _AppData) -> {Ewc, []}.
+
+    
+
 ewc(Ewcs, AppData) when is_list(Ewcs) ->
     Rendered = lists:map(
-	    fun(Ewc) ->
-		    render_subcomponent(Ewc, AppData)
-	    end, Ewcs),
+		 fun(Ewc) ->
+			 render_subcomponent(Ewc, AppData)
+		 end, Ewcs),
     {response, [{rendered, Rendered}]};
 
 ewc({data, Data}, _AppData) -> {response, [{rendered, Data}]};
@@ -282,7 +307,7 @@ ewc({ewc, Component, FuncName, Params}, AppData) ->
 	{error, no_such_component} ->
 	    exit({no_such_component, Component, FuncName, length(Params)});
 	{error, no_such_function} ->
-	    exit({no_such_function, Component, FuncName, length(Params)});
+	    exit({no_such_function, {Component, FuncName, length(Params)}});
 	{ok, Ewc} ->
 	    ewc(Ewc, AppData)
     end;
@@ -314,7 +339,6 @@ ewc({ewc, Controller, View, FuncName, [A | _] = Params}, AppData) ->
 	_ -> done
     end,
     Response3;
-
 ewc(Other, _AppData) ->  {response, [Other]}.
 
 
@@ -330,9 +354,9 @@ ewr(A, ewr) -> ewr2(A, []);
 ewr(A, {ewr, Component}) -> ewr2(A, [Component]);
 ewr(A, {ewr, Component, FuncName}) -> ewr2(A, [Component, FuncName]);
 ewr(A, {ewr, Component, FuncName, Params}) ->
-	    Params1 = [erlydb_base:field_to_iolist(Param) ||
-			  Param <- Params],
-	    ewr2(A, [Component, FuncName | Params1]);
+    Params1 = [erlydb_base:field_to_iolist(Param) ||
+		  Param <- Params],
+    ewr2(A, [Component, FuncName | Params1]);
 ewr(_A, Other) -> Other.
 
 ewr2(A, PathElems) ->
@@ -343,23 +367,25 @@ ewr2(A, PathElems) ->
     Path = lists:foldr(
 	     fun(Elem, []) -> [Elem];
 		(Elem, Acc) -> [Elem, $/ | Acc]
-	     end, [], Elems),
-    {redirect_local, [AppDir | Path]}.
+	     end, [], [AppDir | Elems]),
+    {redirect_local, Path}.
 
 handle_response(A, {response, Elems}, View, FuncName, AppData) ->
     Elems2 = lists:map( 
-  	    fun({body, Ewc}) ->
-		  {rendered, View:FuncName(render_subcomponent(Ewc, AppData))};
-        ({body, MimeType, Ewc}) ->
-		  {rendered, MimeType, View:FuncName(render_subcomponent(Ewc, AppData))};
-	      ({replace, Ewc})  when is_tuple(Ewc), element(1, Ewc) ==
-				    'ewc'->
-		  {rendered, render_subcomponent(Ewc, AppData)};
-	      ({replace, Ewc}) ->
-		  exit({expecting_ewc_tuple, Ewc});
-	      (Elem) ->
-		  ewr(A, Elem)
-	  end, Elems),
+	       fun({body, Ewc}) ->
+		       {rendered, View:FuncName(
+				    render_subcomponent(Ewc, AppData))};
+		  ({body, MimeType, Ewc}) ->
+		       {rendered, MimeType,
+			View:FuncName(render_subcomponent(Ewc, AppData))};
+		  ({replace, Ewc})  when is_tuple(Ewc), element(1, Ewc) ==
+					 'ewc'->
+		       {rendered, render_subcomponent(Ewc, AppData)};
+		  ({replace, Ewc}) ->
+		       exit({expecting_ewc_tuple, Ewc});
+		  (Elem) ->
+		       ewr(A, Elem)
+	       end, Elems),
     {response, Elems2}.
 
 render_subcomponent(Ewc, AppData) ->
@@ -401,10 +427,7 @@ get_ewc(ComponentStr, FuncStr, [A | _] = Params,
 		   end,
 	    {page, Path};
 	{error, no_such_function} ->
-	    exit({no_such_function,
-		  {ComponentStr, FuncStr, length(Params),
-		   "You tried to invoke a controller function that doesn't "
-		   "exist or that isn't exported"}});
+	    exit({no_such_function, {ComponentStr, FuncStr, length(Params)}});
 	{ok, Component} ->
 	    Component
     end.
@@ -419,11 +442,13 @@ get_app_name(A) ->
 	    exit({missing_appname,
 		  "Did you forget to add the 'appname = [name]' "
 		  "to the <opaque> directive in yaws.conf?"});
-	AppName ->
-	    AppName
+	Val ->
+	    Val
     end.
 
+
 %% @doc Get the relative URL for the application's root path.
+%% 
 %%
 %% @spec get_app_root(A::arg()) -> string()
 get_app_root(A) ->
@@ -433,11 +458,7 @@ get_app_root(A) ->
 	  length(ServerPath) -
 	  length(yaws_arg:appmoddata(A)),
 	  ServerPath),
-    if First == [] ->
-   	    "/";
-       true ->
-   	    First
-    end.
+    First.
 
 lookup_app_data_module(A) ->
     proplists:get_value(app_data_module, yaws_arg:opaque(A)).

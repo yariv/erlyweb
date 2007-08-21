@@ -10,8 +10,8 @@
 
 -module(erlyweb_util).
 -author("Yariv Sadan (yarivsblog@gmail.com, http://yarivsblog.com").
--export([log/5, create_app/2, create_component/3, get_appname/1,
-	 get_app_root/1, get_url_prefix/1,
+-export([log/5, create_app/2, create_component/3,
+	 get_url_prefix/1,
 	 get_cookie/2, indexify/2]).
 
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
@@ -186,14 +186,6 @@ create_component(ComponentName, AppDir, Magic) ->
 	      create_file(AppDir ++ "/src/components/" ++ FileName, Text)
       end, Files).
 
-%% @hidden
-get_appname(A) ->
-    erlyweb:get_app_name(A).
-
-%% @hidden
-get_app_root(A)->
-    erlyweb:get_app_root(A).
-
 %% @doc Get the  of the arg's appmoddata value up to the
 %% first '?' symbol.
 %%
@@ -216,6 +208,9 @@ get_cookie(Name, A) ->
 %% @doc Translate requests such as '/foo/bar' to '/foo/index/bar' for the given
 %% list of components. This function is useful for rewriting the Arg in the
 %% app controller prior to handling incoming requests.
+%%
+%% @deprecated This function is deprecated. Implement catch_all/3 in your
+%% controllers instead.
 %%
 %% @spec indexify(A::arg(), ComponentNames::[string()]) -> arg()
 indexify(A, ComponentNames) ->

@@ -111,8 +111,10 @@
 	 to_src/2
 	]).
 
--define(L(Obj), io:format("LOG ~w ~p\n", [?LINE, Obj])).
--define(S(Obj), io:format("LOG ~w ~s\n", [?LINE, Obj])).	 
+-define(L(Obj), io:format("LOG ~s ~w ~p\n", [?FILE, ?LINE, Obj])).
+-define(S(Obj), io:format("LOG ~s ~w ~s\n", [?FILE, ?LINE, Obj])).	 
+
+-include_lib("kernel/include/file.hrl").
 
 %% @type meta_mod(). A data structure holding the abstract representation
 %%  for a module.
@@ -305,11 +307,61 @@ get_forms(Module, Path) ->
 	_Err ->
 	    case filename:find_src(Module, [{"ebin", "src"}]) of
 		{error, _} = Err ->
-		    Err;
+		    get_forms_from_binary(Module, Err);
 		{SrcPath, _} ->
 		    Filename = SrcPath ++ ".erl",
 		    epp:parse_file(Filename, [filename:dirname(Filename)], [])
 	    end
+    end.
+
+get_dirs_in_dir(Dir) ->
+    case file:list_dir(Dir) of 
+	{error, _} ->
+	    undefined;
+	{ok, Listing} ->
+	    lists:foldl(
+	      fun (Name, Acc) ->
+		      Path = Dir ++ "/" ++ Name,
+		      case file:read_file_info(Path) of
+			  {ok, #file_info{type=directory}} -> [Path | Acc];
+			  _ -> Acc
+		      end
+	      end, [], Listing)
+    end.
+
+%% @doc Try to infer module source files from the beam code path.
+get_forms_from_binary(Module, OrigErr) ->
+    Ret = 
+	case code:where_is_file(atom_to_list(Module) ++ ".beam") of
+	    non_existing ->
+		OrigErr;
+	    Filename ->
+		%% We could automatically obtain a list of all dirs under this dir, but we just do
+		%% a hack for now.
+		Basedir = filename:dirname(Filename),
+		Lastdir = filename:basename(Basedir),
+		if Lastdir == "ebin" ->
+			Rootdir = filename:dirname(Basedir),
+			DirList = [Rootdir ++ "/src"],
+			get_forms_from_file_list(Module, Rootdir,
+					DirList ++ get_dirs_in_dir(Rootdir ++ "/src"));
+		   true ->
+			DirList = [Basedir],
+			get_forms_from_file_list(Module, Basedir, DirList)
+		end
+	end,
+    if Ret == [] -> OrigErr;
+       true -> Ret
+    end.
+get_forms_from_file_list(_Module, _Basedir, []) ->
+    [];
+get_forms_from_file_list(Module, Basedir, [H|T]) ->
+    Filename = H ++ "/" ++ atom_to_list(Module) ++ ".erl",
+    case file:read_file_info(Filename) of
+	{ok, #file_info{type=regular}} ->
+	    epp:parse_file(Filename, [filename:dirname(Filename)], []);
+	_ ->
+	    get_forms_from_file_list(Module, Basedir, T)
     end.
 
 %% @doc Add a new function to the meta_mod and return the resulting meta_mod.
@@ -528,7 +580,8 @@ compile(MetaMod, Options) ->
 
     Forms1 = [{attribute, 1, file, {FileName, 1}} | Forms],
     Forms2 = Forms1 ++ lists:reverse(MetaMod#meta_mod.forms),
-    case compile:forms(Forms2, Options) of       
+
+    case compile:forms(Forms2, Options) of
 	{ok, Module, Bin} ->
 	    Res = 
 		case lists:keysearch(outdir, 1, Options) of

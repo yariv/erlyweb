@@ -20,9 +20,9 @@
 
 compile(AppDir, Options) ->
     AppDir1 = case lists:reverse(AppDir) of
-		   [$/ | _] -> AppDir;
-		   Other -> lists:reverse([$/ | Other])
-	       end,
+		  [$/ | _] -> AppDir;
+		  Other -> lists:reverse([$/ | Other])
+	      end,
 
     IncludePaths =
 	lists:foldl(
@@ -33,7 +33,7 @@ compile(AppDir, Options) ->
 	     (_Opt, Acc) ->
 		  Acc
 	  end, [AppDir1 ++ "src"], Options),
-    
+
     Options1 =
 	lists:foldl(
 	  fun({Opt, NoOpt}, Acc) ->
@@ -48,7 +48,7 @@ compile(AppDir, Options) ->
 	get_option(outdir, AppDir1 ++ "ebin", Options1),
 
     file:make_dir(OutDir),
-    
+
     AppName = filename:basename(AppDir),
     AppData = get_app_data_module(AppName),
     InitialAcc =
@@ -63,7 +63,7 @@ compile(AppDir, Options) ->
 			   {{1980,1,1},{0,0,0}} -> undefined;
 			   OtherTime -> OtherTime
 		       end,
-    
+
     LastCompileTimeInSeconds =
 	calendar:datetime_to_gregorian_seconds(LastCompileTime),
 
@@ -82,7 +82,7 @@ compile(AppDir, Options) ->
 
     AppController = list_to_atom(AppControllerStr),
     try_func(AppController, before_compile, [LastCompileTime1], ok),
-    
+
     {ComponentTree1, Models} =
 	filelib:fold_files(
 	  AppDir1 ++ "src", "\.(erl|et)$", true,
@@ -103,8 +103,8 @@ compile(AppDir, Options) ->
 	    [] -> ok;
 	    _ -> ?Debug("Generating ErlyDB code for models: ~p",
 			[lists:flatten(
-			  [[filename:basename(Model), " "] ||
-			      Model <- Models])]),
+			   [[filename:basename(Model), " "] ||
+			       Model <- Models])]),
 		 case lists:keysearch(erlydb_driver, 1, Options3) of
 		     {value, {erlydb_driver, Driver}} ->
 			 erlydb:code_gen(Driver, lists:reverse(Models),
@@ -112,7 +112,7 @@ compile(AppDir, Options) ->
 		     false -> {error, missing_erlydb_driver_option}
 		 end
 	end,
-    
+
     Result = 
 	if ErlyDBResult == ok ->
 		AppDataModule = make_app_data_module(
@@ -153,7 +153,7 @@ make_app_data_module(AppDir, AppData, AppName,
 	  {function,1,components,0,
 	   [{clause,1,[],[],
 	     [erl_parse:abstract(ComponentTree)]}]}),
-    
+
     {ok, M4} = smerl:add_func(
 		 M2, "get_view() -> " ++ AppName ++ "_app_view."),
     {ok, M5} = smerl:add_func(
@@ -165,7 +165,7 @@ make_app_data_module(AppDir, AppData, AppName,
 
     {ok, M6} = smerl:add_func(
 		 M5, AbsFunc),
-    
+
     {_Options1, AutoCompile} =
 	get_option(auto_compile, false, Options),
 
@@ -217,7 +217,7 @@ make_get_component_function(ComponentTree) ->
 		 [{tuple,1,
 		   [{atom,1,error},
 		    {atom,1,no_such_component}]}]} | Clauses1],
-    %exit(lists:reverse(Clauses2)),
+						%exit(lists:reverse(Clauses2)),
     {function,1,get_component,3,lists:reverse(Clauses2)}.
 
 
@@ -232,19 +232,8 @@ make_clauses_for_component(ComponentStr, Exports) ->
 			 {call,1,{atom,1,length},
 			  [{var,1,'Params'}]},
 			 {integer,1,Arity}}]],
-		  Body = 
-		      [{tuple,1,
-			[{atom,1,ok},
-			 {tuple,1,
-			  [{atom,1,ewc},
-			   {atom,1,
-			    list_to_atom(ComponentStr ++
-					 "_controller")},
-			   {atom,1,
-			    list_to_atom(ComponentStr ++ "_view")},
-			   {atom,1, Func},
-			   {var,1,'Params'}]}]}],
-
+		  Body = get_body_for_func(ComponentStr, Func,
+					  {var,1,'Params'}),
 		  Clause1 = 
 		      {clause,1,
 		       [{string,1,ComponentStr},
@@ -258,18 +247,59 @@ make_clauses_for_component(ComponentStr, Exports) ->
 			{var,1,'Params'}],
 		       Guards, Body},
 		  [Clause1, Clause2 | Acc]
-	  end, [], Exports),
-    LastClause = 
-	{clause,1,
-	 [{string,1,ComponentStr},
-	  {var,1,'_'},
-	  {var,1,'_'}],
-	 [],
-	 [{tuple,1,
-	   [{atom,1,error},
-	    {atom,1,no_such_function}]}]},
-    [LastClause | Clauses].
+	  end, [], lists:keydelete(catch_all, 1, Exports)),
+    addFinalClauses(Clauses, ComponentStr, Exports).
 
+get_body_for_func(ComponentStr, Func, Params) ->
+    [{tuple,1,
+      [{atom,1,ok},
+       {tuple,1,
+	[{atom,1,ewc},
+	 {atom,1,
+	  list_to_atom(ComponentStr ++
+		       "_controller")},
+	 {atom,1,
+	  list_to_atom(ComponentStr ++ "_view")},
+	 {atom,1, Func},
+	 Params]}]}].
+
+
+addFinalClauses(Clauses, ComponentStr, Exports) ->
+    {LastBody, FuncParam, ParamsParam} =
+	case lists:member({catch_all,2}, Exports) of
+	    false ->
+		{[{tuple,1,
+		  [{atom,1,error},
+		   {atom,1,no_such_function}]}],
+		 '_Func',
+		 '_Params'};
+	    true ->
+		{get_body_for_func(ComponentStr, catch_all,
+				   {cons,1,
+				     {call,1,{atom,1,hd},[{var,1,'Params'}]},
+				     {cons,1,
+				      {cons,1,
+				       {var,1,'Func'},
+				       {call,1,{atom,1,tl},[{var,1,'Params'}]}},
+				      {nil,1}}}),
+		 'Func',
+		 'Params'}
+				   
+	end,
+    LastClauses = 
+	[{clause,1,
+	  [{string,1,ComponentStr},
+	   {var,1,FuncParam},
+	   {var,1,ParamsParam}],
+	  [],
+	  LastBody},
+	 {clause,1,
+	  [{atom,1,list_to_atom(ComponentStr)},
+	   {var,1,FuncParam},
+	   {var,1,ParamsParam}],
+	  [],
+	  LastBody}],
+    LastClauses ++ Clauses.
 
 
 compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
@@ -277,7 +307,7 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
     BaseName = filename:rootname(filename:basename(FileName)),
     Extension = filename:extension(FileName),
     BaseNameTokens = string:tokens(BaseName, "_"),
-       
+
     Type = case lists:prefix(ComponentsDir, FileName) of
 	       true ->
 		   case lists:last(BaseNameTokens) of
@@ -296,30 +326,29 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
 		Module:module_info(),
 	    Exports1 =
 		lists:foldl(
-		  fun({before_return, _}, Acc1) ->
-			  Acc1;
-		     ({before_call, _}, Acc1) ->
-			  Acc1;
-		     ({module_info, _}, Acc1) ->
-			  Acc1;
-		     ({_, 0}, Acc1) ->
-			  Acc1;
-		     ({Name, Arity}, Acc1) ->
-			  [{Name, Arity} | Acc1]
-		  end, [], Exports),
-	    {ActionName, _} = lists:split(length(BaseName) - 11, BaseName),
-	    {gb_trees:enter(
-	       ActionName, Exports1, ComponentTree),
-	     Models};
-	{{ok, _Module}, model} ->
-	    {ComponentTree, [FileName | Models]};
-	{{ok, _Module}, _} -> Acc;
-	{ok, _} -> Acc;
-	{Err, _} -> exit(Err)
-    end.
+		  fun({Name, _}, Acc1)
+		     when Name == before_return;
+			  Name == before_call;
+			  Name == module_info ->
+					  Acc1;
+					({_, 0}, Acc1) ->
+					  Acc1;
+					({Name, Arity}, Acc1) ->
+					  [{Name, Arity} | Acc1]
+				  end, [], Exports),
+			  {ActionName, _} = lists:split(length(BaseName) - 11, BaseName),
+			  {gb_trees:enter(
+			     ActionName, Exports1, ComponentTree),
+			   Models};
+			  {{ok, _Module}, model} ->
+			  {ComponentTree, [FileName | Models]};
+		     {{ok, _Module}, _} -> Acc;
+		     {ok, _} -> Acc;
+		     {Err, _} -> exit(Err)
+		  end.
 
 compile_file(_FileName, [$. | _] = BaseName, _Extension, _Type,
-         _LastCompileTimeInSeconds, _Options, _IncludePaths) ->
+_LastCompileTimeInSeconds, _Options, _IncludePaths) ->
     ?Debug("Ignoring file ~p", [BaseName]),
     {ok, ignore};
 compile_file(FileName, BaseName, Extension, Type,
