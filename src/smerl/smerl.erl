@@ -581,9 +581,7 @@ compile(MetaMod, Options) ->
     Forms1 = [{attribute, 1, file, {FileName, 1}} | Forms],
     Forms2 = Forms1 ++ lists:reverse(MetaMod#meta_mod.forms),
 
-    %% apply any parse transforms, if necessary
-    Forms3 = apply_parse_transforms(Forms2),
-    case compile:forms(Forms3, Options) of       
+    case compile:forms(Forms2, Options) of
 	{ok, Module, Bin} ->
 	    Res = 
 		case lists:keysearch(outdir, 1, Options) of
@@ -611,20 +609,6 @@ compile(MetaMod, Options) ->
 	Err ->
 	    Err
     end.
-
-apply_parse_transforms(Forms) ->
-    {ParseTransforms, Rest} =
-	lists:partition(
-	  fun({attribute,_,compile,{parse_transform,_}}) ->
-		  true;
-	     (_) ->
-		  false
-	  end, Forms),
-    lists:foldl(
-      fun({attribute,_,compile,{parse_transform,PTMod}}, Acc) ->
-	      lists:reverse(PTMod:parse_transform(Acc, []))
-      end, Rest, ParseTransforms).
-		  
 
 %% @doc Change the name of the function represented by the form.
 %%

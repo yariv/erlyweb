@@ -8,10 +8,7 @@ even use {response, Elems} as the Ewc element in {phased, Ewc, Fun}. (yariv)
 erlyweb:get_app_root() has changed. It used to return "/" when
 the appmod was set to "/", but now it just returns an empty string. (yariv)
 
-- Enabled the use of parse transforms in files compile with smerl
-  (this fix allows using QLC and Mnemosyne in controller files). (yariv)
-
-- Added the optional catch_all/3 function to controllers. catch_all()
+- Added the optional catch_all/2 function to controllers. catch_all()
 is called when the client request a function that doesn't exist.
 Also, deprecated erlyweb_util:indexify().
 
