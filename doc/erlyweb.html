@@ -129,7 +129,8 @@ capabilities.</p>
 
 <h3><a name="get_app_root-1">get_app_root/1</a></h3>
 <p><tt>get_app_root(A::<a href="#type-arg">arg()</a>) -&gt; string()</tt></p>
-<p>Get the relative URL for the application's root path.
+<p><p>Get the relative URL for the application's root path.</p>
+ 
  </p>
 
 <h3><a name="get_ewc-1">get_ewc/1</a></h3>
@@ -140,16 +141,22 @@ capabilities.</p>
 <p><tt>get_initial_ewc(Ewc::{ewc, A::<a href="#type-arg">arg()</a>}) -&gt; {page, Path::string()} | {ewc, Controller::atom(), View::atom(), Function::atom(), Params::[string()]} | <a href="#type-exit">exit({no_such_function, Err})</a> | <a href="#type-exit">exit({illegal_request, Controller})</a></tt></p>
 <p><p>Get the expanded 'ewc' tuple for the request.</p>
  
-  <p>This function can  
-be useful in the app controller in case the application requires special  
+  <p>This function can be useful in the app controller in case the  
+application requires special  
 logic for handling client requests for different components.</p>
  
   <p>If the request is for a component whose controller implements the function
   <code>private() -&gt; true.</code>, this function calls
    <code>exit({illegal_request, Controller})</code>.</p>
  
-  <p>If the request matches a component but no function in the component's
-  controller, this function calls <code>exit({no_such_function, Err})</code>.</p>
+  <p>If the request matches an existing component but no function in the
+  component's controller, and the controller exports <code>catch_all/3</code>,
+  this function returns
+  <code>{ewc, Controller, View, catch_all, [A, Function, Params]}</code>.</p>
+ 
+  <p>Otherwise, if the request matches a component but no function in the
+  component's controller, this function calls
+  <code>exit({no_such_function, Err})</code>.</p>
  
   <p>If the request doesn't match any components, this function returns
   <code>{page, Path}</code>, where Path is the arg's appmoddata field.</p>

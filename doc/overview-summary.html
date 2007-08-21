@@ -34,6 +34,14 @@ fun.</p>
 high-performance Erlang web server. For more information on Yaws, visit
 <a href="http://yaws.hyber.org" target="_top"><tt>http://yaws.hyber.org</tt></a>.</p>
 
+<h3><a name="Installation">Installation</a></h3>
+
+<p>To install ErlyWeb, obtain the latest zip file from <a href="http://erlyweb.org" target="_top"><tt>http://erlyweb.org</tt></a>
+and unzip it in your root Erlang code path. This path varies depending on your
+operating system (on OS X, it's '/usr/local/lib/erlang/lib'). If you don't know
+your path, you can discover it by starting the Erlang shell and calling
+"code:lib_dir()." (note that the last directory of the code path always
+erlang/lib).</p>
 
 <h3><a name="Directory_Structure">Directory Structure</a></h3><p>
 ErlyWeb applications have the following directory structure:</p>
@@ -289,38 +297,66 @@ html_container_view.et:
 &lt;/body&gt;
 &lt;/html&gt;</pre>
 
-<p>The example below shows the implementation of a simple component called
-'song', which nests the title of a song in html_container:</p>
+<p>The example below shows how to pass multiple 'song' components into an 'album'
+container, and show the result in the 'home' component.</p>
 
 song_controller.erl:
-<pre>index(A) -&gt;
-  {ewc, html_container, [A, {data, "Back in the USSR"}]}.</pre>
+<pre>index(A, Num, Title) -&gt;
+  {data, {integer_to_list(Num), Title}}.</pre>
 
 song_view.et:
-<pre>&lt;%@ index(Data) %&gt;
-&lt;% Data %&gt;</pre>
+<pre>&lt;%@ index({Num, Title}) %&gt;
+&lt;% Num %&gt;: &lt;% Title %&gt;&lt;br/&gt;</pre>
 
-<h3><a name="The_App_Controller">The App Controller</a></h3>
+album_controller.erl:
+<pre>index(A, Title, Songs) -&gt;
+  [{data, Title}, Songs].</pre>
 
-<p>ErlyWeb applications have a module called [AppName]_app_controller,
+album_view.et:
+<pre>&lt;% index([Title, Songs]) %&gt;
+album title: &lt;% Title %&gt;&lt;br/&gt;
+songs:&lt;/br&gt;
+&lt;% Songs %&gt;
+
+home_controller.erl:
+```
+index(A) -&gt;
+  Songs =
+    [{ewc, song, [A, 1, &lt;&lt;"Back in the U.S.S.R"&gt;&gt;]},
+     {ewc, song, [A, 2, &lt;&lt;"Dear Prudence"&gt;&gt;]}],
+  {ewc, album, [A, &lt;&lt;"White Album"&gt;&gt;, Songs]}.</pre>
+
+home_view.et:
+<pre>&lt;% index(Album) %&gt;
+Your favorite album is:&lt;br/&gt;
+&lt;% Album %&gt;
+
+== The App Controller ==
+
+ErlyWeb applications have a module called [AppName]_app_controller,
 whose source file is in the 'src' directory by convention. The app controller
 provides the entry-point into ErlyWeb applications via the hook/1 function.
 Starting from ErlyWeb 0.6, the app controller can also have an error-trapping,
-error/3.</p>
+error/3.
 
-<h4><a name="hook/1">hook/1</a></h4>
+=== hook/1 ===
 
-<p>The signature for hook/1 is</p>
+The signature for hook/1 is
 
-<pre>hook(A::arg()) -&gt; hook_result() | [hook_result()]
+```
+hook(A::arg()) -&gt; hook_result() | [hook_result()]
 
-hook_result = ewc() | yaws_term() |
-  {phased, Ewc::ewc(), fun(ExpandedEwc::ewc(), Data::iolist()) -&gt;
-	FinalEwc::ewc()}
+hook_result = ewc() | yaws_term() | response() |
+  {phased, Ewc::ewc() | Response::response(),
+    fun(ExpandedEwc::ewc(), Data::iolist()) -&gt;
+      FinalEwc::ewc()}
 
-ewc = any `ewc' tuple
-yaws_term() = any legal Yaws appmod return value</pre>
+ewc() = any `ewc' tuple
+yaws_term() = any legal Yaws appmod return value
+response() = a tuple of the form {response, [Elems::response_elem()]}
+response_elem() = yaws_term() | {body, ewc()}</pre>
 
+<p>(Note: support for the response() return value was introduced in ErlyWeb 6.2.)</p>
 
 <p>The simplest way of telling ErlyWeb to process a client request is to implement
 hook/1 as follows:</p>

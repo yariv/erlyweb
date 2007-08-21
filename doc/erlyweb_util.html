@@ -20,7 +20,7 @@ This module contains a few utility functions useful
 <table width="100%" border="1"><tr><td valign="top"><a href="#get_cookie-2">get_cookie/2</a></td><td>Get the cookie's value from the arg.</td></tr>
 <tr><td valign="top"><a href="#get_url_prefix-1">get_url_prefix/1</a></td><td>Get the  of the arg's appmoddata value up to the
   first '?' symbol.</td></tr>
-<tr><td valign="top"><a href="#indexify-2">indexify/2</a></td><td>Translate requests such as '/foo/bar' to '/foo/index/bar' for the given
+<tr><td valign="top"><a href="#indexify-2">indexify/2</a></td><td>(<em>Deprecated</em>.) Translate requests such as '/foo/bar' to '/foo/index/bar' for the given
   list of components.</td></tr>
 </table>
 
@@ -39,6 +39,9 @@ This module contains a few utility functions useful
 
 <h3><a name="indexify-2">indexify/2</a></h3>
 <p><tt>indexify(A::<a href="#type-arg">arg()</a>, ComponentNames::[string()]) -&gt; <a href="#type-arg">arg()</a></tt></p>
+<p><b>This function is deprecated:</b> This function is deprecated. Implement catch_all/3 in your
+  controllers instead.
+ </p>
 <p>Translate requests such as '/foo/bar' to '/foo/index/bar' for the given
   list of components. This function is useful for rewriting the Arg in the
   app controller prior to handling incoming requests.

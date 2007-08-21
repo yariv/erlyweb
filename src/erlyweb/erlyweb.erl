@@ -251,8 +251,7 @@ handle_request(A, AppController, Ewc, Rest, AppData, DataFun) ->
 %%   {ewc, Controller::atom(), View::atom(), Function::atom(),
 %%     Params::[string()]} |
 %%   exit({no_such_function, Err}) |
-%%   exit({illegal_request, Controller}) |
-%%   exit({illegal_request, {Component, FuncName}}) |
+%%   exit({illegal_request, Controller})
 %% @see handle_request/1
 get_initial_ewc(Ewc) ->
     element(1, get_initial_ewc1(Ewc)).

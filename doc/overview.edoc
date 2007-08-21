@@ -29,7 +29,7 @@ high-performance Erlang web server. For more information on Yaws, visit
 
 == Installation ==
 
-To install ErlyWeb, obtain the latest zip file from {@link http://erlyweb.org}
+To install ErlyWeb, obtain the latest zip file from [http://erlyweb.org]
 and unzip it in your root Erlang code path. This path varies depending on your
 operating system (on OS X, it's '/usr/local/lib/erlang/lib'). If you don't know
 your path, you can discover it by starting the Erlang shell and calling
