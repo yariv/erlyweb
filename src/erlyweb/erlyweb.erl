@@ -198,6 +198,8 @@ handle_request(A,
 	      Data
       end).
 
+handle_request(_A, _AppController, undefined, Rest, _AppData, _DataFun) ->
+    Rest;
 handle_request(A, AppController, Ewc, Rest, AppData, DataFun) -> 
     case catch ewc(Ewc, AppData) of
 	{response, Elems} -> 
@@ -255,8 +257,6 @@ handle_request(A, AppController, Ewc, Rest, AppData, DataFun) ->
 %% @see handle_request/1
 get_initial_ewc(Ewc) ->
     element(1, get_initial_ewc1(Ewc)).
-get_initial_ewc(Ewc, AppData) ->
-    element(1, get_initial_ewc1(Ewc, AppData)).
 
 get_initial_ewc1({ewc, A} = Ewc) ->
     AppData = lookup_app_data_module(A),
@@ -278,7 +278,7 @@ get_initial_ewc1({response, Elems} = Resp, AppData) ->
 	{[], Rest} ->
 	    {undefined, Rest};
 	{[{body, Body}], Rest} ->
-	    {element(1, get_initial_ewc(Body, AppData)), Rest};
+	    {element(1, get_initial_ewc1(Body, AppData)), Rest};
 	{_Bodies, _Rest} ->
 	    exit({multiple_response_bodies, Resp})
     end;
