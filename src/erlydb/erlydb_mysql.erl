@@ -408,7 +408,7 @@ get_pool_id(undefined) -> erlydb_mysql;
 get_pool_id(Options) ->
     case proplists:get_value(pool_id, Options) of
 	undefined ->
-	    get_default_pool_name();
+	    exit({missing_pool_id_option, Options});
 	Other ->
 	    Other
     end.
