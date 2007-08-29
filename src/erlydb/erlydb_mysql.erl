@@ -13,13 +13,14 @@
 
 -module(erlydb_mysql).
 
--author("Yariv Sadan (yarivvv@gmail.com) (http://yarivsblog.com)").
+-author("Yariv Sadan (yarivsblog@gmail.com) (http://yarivsblog.com)").
 
 -export([start/1,
 	 start_link/1,
 	 connect/5,
 	 connect/7,
 	 get_metadata/1,
+	 get_default_pool_name/0,
 	 q/1,
 	 q/2,
 	 q2/1,
@@ -124,26 +125,51 @@ connect(PoolId, Hostname, Port, Username, Password, Database,
 %%
 %% @spec get_metadata(Options::options()) -> gb_trees()
 get_metadata(Options) ->
-    {data, Res} = q2(<<"show tables">>, Options),
-    Tables = mysql:get_result_rows(Res),
-    case catch lists:foldl(
-		 fun([Table | _], TablesTree) ->
-			 case q2(<<"describe ", Table/binary>>, Options) of
-			     {data, FieldRes} ->
-				 Rows = mysql:get_result_rows(FieldRes),
-				 Fields =
-				     [new_field(FieldData) ||
-					 FieldData <- Rows],
-				 gb_trees:enter(binary_to_atom(Table), Fields,
-						TablesTree);
-			     {error, _Err} = Res ->
-				 throw(Res)
-			 end
-		 end, gb_trees:empty(), Tables) of
-	{error, _} = Err ->
-	    Err;
-	Tree ->
-	    {ok, Tree}
+    {Pools, OtherOpts} = get_pools(Options),
+    lists:foldl(
+      fun({pool_id, Val} = PoolId, Acc) ->
+	      Metadata = get_metadata_for_pool([PoolId | OtherOpts]),
+	      gb_trees:insert(Val, Metadata, Acc)
+      end, gb_trees:empty(), Pools).
+
+%% @doc Get the default connection pool name for the driver.
+%%
+%% @spec get_default_pool_name() -> atom()
+get_default_pool_name() ->
+    erlydb_mysql.
+
+get_metadata_for_pool(Options) ->
+    case q2(<<"show tables">>, Options) of
+	{data, Res} ->
+	    Tables = mysql:get_result_rows(Res),
+	    lists:foldl(
+	      fun([Table | _], TableTree) ->
+		      case q2(<<"describe ", Table/binary>>, Options) of
+			  {data, FieldRes} ->
+			      Rows = mysql:get_result_rows(FieldRes),
+			      Fields =
+				  [new_field(FieldData) ||
+				      FieldData <- Rows],
+			      gb_trees:enter(binary_to_atom(Table), Fields,
+					     TableTree);
+			  {error, Err} ->
+			      exit(Err)
+		      end
+	      end, gb_trees:empty(), Tables);
+	{error, Err} ->
+	    exit(Err)
+    end.
+
+get_pools(Options) ->
+    {Pools, OtherOpts} =
+	lists:partition(
+	  fun({pool_id, _}) -> true;
+	     (_) -> false
+	  end, Options),
+    if Pools == [] ->
+	    {[{pool_id, get_default_pool_name()}], OtherOpts};
+       true ->
+	    {lists:usort(Pools), OtherOpts}
     end.
 
 new_field([Name, Type, Null, Key, Default, Extra]) ->
@@ -191,7 +217,7 @@ parse_list(Str) ->
     
 
 %% @doc Execute a statement against the MySQL driver with the default options.
-%% The connection pool named 'erlydb_mysql' is used.
+%% The connection default pool name ('erlydb_mysql') is used.
 %%
 %% @spec q(Statement::statement()) -> mysql_result()
 q(Statement) ->
@@ -382,7 +408,7 @@ get_pool_id(undefined) -> erlydb_mysql;
 get_pool_id(Options) ->
     case proplists:get_value(pool_id, Options) of
 	undefined ->
-	    erlydb_mysql;
+	    get_default_pool_name();
 	Other ->
 	    Other
     end.

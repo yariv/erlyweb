@@ -157,35 +157,85 @@ code_gen(Driver, Modules, Options) ->
 
 code_gen(Driver, Modules, Options, IncludePaths) ->
     DriverMod = driver_mod(Driver),
-    case DriverMod:get_metadata(Options) of
-	{error, _Err}  = Res ->
-	    Res;
-	{ok, Metadata} ->
-	    lists:foreach(
-	      fun(Module) ->
-		      case process_module(DriverMod, Module, Metadata,
-					  Options, IncludePaths) of
-			  ok ->
-			      ok;
-			  Err ->
-			      exit(Err)
-		      end
-	      end, Modules)
-    end.
+    Metadata = DriverMod:get_metadata(Options),
+    lists:foreach(
+      fun(Module) ->
+	      case process_module(DriverMod, Module, Metadata,
+				  Options, IncludePaths) of
+		  ok ->
+		      ok;
+		  Err ->
+		      exit(Err)
+	      end
+      end, Modules).
 
-process_module(DriverMod, Module, Metadata, Options, IncludePaths) ->   
-    case smerl:for_module(Module, IncludePaths) of
+process_module(DriverMod, ModulePath, Metadata, Options, IncludePaths) ->   
+    case smerl:for_module(ModulePath, IncludePaths) of
 	{ok, C1} ->
-	    ModName = smerl:get_module(C1),
-	    case gb_trees:lookup(get_table(ModName), Metadata) of
-		{value, Fields} ->
-		    MetaMod = make_module(DriverMod, C1, Fields, Options),
-		    smerl:compile(MetaMod, Options);
+	    C2 = preprocess_and_compile(C1),
+	    ModName = smerl:get_module(C2),
+	    {PoolId, Options1} =
+		get_extended_options(DriverMod, ModName, Options),
+	    case gb_trees:lookup(PoolId, Metadata) of
 		none ->
-		    {error, {no_such_table, ModName}}
+		    exit({pool_id_not_found, {pool_id, PoolId},
+			  {module, ModName}});
+		{value, TableTree} ->
+		    case gb_trees:lookup(get_table(ModName), TableTree) of
+			{value, Fields} ->
+			    MetaMod = make_module(DriverMod, C2, Fields,
+						  Options1),
+			    smerl:compile(MetaMod, Options1);
+			none ->
+			    {error, {no_such_table, get_table(ModName)}}
+		    end
 	    end;
 	Err ->
 	    Err
+    end.
+
+preprocess_and_compile(MetaMod) ->
+    %% extend the base module, erlydb_base
+    M10 = smerl:extend(erlydb_base, MetaMod),
+
+    %% This is an optimization to avoid the remote function call
+    %% to erlydb_base:set/3 in order to allow the compiler to decide to
+    %% update the record destructively.
+    M20 = smerl:remove_func(M10, set, 3),
+    {ok, M30} = smerl:add_func(M20,
+			 "set(Idx, Rec, Val) -> "
+			 "setelement(Idx, Rec, Val)."),
+    case smerl:compile(M30) of
+	ok ->
+	    M30;
+	Err ->
+	    exit(Err)
+    end.
+
+
+get_extended_options(DriverMod, Module, Options) ->
+    Options1 =
+	case proplists:get_value(
+	       erlydb_options,
+	       Module:module_info(attributes)) of
+	    undefined ->
+		Options;
+	    ExtraOpts ->
+		RemainingOptions =
+		    lists:foldl(
+		      fun({Key, _Val}, Acc) ->
+			      lists:keydelete(Key, 1, Acc);
+			 (_, Acc) ->
+			      Acc
+		      end, ExtraOpts, Options),
+		ExtraOpts ++ RemainingOptions
+	end,
+    case proplists:get_value(pool_id, Options1) of
+	undefined ->
+	    PoolId = DriverMod:get_default_pool_name(),
+	    {PoolId, [{pool_id, PoolId} | Options1]};
+	Other ->
+	    {Other, Options1}
     end.
 
 get_table(Module) ->
@@ -197,26 +247,13 @@ get_table(Module) ->
 
 %% Make the abstract forms for the module.
 make_module(DriverMod, MetaMod, DbFields, Options) ->
-    %% extend the base module, erlydb_base
-    M20 = smerl:extend(erlydb_base, MetaMod),
-
-    %% This is an optimization to avoid the remote function call
-    %% to erlydb_base:set/3 in order to allow the compiler to decide to
-    %% update the record destructively.
-    M21 = smerl:remove_func(M20, set, 3),
-    {ok, M22} = smerl:add_func(M21,
-			 "set(Idx, Rec, Val) -> "
-			 "setelement(Idx, Rec, Val)."),
-
     Module = smerl:get_module(MetaMod),
-
-    ok = smerl:compile(M22),
 
     {Fields, FieldNames} = get_db_fields(Module, DbFields), 
     
     PkFields = [Field || Field <- Fields, erlydb_field:key(Field) == primary],
     
-    {ok, M24} = smerl:curry_replace(M22, db_pk_fields, 1, [PkFields]),
+    {ok, M24} = smerl:curry_replace(MetaMod, db_pk_fields, 1, [PkFields]),
 
     M26 = add_pk_fk_field_names(M24, PkFields),
     
@@ -255,7 +292,9 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
 	  end,
 
     %% inject the driver configuration into the driver/1 function
-    {ok, M80} = smerl:curry_replace(M70, driver, 1, [{DriverMod, Options}]),
+    {ok, M80} = smerl:curry_replace(
+		  M70, driver, 1,
+		  [{DriverMod, Options}]),
     
     %% make the relations function forms
     M90 = make_rel_funcs(M80),
@@ -310,7 +349,7 @@ get_db_fields(Module, DbFields) ->
 
 		case InvalidFieldNames of
 		    [] ->
-                        DbFields2 = [ add_transient_field(Field, DbFields) || 
+                        DbFields2 = [add_transient_field(Field, DbFields) || 
                                         Field <- DefinedFields2],
 			lists:foldr(
 			  fun(Field, Acc) ->
