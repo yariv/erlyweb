@@ -1205,9 +1205,11 @@ make_add_related_many_to_many_query(JoinTable, Rec, OtherRecs) ->
 			  [R1, R2] = 
 			      sort_records(Rec, OtherRec,
 					   Fields),
+			  Mod1 = element(1, R1),
+			  Mod2 = element(1, R2),
 			  lists:foldl(
 			    fun({PkField, _FkField1, _FkField2}, Acc) ->
-				    [Mod:PkField(R1), Mod:PkField(R2) | Acc]
+				    [Mod1:PkField(R1), Mod2:PkField(R2) | Acc]
 			    end, [], Fields)
 		  end, OtherRecs),
 	    FkFields =
@@ -1361,10 +1363,12 @@ get_join_table_fields(Rec, OtherRec) ->
 	true ->
 	    Fields = Mod:get_pk_fk_fields2(),
 	    [Rec1, Rec2] = sort_records(Rec, OtherRec, Fields),
+	    Mod1 = element(1, Rec1),
+	    Mod2 = element(1, Rec2),
 	    lists:foldl(
 	      fun({PkField, FkField1, FkField2}, Acc) ->
-		      [{FkField1, Mod:PkField(Rec1)},
-		       {FkField2, OtherMod:PkField(Rec2)} | Acc]
+		      [{FkField1, Mod1:PkField(Rec1)},
+		       {FkField2, Mod2:PkField(Rec2)} | Acc]
 	      end, [], Fields);
        _ ->
 	    Fields1 = [{FkField, Mod:PkField(Rec)} ||
