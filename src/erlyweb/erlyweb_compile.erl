@@ -308,7 +308,8 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
     Extension = filename:extension(FileName),
     BaseNameTokens = string:tokens(BaseName, "_"),
 
-    Type = case lists:prefix(ComponentsDir, FileName) of
+    Type = case lists:prefix(string:to_lower(ComponentsDir),
+			     string:to_lower(FileName)) of
 	       true ->
 		   case lists:last(BaseNameTokens) of
 		       "controller" -> controller;
