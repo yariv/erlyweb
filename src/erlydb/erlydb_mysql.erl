@@ -261,7 +261,7 @@ q2(Statement) ->
 %% @spec q2(Statement::string() | binary(), Options::options()) ->
 %%   mysql_result()
 q2(Statement, Options) ->
-    mysql:fetch(get_pool_id(Options), Statement).
+    mysql:fetch(get_pool_id(Options), Statement, get_timeout(Options)).
 
 %% @doc Execute a group of statements in a transaction.
 %%   Fun is the function that implements the transaction.
@@ -273,7 +273,7 @@ q2(Statement, Options) ->
 %% @spec transaction(Fun::function(), Options::options()) ->
 %%   {atomic, Result} | {aborted, Reason}
 transaction(Fun, Options) ->
-    mysql:transaction(get_pool_id(Options), Fun).
+    mysql:transaction(get_pool_id(Options), Fun, get_timeout(Options)).
 
     
 %% @doc Execute a raw SELECT statement.
@@ -411,4 +411,13 @@ get_pool_id(Options) ->
 	    get_default_pool_name();
 	Other ->
 	    Other
+    end.
+
+get_timeout(undefined) -> 5000;
+get_timeout(Options) ->
+    case proplists:get_value(erlydb_timeout, Options) of
+	undefined ->
+	    5000;
+	Timeout ->
+	    Timeout
     end.
