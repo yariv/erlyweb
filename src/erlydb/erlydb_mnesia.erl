@@ -574,7 +574,7 @@ get_qlc_metadata(Tables) when is_list(Tables) ->
 
 get_qlc_metadata([Table | Tables], QLCData) when is_tuple(Table) == false ->
     % Create an alias for the table (table name in all caps)
-    get_qlc_metadata({Table, 'as', httpd_util:to_upper(atom_to_list(Table))}, Tables, QLCData);
+    get_qlc_metadata({Table, 'as', string:to_upper(atom_to_list(Table))}, Tables, QLCData);
 get_qlc_metadata([{_, 'as', _} = Table | Tables], QLCData) ->
     get_qlc_metadata(Table, Tables, QLCData);
 get_qlc_metadata([], QLCData) ->

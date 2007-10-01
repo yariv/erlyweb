@@ -161,10 +161,46 @@ css() ->
 	"H1 {font-size: 1.5em;}",
     iolist_to_binary(Text).
 
+magic_declaration("", _) ->
+    "";
+magic_declaration(MagicStr, controller) ->
+    "-erlyweb_magic(" ++ MagicStr ++"_controller).";
+magic_declaration(MagicStr, {erltl, off}) ->
+    "-erlyweb_magic(" ++ MagicStr ++"_view).";
+magic_declaration(MagicStr, {erltl, on}) ->
+    "<%~ -erlyweb_magic(" ++ MagicStr ++ "_view). %>".
+
+view_declaration(ComponentName, {ertl, off}) ->
+    "-module(" ++ ComponentName ++ "_view).\n";
+view_declaration(_ComponentName, {ertl, on}) ->
+    "".
+
+view_filename(ComponentName, {ertl, off}) ->
+    ComponentName ++ "_view.erl";
+view_filename(ComponentName, {ertl, on}) ->
+    ComponentName ++ "_view.et".
+
+model_filename(_ComponentName, {model, off}) ->
+    "";
+model_filename(ComponentName, {model, on}) ->
+    ComponentName ++ ".erl".
+    
 %% @hidden
-create_component(ComponentName, AppDir, Magic) ->
+create_component(ComponentName, AppDir, Options) ->
+    {Magic, Model, Erltl} = {proplists:get_value(magic, Options, on),
+			     proplists:get_value(model, Options, on),
+			     proplists:get_value(erltl, Options, off)},
+
+     if (Magic == on) andalso (Model == off) ->
+ 	    exit({bad_options, "Can't have magic without a model."});
+	true ->
+	     void
+     end,
+
     MagicStr = if Magic == on ->
 		       "erlyweb";
+		  Magic == off ->
+		       "";
 		  true ->
 		       if is_atom(Magic) ->
 			       atom_to_list(Magic);
@@ -172,15 +208,19 @@ create_component(ComponentName, AppDir, Magic) ->
 			       Magic
 		       end
 	       end,
-    Files = 
-	[{ComponentName ++ ".erl",
-	  "-module(" ++ ComponentName ++ ")."},
-	 {ComponentName ++ "_controller.erl",
-	  "-module(" ++ ComponentName ++ "_controller).\n"
-	  "-erlyweb_magic(" ++ MagicStr ++"_controller)."},
-	 {ComponentName ++ "_view.erl",
-	  "-module(" ++ ComponentName ++ "_view).\n"
-	  "-erlyweb_magic(" ++ MagicStr ++ "_view)."}],
+    
+    %% Remove empty filenames from the list.
+    Files = lists:filter(fun({"", _Bin}) -> false;
+			    (_) -> true end,
+			 [{model_filename(ComponentName, {model, Model}),
+			   "-module(" ++ ComponentName ++ ")."},
+			  {ComponentName ++ "_controller.erl",
+			   "-module(" ++ ComponentName ++ "_controller).\n" ++
+			   magic_declaration(MagicStr, controller)},
+			  {view_filename(ComponentName, {ertl, Erltl}),
+			   view_declaration(ComponentName, {ertl, Erltl}) ++
+			   magic_declaration(MagicStr, {erltl, Erltl})}]),
+    
     lists:foreach(
       fun({FileName, Text}) ->
 	      create_file(AppDir ++ "/src/components/" ++ FileName, Text)

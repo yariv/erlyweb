@@ -48,31 +48,40 @@ create_app(AppName, AppDir) ->
 	Other -> Other
     end.
 
-%% @equiv create_component(Component, AppDir, on)
+%% @equiv create_component(Component, AppDir, [{magic, on}, {model, on}, 
+%%                                             {erltl, off})
 create_component(Component, AppDir) ->
-    create_component(Component, AppDir, on).
+    create_component(Component, AppDir, [{magic, on}, {model, on},
+					{erltl, off}]).
 
-%% @doc Create all the files (model, view and controller) for a component
-%%  that implements basic CRUD features for a database table.
-%%  'Component' is the name of the component and 'AppDir' is the application's
-%%  root directory.
+%% @doc Create all files (model, view, and controller) for a component
+%%  that implements basic CRUD features for a database table. 'Component' 
+%%  is the name of the component and 'AppDir' is the application's root 
+%%  directory.
 %%
-%% The view and controller source files this function creates have the line
-%% "-erlyweb_magic(on)."
-%% This tells ErlyWeb that the module in which the line appears should extend
-%% the erlyweb_view or erlyweb_controller modules, which provide basic CRUD
-%% capabilities.
+%%  This function also lets you define the following options:
 %%
-%% You can override the default base module setting by replace 'on' with
-%% the name of the module you want to extend. You can also disable the
-%% build-in CRUD features by removing the '-erlyweb_magic(on).' lines from
-%% the view and/or controller source files.
+%% - `{magic, Val::on | off | atom() | string()}'.
+%%   If Val is 'on', the view and controller source files this function
+%%   creates will have the line "-erlyweb_magic(on)". This tells Erlyweb that
+%%   the module in which the line appears should extend the erlyweb_view
+%%   or erlyweb_controller modules, which provide basic CRUD
+%%   capabilities. You can override the default base module by replacing
+%%   'on' with the name of the module you want to extend. You can also
+%%   disable the built-in CRUD features by having 'Val' be 'off'.
 %%
-%% @spec create_component(Component::atom(), AppDir::string(),
-%%    Magic::on | atom() | string()) ->
+%% - `{model, Val::on | off}'.
+%%   This tells Erlyweb whether to create a model file or not.
+%%
+%% - `{erltl, Val::on | off}.  
+%%   This tells Erlyweb whether the view file should be an ErlTL file, or
+%%   an Erlang source file.
+%%
+%% @spec create_component(Component:atom(), AppDir:string(), 
+%%    Options::[option()]) -> 
 %%   ok | {error, Err}
-create_component(Component, AppDir, Magic) ->
-    case catch erlyweb_util:create_component(Component, AppDir, Magic) of
+create_component(Component, AppDir, Options) ->
+    case catch erlyweb_util:create_component(Component, AppDir, Options) of
 	{'EXIT', Err} ->
 	    {error, Err};
 	Other -> Other
@@ -88,7 +97,7 @@ create_component(Component, AppDir, Magic) ->
 %%   changed (ErlyWeb does this automatically when the auto-compilation
 %%   is turned on).
 %%
-%% @spec compile(AooDir::string()) -> ok | {error, Err}
+%% @spec compile(AppDir::string()) -> ok | {error, Err}
 compile(AppDir) ->
     compile(AppDir, []).
 
