@@ -32,7 +32,7 @@ erlydb_psql_init() ->
 
 code_gen(Database) ->
     erlydb:code_gen(Database, [language, project, developer, musician, employee, 
-                               person, customer, store, item]).
+                               person, customer, store, item], []).
 
 test() ->
     test(mysql).
