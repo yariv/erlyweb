@@ -1,12 +1,12 @@
-drop table language;
-drop table project;
-drop table person;
-drop table person_project;
-drop table customer;
-drop table store;
-drop table item;
-drop table customer_store;
-drop table customer_customer;
+drop table if exists language;
+drop table if exists project;
+drop table if exists person;
+drop table if exists person_project;
+drop table if exists customer;
+drop table if exists store;
+drop table if exists item;
+drop table if exists customer_store;
+drop table if exists customer_customer;
 
 create table language (
 	id integer auto_increment primary key,
