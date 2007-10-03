@@ -19,6 +19,7 @@
 	 start_link/1,
 	 connect/5,
 	 connect/7,
+	 connect/8,
 	 get_metadata/1,
 	 get_default_pool_name/0,
 	 q/1,
@@ -80,27 +81,43 @@
 %%
 %% @spec start(StartOptions::proplist()) -> ok | {error, Error}
 start(Options) ->
-    start1(Options, fun mysql:start/7).
+    start1(Options, fun mysql:start/8).
 
 %% @doc This function is similar to {@link start/1}, only it calls
 %% mysql:start_link() instead of mysql:start().
 %%
 %% @spec start_link(StartOptions::proplist()) -> ok | {error, Error}
 start_link(Options) ->
-    start1(Options, fun mysql:start_link/7).
+    start1(Options, fun mysql:start_link/8).
 
 start1(Options, Fun) ->
-    [PoolId, Hostname, Port, Username, Password, Database, LogFun] =
+    [PoolId, Hostname, Port, Username, Password, Database, LogFun, Encoding, PoolSize] =
 	lists:foldl(
 	  fun(Key, Acc) ->
 		  [proplists:get_value(Key, Options) | Acc]
 	  end, [],
 	  lists:reverse([pool_id, hostname, port, username,
-			 password, database, logfun])),
+			 password, database, logfun, encoding, poolsize])),
 
     PoolId1 = if PoolId == undefined -> ?Epid; true -> PoolId end,
-    Fun(PoolId1, Hostname, Port, Username, Password, Database, LogFun).
-    
+    Fun(PoolId1, Hostname, Port, Username, Password, Database, LogFun, Encoding),
+    case PoolSize of
+	undefined -> 0;
+	_ -> make_connection(PoolSize, PoolId, Database, Hostname, Port,
+			     Username, Password, Encoding)
+    end.
+
+%% @doc Create a a number of database connections in the pool.
+make_connection(PoolSize, PoolId, Database, Hostname, Port,
+		  Username, Password, Encoding) ->
+    if PoolSize > 0 ->
+	    connect(PoolId, Hostname, Port, Username, Password, Database,
+		    Encoding, true),
+	    make_connection(PoolSize-1, PoolId, Database, Hostname, Port,
+			    Username, Password, Encoding);
+       true ->
+	    undefined
+    end.
 
 %% @doc Call connect/7 with Port set to 3306 and Reconnect set to 'true'.
 %%
@@ -108,7 +125,7 @@ start1(Options, Fun) ->
 %%    Username::string(), Password::string(), Database::string()) -> ok
 connect(PoolId, Hostname, Username, Password, Database) ->
     mysql:connect(PoolId, Hostname, 3306, Username, Password, Database,
-		  true).
+		  undefined, true).
 
 %% @doc Add a connection to the connection pool. If PoolId is
 %%   'undefined', the default pool, 'erlydb_mysql', is used.
@@ -117,9 +134,15 @@ connect(PoolId, Hostname, Username, Password, Database) ->
 %%    Username::string(), Password::string(), Database::string(),
 %%    Reconnect::boolean()) -> ok
 connect(PoolId, Hostname, Port, Username, Password, Database,
-		Reconnect) ->
+	 Reconnect) ->
     mysql:connect(PoolId, Hostname, Port, Username, Password, Database,
 		  Reconnect).
+
+%% @doc Add a connection to the connection pool, with encoding specified.
+connect(PoolId, Hostname, Port, Username, Password, Database,
+	 Encoding, Reconnect) ->
+    mysql:connect(PoolId, Hostname, Port, Username, Password, Database,
+		  Encoding, Reconnect).
 
 %% @doc Get the table names and fields for the database.
 %%
