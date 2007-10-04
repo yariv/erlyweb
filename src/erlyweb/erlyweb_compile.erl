@@ -83,14 +83,14 @@ compile(AppDir, Options) ->
     AppController = list_to_atom(AppControllerStr),
     try_func(AppController, before_compile, [LastCompileTime1], ok),
 
+    ComponentsDir = http_util:to_lower(AppDir1 ++ "src/components"),
     {ComponentTree1, Models} =
 	filelib:fold_files(
 	  AppDir1 ++ "src", "\.(erl|et)$", true,
 	  fun(FileName, Acc) ->
 		  if FileName =/= AppControllerFilePath ->
 			  compile_component_file(
-			    AppDir1 ++
-			    "src/components", FileName,
+			    ComponentsDir, http_util:to_lower(FileName),
 			    LastCompileTimeInSeconds, Options3, IncludePaths,
 			    Acc);
 		     true ->
@@ -308,8 +308,8 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
     Extension = filename:extension(FileName),
     BaseNameTokens = string:tokens(BaseName, "_"),
 
-    Type = case lists:prefix(string:to_lower(ComponentsDir),
-			     string:to_lower(FileName)) of
+    Type = case lists:prefix(ComponentsDir,
+			     FileName) of
 	       true ->
 		   case lists:last(BaseNameTokens) of
 		       "controller" -> controller;

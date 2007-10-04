@@ -465,7 +465,7 @@ get_app_root(A) ->
     {First, _Rest} =
 	lists:split(
 	  length(ServerPath) -
-	  length(yaws_arg:appmoddata(A)),
+	  length(yaws_arg:appmoddata(A)) - 1,
 	  ServerPath),
     First.
 
