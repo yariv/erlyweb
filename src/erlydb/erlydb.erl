@@ -142,7 +142,7 @@ driver_mod(odbc) -> erlydb_odbc.
 %%
 %% @spec code_gen(Driver::atom(), [Module::atom()]) -> ok | {error, Err}
 code_gen(Driver, Modules) ->
-    code_gen(Driver, Modules, undefined).
+    code_gen(Driver, Modules, []).
 
 %% @doc Generate code for the list of modules using user-defined options for
 %% the provided driver. For example,
