@@ -41,6 +41,7 @@ This module implements the MySQL driver for ErlyDB.
 <h2><a name="index">Function Index</a></h2>
 <table width="100%" border="1"><tr><td valign="top"><a href="#connect-5">connect/5</a></td><td>Call connect/7 with Port set to 3306 and Reconnect set to 'true'.</td></tr>
 <tr><td valign="top"><a href="#connect-7">connect/7</a></td><td>Add a connection to the connection pool.</td></tr>
+<tr><td valign="top"><a href="#connect-8">connect/8</a></td><td>Add a connection to the connection pool, with encoding specified.</td></tr>
 <tr><td valign="top"><a href="#execute-2">execute/2</a></td><td>Execute a statement that was previously prepared with
    prepare/2.</td></tr>
 <tr><td valign="top"><a href="#execute-3">execute/3</a></td><td>Execute a prepared statement with the list of parameters.</td></tr>
@@ -52,6 +53,7 @@ This module implements the MySQL driver for ErlyDB.
     update() function.</td></tr>
 <tr><td valign="top"><a href="#execute_update-3">execute_update/3</a></td><td>Execute a prepared statement with the list of parameters and
     and return the result as the the update() function.</td></tr>
+<tr><td valign="top"><a href="#get_default_pool_name-0">get_default_pool_name/0</a></td><td>Get the default connection pool name for the driver.</td></tr>
 <tr><td valign="top"><a href="#get_last_insert_id-2">get_last_insert_id/2</a></td><td>Get the id of the last inserted record.</td></tr>
 <tr><td valign="top"><a href="#get_metadata-1">get_metadata/1</a></td><td>Get the table names and fields for the database.</td></tr>
 <tr><td valign="top"><a href="#prepare-2">prepare/2</a></td><td>Register a prepared statement with the MySQL dispatcher.</td></tr>
@@ -82,6 +84,11 @@ This module implements the MySQL driver for ErlyDB.
 <p><tt>connect(PoolId::atom(), Hostname::string, Port::integer(), Username::string(), Password::string(), Database::string(), Reconnect::<a href="#type-boolean">boolean()</a>) -&gt; ok</tt></p>
 <p>Add a connection to the connection pool. If PoolId is
     'undefined', the default pool, 'erlydb_mysql', is used.
+ </p>
+
+<h3><a name="connect-8">connect/8</a></h3>
+<p><tt>connect(PoolId::atom(), Hostname::string, Port::integer(), Username::string(), Password::string(), Database::string(), Encoding, Reconnect::<a href="#type-boolean">boolean()</a>) -&gt; ok</tt></p>
+<p>Add a connection to the connection pool, with encoding specified.
  </p>
 
 <h3><a name="execute-2">execute/2</a></h3>
@@ -119,6 +126,11 @@ This module implements the MySQL driver for ErlyDB.
     and return the result as the the update() function.
  </p>
 
+<h3><a name="get_default_pool_name-0">get_default_pool_name/0</a></h3>
+<p><tt>get_default_pool_name() -&gt; atom()</tt></p>
+<p>Get the default connection pool name for the driver.
+ </p>
+
 <h3><a name="get_last_insert_id-2">get_last_insert_id/2</a></h3>
 <p><tt>get_last_insert_id(Table::undefined, Options::<a href="#type-options">options()</a>) -&gt; term()</tt></p>
 <p>Get the id of the last inserted record.
@@ -140,7 +152,7 @@ This module implements the MySQL driver for ErlyDB.
 <h3><a name="q-1">q/1</a></h3>
 <p><tt>q(Statement::<a href="#type-statement">statement()</a>) -&gt; <a href="#type-mysql_result">mysql_result()</a></tt></p>
 <p>Execute a statement against the MySQL driver with the default options.
-  The connection pool named 'erlydb_mysql' is used.
+  The connection default pool name ('erlydb_mysql') is used.
  </p>
 
 <h3><a name="q-2">q/2</a></h3>
@@ -197,11 +209,16 @@ pool, i.e. 'erlydb_mysql', should be used.</p>
  
    <p><code>database</code>: a string indicating the database name.</p>
  
-   <p><code>allow_unsafe_statements</code>: a boolean value indicating whether the driver should
+   <p><code>allow_unsafe_statements</code>: a boolean value indicating whether the driver
+   should
    accept string and/or binary SQL queries and query fragments. If you
    set this value to
    'true', ErlyDB lets you use string or binary Where and Extras expressions
    in generated functions. For more information, see <a href="erlydb.html"><code>erlydb</code></a>.</p>
+ 
+  <p><code>encoding</code>: the character encoding MySQL will use.</p>
+ 
+  <p><code>poolsize</code>: the number of connections to start.</p>
  
   This function calls mysql:start(), not mysql:start_link(). To
   link the MySQL dispatcher to the calling process, use <a href="#start_link-1"><code>start_link/1</code></a>.

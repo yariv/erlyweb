@@ -86,6 +86,10 @@ with the parameters `[A, "1", "2", "3"]', where A is the Arg record
 that Yaws passes into the appmod's out/1 function. (For more information,
 visit [http://yaws.hyber.org/].)
 
+Since ErlyWeb 0.7, you can use the catch_all/2 hook to override the
+default behavior, i.e. treating the second token as a function name
+instead of as parameter. For more information, see {@section catch_all/2}.
+
 == Models ==
 
 ErlyWeb treats all Erlang modules whose names don't end with '_controller'
@@ -207,6 +211,68 @@ for setting HTTP headers or implementing arbitrary application logic.
 
 === Optional Controller Hooks ===
 
+{@section catch_all/2}<br/>
+{@section before_call/2}<br/>
+{@section before_return/3}<br/>
+{@section after_render/3}<br/>
+
+==== catch_all/2 ====
+
+The catch_all/2 hook was introduced in ErlyWeb 0.7. By default,
+ErlyWeb treats the URL token following the component name
+as a function name. catch_all/2 lets you override this behavior on a
+per-controller basis by treating all URL tokens following the
+component name as parameters.
+
+For example, if a user requests the url
+
+```
+http://my-cool-app.com/people/bob
+'''
+
+ErlyWeb by default would try to invoke the function 'bob/1' in
+people_controller. This is probably not what you want. Instead, you
+probably want "bob" to be a parameter to a single generic function in
+people_controller. You can accomplish this by implementing the
+'people' component as follows:
+
+people_controller.erl:
+
+```
+-module(people_controller).
+-export(index/1, catch_all/2).
+
+index(_A) ->
+  {data, undefined}.
+
+catch_all(A, [Name]) ->
+  {data, Name}.
+'''
+
+people_view.et:
+
+```
+<%@ index(_) %>
+nothing much here
+
+<%@ catch_all(Name) %>
+<% Name %>'s homepage
+...
+'''
+
+Note that the second parameter to catch_all/2 in the controller is a list
+of URL tokens (separated by "/") following the controller name. For example,
+when ErlyWeb receives a request with the URL
+
+```
+http://my-cool-app.com/people/bob/smith
+'''
+
+ErlyWeb would call `people_controller:catch_all(A, ["bob", "smith"])'.
+
+
+==== before_call/2 ====
+
 ErlyWeb lets you implement the before_call/2 and before_return/3 hooks
 in controllers to intercept function calls before they are applied
 and/or manipulate controller return values before ErlyWeb processes them.
@@ -223,6 +289,8 @@ calls and/pr the parameters ErlyWeb passes to the function.
 This hook can be convenient, for example, for implementing authentication
 logic for some or all functions of a controller.
 
+==== before_return/3 ====
+
 The signature of before_return/3 is
 
 ```
@@ -234,6 +302,8 @@ By implementing the before_return/3 hook, you can change all return values
 based on the names and/or parameters of their originating controller
 functions. This hook can simplify the definition of response elements
 such HTTP headers common to some or all of a controller's functions.
+
+==== after_render/3 ====
 
 ErlyWeb lets you implement the after_render/3 hook in controllers to get 
 access to the rendered output. Teh 
