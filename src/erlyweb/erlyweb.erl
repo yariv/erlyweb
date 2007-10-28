@@ -49,7 +49,7 @@ create_app(AppName, AppDir) ->
     end.
 
 %% @equiv create_component(Component, AppDir, [{magic, on}, {model, on}, 
-%%                                             {erltl, off})
+%%                                             {erltl, off}])
 create_component(Component, AppDir) ->
     create_component(Component, AppDir, [{magic, on}, {model, on},
 					{erltl, off}]).
@@ -61,7 +61,7 @@ create_component(Component, AppDir) ->
 %%
 %%  This function also lets you define the following options:
 %%
-%% - `{magic, Val::on | off | atom() | string()}'.
+%% - `{magic, Val::on | off | atom() | string()}'
 %%   If Val is 'on', the view and controller source files this function
 %%   creates will have the line "-erlyweb_magic(on)". This tells Erlyweb that
 %%   the module in which the line appears should extend the erlyweb_view
@@ -70,16 +70,15 @@ create_component(Component, AppDir) ->
 %%   'on' with the name of the module you want to extend. You can also
 %%   disable the built-in CRUD features by having 'Val' be 'off'.
 %%
-%% - `{model, Val::on | off}'.
+%% - `{model, Val::on | off}'
 %%   This tells Erlyweb whether to create a model file or not.
 %%
-%% - `{erltl, Val::on | off}.  
+%% - `{erltl, Val::on | off}'  
 %%   This tells Erlyweb whether the view file should be an ErlTL file, or
 %%   an Erlang source file.
 %%
-%% @spec create_component(Component:atom(), AppDir:string(), 
-%%    Options::[option()]) -> 
-%%   ok | {error, Err}
+%% @spec create_component(Component::atom(), AppDir::string(), 
+%%    Options::[option()]) -> ok | {error, Err}
 create_component(Component, AppDir, Options) ->
     case catch erlyweb_util:create_component(Component, AppDir, Options) of
 	{'EXIT', Err} ->
@@ -372,7 +371,12 @@ ewr2(A, PathElems) ->
     Elems = [if is_atom(Elem) -> atom_to_list(Elem);
 		true -> Elem
 	     end || Elem <- PathElems],
-    AppDir = get_app_root(A),
+    AppDir = case get_app_root(A) of
+		 "/" ->
+		     [];
+		 Other ->
+		     Other
+	     end,
     Path = lists:foldr(
 	     fun(Elem, []) -> [Elem];
 		(Elem, Acc) -> [Elem, $/ | Acc]
