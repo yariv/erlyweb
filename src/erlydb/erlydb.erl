@@ -341,17 +341,13 @@ code_gen(Modules, Drivers, Options, IncludePaths) ->
     lists:foreach(
       fun(Module) ->
 	      DefaultDriverMod = element(1, hd(DriverTuples)),
-	      case gen_module_code(Module, DefaultDriverMod, DriversData,
-				  Options, IncludePaths) of
-		  ok ->
-		      ok;
-		  Err ->
-		      exit(Err)
-	      end
+	      gen_module_code(Module, DefaultDriverMod, DriversData,
+				  Options, IncludePaths)
       end, Modules).
 
 gen_module_code(ModulePath, DefaultDriverMod,
 	       DriversData, Options, IncludePaths) ->   
+    ?L(ModulePath),
     case smerl:for_module(ModulePath, IncludePaths) of
 	{ok, C1} ->
 	    C2 = preprocess_and_compile(C1),
@@ -359,7 +355,7 @@ gen_module_code(ModulePath, DefaultDriverMod,
 
 	    %% get the ErlyDB settings for the driver, taking the defaults
 	    %% into account
-	    {Driver, PoolId, PoolsData, DriverOptions} =
+	    {Driver, PoolsData, PoolId, DriverOptions} =
 		get_driver_settings(Module, DriversData, DefaultDriverMod),
 	    DriverMod = driver_mod(Driver),
 
@@ -368,6 +364,8 @@ gen_module_code(ModulePath, DefaultDriverMod,
 			 true ->
 			      PoolId
 		      end,
+
+	    ?L({Module, PoolId1, PoolsData}),
 	    TablesData =
 		case gb_trees:lookup(PoolId1, PoolsData) of
 		    {value, Val} ->
@@ -377,7 +375,9 @@ gen_module_code(ModulePath, DefaultDriverMod,
 			      {{module, Module},
 			       {pool_id, PoolId1}}})
 		end,
-	    
+
+	    ?L(get_table(Module)),
+
     	    case gb_trees:lookup(get_table(Module), TablesData) of
 		{value, Fields} ->
 		    Options2 = DriverOptions ++ Options,
@@ -385,9 +385,9 @@ gen_module_code(ModulePath, DefaultDriverMod,
 					  [{pool_id, PoolId1} | Options2]),
 		    smerl:compile(MetaMod, Options);
 		none ->
-		    {error,
-		     {no_such_table, {{module, Module},
-				      {table, get_table(Module)}}}}
+		    exit(
+		      {no_such_table, {{module, Module},
+				       {table, get_table(Module)}}})
 	    end;
 	Err ->
 	    Err
@@ -420,8 +420,8 @@ get_driver_settings(Module, DriversData, DefaultDriverMod) ->
 	   Module:module_info(attributes)) of
 	undefined ->
 	    {DefaultDriverMod,
-	     DefaultDriverPoolId,
 	     DefaultPoolsData,
+	     DefaultDriverPoolId,
 	     DefaultOptions};
 	DriverOpts ->
 	    {DriverMod, PoolsData, DefaultPoolId, Options} =
@@ -434,7 +434,9 @@ get_driver_settings(Module, DriversData, DefaultDriverMod) ->
 		    OtherDriver ->
 			case gb_trees:lookup(OtherDriver, DriversData) of
 			    {value, {PoolsData2, DefaultPoolId2, Options2}} ->
-				{OtherDriver, PoolsData2, DefaultPoolId2,
+				{OtherDriver,
+				 PoolsData2,
+				 DefaultPoolId2,
 				 Options2};
 			    none ->
 				exit({invalid_erlydb_driver_option,

@@ -20,6 +20,7 @@
 	 connect/5,
 	 connect/7,
 	 connect/8,
+	 connect/9,
 	 get_metadata/1,
 	 get_default_pool_id/0,
 	 q/1,
@@ -86,16 +87,16 @@
 %%
 %% @spec start(StartOptions::proplist()) -> ok | {error, Error}
 start(Options) ->
-    start1(Options, fun mysql:start/8).
+    start(Options, fun mysql:start/8, false).
 
 %% @doc This function is similar to {@link start/1}, only it calls
 %% mysql:start_link() instead of mysql:start().
 %%
 %% @spec start_link(StartOptions::proplist()) -> ok | {error, Error}
 start_link(Options) ->
-    start1(Options, fun mysql:start_link/8).
+    start(Options, fun mysql:start_link/8, true).
 
-start1(Options, Fun) ->
+start(Options, Fun, LinkConnections) ->
     [PoolId, Hostname, Port, Username, Password, Database, LogFun,
      Encoding, PoolSize] =
 	lists:foldl(
@@ -114,21 +115,24 @@ start1(Options, Fun) ->
     Fun(PoolId1, Hostname, Port, Username, Password, Database, LogFun,
 	Encoding),
     make_connection(PoolSize1-1, PoolId, Database, Hostname, Port,
-		    Username, Password, Encoding).
+		    Username, Password, Encoding, LinkConnections).
 
 %% @doc Create a a number of database connections in the pool.
 make_connection(PoolSize, PoolId, Database, Hostname, Port,
-		  Username, Password, Encoding) ->
+		  Username, Password, Encoding, LinkConnections) ->
     if PoolSize > 0 ->
 	    connect(PoolId, Hostname, Port, Username, Password, Database,
-		    Encoding, true),
+		    Encoding, LinkConnections),
 	    make_connection(PoolSize-1, PoolId, Database, Hostname, Port,
-			    Username, Password, Encoding);
+			    Username, Password, Encoding,
+			    LinkConnections);
        true ->
 	    ok
     end.
 
 %% @doc Call connect/7 with Port set to 3306 and Reconnect set to 'true'.
+%% If the connection is lost, reconnection is attempted.
+%% The connection process is linked to the calling process.
 %%
 %% @spec connect(PoolId::atom(), Hostname::string(),
 %%    Username::string(), Password::string(), Database::string()) -> ok
@@ -137,7 +141,8 @@ connect(PoolId, Hostname, Username, Password, Database) ->
 		  undefined, true).
 
 %% @doc Add a connection to the connection pool. If PoolId is
-%%   'undefined', the default pool, 'erlydb_mysql', is used.
+%%   'undefined', the default pool, 'erlydb_mysql', is used. The connection
+%%   process is linked to the calling process.
 %%
 %% @spec connect(PoolId::atom(), Hostname::string, Port::integer(),
 %%    Username::string(), Password::string(), Database::string(),
@@ -148,6 +153,7 @@ connect(PoolId, Hostname, Port, Username, Password, Database,
 		  Reconnect).
 
 %% @doc Add a connection to the connection pool, with encoding specified.
+%% The connection process is linked to the calling process.
 %%
 %% @spec connect(PoolId::atom(), Hostname::string, Port::integer(),
 %%    Username::string(), Password::string(), Database::string(),
@@ -157,6 +163,19 @@ connect(PoolId, Hostname, Port, Username, Password, Database,
 	 Encoding, Reconnect) ->
     mysql:connect(PoolId, Hostname, Port, Username, Password, Database,
 		  Encoding, Reconnect).
+
+%% @doc Add a connection to the connection pool, with encoding specified.
+%% If LinkConnection == false, the connection will not be linked to the
+%% current process.
+%%
+%% @spec connect(PoolId::atom(), Hostname::string, Port::integer(),
+%%    Username::string(), Password::string(), Database::string(),
+%%    Encoding::string(),
+%%    Reconnect::boolean(), LinkConnection::bool()) -> ok
+connect(PoolId, Hostname, Port, Username, Password, Database,
+	 Encoding, Reconnect, LinkConnection) ->
+    mysql:connect(PoolId, Hostname, Port, Username, Password, Database,
+		  Encoding, Reconnect, LinkConnection).
 
 %% @doc Get the table names and fields for the database.
 %%
