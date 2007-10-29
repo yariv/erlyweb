@@ -347,7 +347,6 @@ code_gen(Modules, Drivers, Options, IncludePaths) ->
 
 gen_module_code(ModulePath, DefaultDriverMod,
 	       DriversData, Options, IncludePaths) ->   
-    ?L(ModulePath),
     case smerl:for_module(ModulePath, IncludePaths) of
 	{ok, C1} ->
 	    C2 = preprocess_and_compile(C1),
