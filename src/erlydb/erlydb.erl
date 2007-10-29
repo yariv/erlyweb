@@ -365,7 +365,6 @@ gen_module_code(ModulePath, DefaultDriverMod,
 			      PoolId
 		      end,
 
-	    ?L({Module, PoolId1, PoolsData}),
 	    TablesData =
 		case gb_trees:lookup(PoolId1, PoolsData) of
 		    {value, Val} ->
@@ -375,8 +374,6 @@ gen_module_code(ModulePath, DefaultDriverMod,
 			      {{module, Module},
 			       {pool_id, PoolId1}}})
 		end,
-
-	    ?L(get_table(Module)),
 
     	    case gb_trees:lookup(get_table(Module), TablesData) of
 		{value, Fields} ->
