@@ -135,32 +135,213 @@ driver_mod(psql) -> erlydb_psql;
 driver_mod(mnesia) -> erlydb_mnesia;
 driver_mod(odbc) -> erlydb_odbc.
 
-%% @doc Generate ErlyDB code for the list of modules using the default
-%% options for the provided driver. This doesn't work for all drivers.
-%% For more information,
-%% refer to the driver's documentation.
-%%
-%% @spec code_gen(Driver::atom(), [Module::atom()]) -> ok | {error, Err}
-code_gen(Driver, Modules) ->
-    code_gen(Driver, Modules, []).
 
-%% @doc Generate code for the list of modules using user-defined options for
-%% the provided driver. For example,
-%% the MySQL driver accepts the {pool_id, Id::atom()} and
-%% {allow_unsafe_statements, Val::bool()} options.
-%% For more details refer to the driver's documentation.
-%%
-%% @spec code_gen(Driver::atom(), [Module::atom()], Options::proplist())
-%%   -> ok | {error, Err}
-code_gen(Driver, Modules, Options) ->
-    code_gen(Driver, Modules, Options, []).
+%% @equiv code_gen(Modules, Drivers, []).
+code_gen(Modules, Drivers) ->
+    code_gen(Modules, Drivers, []).
 
-code_gen(Driver, Modules, Options, IncludePaths) ->
-    DriverMod = driver_mod(Driver),
-    Metadata = DriverMod:get_metadata(Options),
+%% @equiv code_gen(Modules, Drivers, Options, []).
+code_gen(Modules, Drivers, Options) ->
+    code_gen(Modules, Drivers, Options, []).
+
+%% @doc Generate code for the list of modules using the provided drivers.
+%%
+%% If you're using ErlyWeb, you shouldn't need to call this function directly.
+%% Instead, refer to {@link erlyweb:compile/2}.
+%%
+%% === Usage ===
+%%
+%% In ErlyWeb 0.7, the signature for this function has changed.
+%% ErlyDB used to support only a single driver with a single connection
+%% pool in a session. As of ErlyWeb 0.7, ErlyDB supports multiple
+%% drivers in a session, and multiple connection pools for each
+%% driver.
+%%
+%% ==== Modules ====
+%% The 'Modules' parameter is a list of files or modules for which to
+%% generate ErlyDB code. If a list item is an atom, ErlyDB assumes it's
+%% a module that has been loaded into the VM or that resides in the VM's
+%% code path. In either case, the module's source code should be discoverable
+%% either through Erlang's path conventions or because the module
+%% was compiled with debug_info.
+%%
+%% If a list item is a string, ErlyDB treats it as a file name (relative
+%% or absolute) and attempts to read it from disk.
+%%
+%% ==== Drivers ====
+%% The 'Drivers' parameter is either a single element or a list of
+%% elements of the form
+%% `Driver::atom()',
+%% `{Driver::atom(), DriverOptions::proplist()}', or
+%% `{Driver::atom(), DriverOptions::proplist(), Pools::pool()}'.
+%%
+%% The first element in the Drivers list is
+%% the default driver that ErlyDB will use for all modules that don't
+%% override the driver option.
+%%
+%% 'Driver' can be `mysql', `psql' or `mnesia'. 'Options' is a list of
+%% driver-specific options. For a list of available options, refer to
+%% the driver's documentation.
+%%
+%% 'DriverOptions' is a property list that contains driver-specific options
+%% (e.g. '{allow_unsafe_statements, Bool}').
+%% For more information refer to the driver's documentation.
+%%
+%% 'Pools' is a list of available connection pools for the driver.
+%% Note that the driver must be started and the pools must be connected
+%% before code_gen/2 is called. Each item in 'Pools' is an atom indicating
+%% the pool id, or a tuple of the form `{PoolId, default}', which indicates
+%% that this pool will be used as the default pool for the driver.
+%% If you don't provide a `{PoolId, default}' pool option, ErlyDB will use
+%% the driver-defined default pool id (you can obtain it by
+%% calling Mod:get_default_pool_id(), where 'Mod' is the driver's
+%% module, e.g. 'erlydb_mysql').
+%%
+%% ==== Options ====
+%%
+%% 'Options' is a list of options that are used for all modules. This may
+%% include global driver options as well as options that are passed to
+%% compile:file/2. For more information, refer to this function's documentation
+%% in the OTP documentation.
+%%
+%% ==== IncludePaths ====
+%% 
+%% Additional include paths that will be used to search for header files
+%% when compiling the modules.
+%%
+%% === Examples ===
+%%
+%% Generate code for "musician.erl" using the MySQL driver. Only the default
+%% pool is enabled.
+%%
+%% ```
+%% code_gen(["musician.erl"], mysql).
+%% '''
+%%
+%% Use the previous settings but allow unsafe SQL statements, and compile
+%% with debug_info:
+%%
+%% ```
+%% code_gen(["musician.erl"],
+%%   {mysql, [{allow_unsafe_statements, true}]},
+%%   [debug_info]).
+%% '''
+%%
+%% Generate code for the modules using the MySQL driver with two additional
+%% pools, 'pool1' and 'pool2'. The default pool is remains `erlydb_mysql':
+%%
+%% ```
+%% code_gen(["musician.erl", "instrument.erl"],
+%%   {mysql, [], [pool1, pool2]}).
+%% '''
+%%
+%% Similar to the previous setting, but allow unsafe statement and use
+%% `pool2' as the default pool name:
+%%
+%% ```
+%% code_gen(["src/musician.erl", "src/instrument.erl"],
+%%   {mysql, [{allow_unsafe_statements, true}],
+%%     [{pool1, {pool2, default}}]})
+%% '''
+%%
+%% Generate code for the modules using both the MySQL and Postgres driver.
+%% The MySQL driver has 2 pools enabled: mysql_pool1 and mysql_pool2, which is
+%% the default. The Postgres driver has a single default pool, pg_pool1.
+%% The MySQL driver allows unsafe statements:
+%%
+%% ```
+%% code_gen(["src/musician.erl", "src/instrument.erl", "src/song.erl"],
+%%   [{mysql, [{allow_unsafe_statements, true}],
+%%     [{mysql_pool1, {mysql_pool2, default}}]},
+%%    {psql, [], [{pg_pool1, default}]}])
+%% '''
+%% 
+%% === Module-Specific Settings ===
+%%
+%% To specify which connection pool ErlyDB should for a specific module, add
+%% the following line to the module's source code:
+%%
+%% ```
+%% -erlydb_options([{driver, Driver}, {pool_id, PoolId}]).
+%% '''
+%% 
+%% The 'driver' option tells ErlyDB to use a non-default driver for the
+%% module. The 'pool_id' option tells ErlyDB to use a non-default pool id
+%% for the module. Neither option is required -- you can specify only
+%% a 'driver' option or only a 'pool_id' option.
+%%
+%% @spec code_gen([Module::atom() | string()], [driver()] | driver(),
+%%   Options::[term()], [IncludePath::string()]) -> 
+%%    ok | {error, Err}
+%% @type driver() = Driver::atom() |
+%%    {Driver::atom(),  DriverOptions::proplist()} |
+%%   {Driver::atom(), DriverOptions::proplist(), [pool()]}
+%% @type pool() = PoolId::atom() | {default, PoolId::atom()}
+code_gen(_Modules, [], _Options, _IncludePaths) ->
+    exit(no_drivers_specified);
+code_gen(Modules, Driver, Options, IncludePaths) when not is_list(Driver) ->
+    code_gen(Modules, [Driver], Options, IncludePaths);
+code_gen(Modules, Drivers, Options, IncludePaths) ->
+
+    %% Normalize the driver tuples.
+    DriverTuples =
+	lists:map(
+	  fun(Driver) when is_atom(Driver) ->
+		  {Driver, [], []};
+	     ({Driver, DriverOptions}) ->
+		  {Driver, DriverOptions, []};
+	     ({_Driver, _DriverOptions, _Pools} = Tpl) ->
+		  Tpl;
+	     (Other) ->
+		  exit({invalid_driver_option, Other})
+	  end, Drivers),
+
+    DriversData =
+	lists:foldl(
+	  fun({Driver, DriverOptions, Pools}, Acc) ->
+		  DriverMod = driver_mod(Driver),
+
+		  %% Add the driver's default pool id to the list
+		  %% if the default wasn't overriden.
+		  Pools1 = case lists:any(
+				  fun({_Id, default}) -> true;
+				     (_) -> false
+				  end, Pools) of
+			       true ->
+				   Pools;
+			       _ ->
+				   [{DriverMod:get_default_pool_id(),
+				     default} |
+				    Pools]
+			   end,
+
+		  %% Get the metadata for all pools in a given driver,
+		  %% and figure out which is the default pool.
+		  {PoolsData, DefaultPool} =
+		      lists:foldl(
+			fun(PoolData, {Acc1, DefaultPool1}) ->
+				{PoolId, NewDefaultPool} =
+				    case PoolData of
+					Id when is_atom(Id) ->
+					    {Id, DefaultPool1};
+					{Id, default} ->
+					    {Id, Id}
+				    end,
+				Metadata = DriverMod:get_metadata(
+					     [{pool_id, PoolId} | Options]),
+				{gb_trees:enter(
+				   PoolId, Metadata, Acc1), NewDefaultPool}
+			end, {gb_trees:empty(), undefined}, Pools1),
+		  gb_trees:enter(
+		    Driver,
+		    {PoolsData, DefaultPool, DriverOptions}, Acc)
+	  end, gb_trees:empty(), DriverTuples),
+
+    %% create the modules
     lists:foreach(
       fun(Module) ->
-	      case process_module(DriverMod, Module, Metadata,
+	      DefaultDriverMod = element(1, hd(DriverTuples)),
+	      case gen_module_code(Module, DefaultDriverMod, DriversData,
 				  Options, IncludePaths) of
 		  ok ->
 		      ok;
@@ -169,26 +350,44 @@ code_gen(Driver, Modules, Options, IncludePaths) ->
 	      end
       end, Modules).
 
-process_module(DriverMod, ModulePath, Metadata, Options, IncludePaths) ->   
+gen_module_code(ModulePath, DefaultDriverMod,
+	       DriversData, Options, IncludePaths) ->   
     case smerl:for_module(ModulePath, IncludePaths) of
 	{ok, C1} ->
 	    C2 = preprocess_and_compile(C1),
-	    ModName = smerl:get_module(C2),
-	    {PoolId, Options1} =
-		get_extended_options(DriverMod, ModName, Options),
-	    case gb_trees:lookup(PoolId, Metadata) of
+	    Module = smerl:get_module(C2),
+
+	    %% get the ErlyDB settings for the driver, taking the defaults
+	    %% into account
+	    {Driver, PoolId, PoolsData, DriverOptions} =
+		get_driver_settings(Module, DriversData, DefaultDriverMod),
+	    DriverMod = driver_mod(Driver),
+
+	    PoolId1 = if PoolId == undefined ->
+			      DriverMod:get_default_pool_id();
+			 true ->
+			      PoolId
+		      end,
+	    TablesData =
+		case gb_trees:lookup(PoolId1, PoolsData) of
+		    {value, Val} ->
+			Val;
+		    _ ->
+			exit({invalid_erlydb_pool_option,
+			      {{module, Module},
+			       {pool_id, PoolId1}}})
+		end,
+	    
+    	    case gb_trees:lookup(get_table(Module), TablesData) of
+		{value, Fields} ->
+		    Options2 = DriverOptions ++ Options,
+		    MetaMod = make_module(DriverMod, C2, Fields,
+					  [{pool_id, PoolId1} | Options2]),
+		    smerl:compile(MetaMod, Options);
 		none ->
-		    exit({pool_id_not_found, {pool_id, PoolId},
-			  {module, ModName}});
-		{value, TableTree} ->
-		    case gb_trees:lookup(get_table(ModName), TableTree) of
-			{value, Fields} ->
-			    MetaMod = make_module(DriverMod, C2, Fields,
-						  Options1),
-			    smerl:compile(MetaMod, Options1);
-			none ->
-			    {error, {no_such_table, get_table(ModName)}}
-		    end
+		    {error,
+		     {no_such_table, {{module, Module},
+				      {table, get_table(Module)}}}}
 	    end;
 	Err ->
 	    Err
@@ -213,29 +412,44 @@ preprocess_and_compile(MetaMod) ->
     end.
 
 
-get_extended_options(DriverMod, Module, Options) ->
-    Options1 =
-	case proplists:get_value(
-	       erlydb_options,
-	       Module:module_info(attributes)) of
-	    undefined ->
-		Options;
-	    ExtraOpts ->
-		RemainingOptions =
-		    lists:foldl(
-		      fun({Key, _Val}, Acc) ->
-			      lists:keydelete(Key, 1, Acc);
-			 (_, Acc) ->
-			      Acc
-		      end, ExtraOpts, Options),
-		ExtraOpts ++ RemainingOptions
-	end,
-    case proplists:get_value(pool_id, Options1) of
+get_driver_settings(Module, DriversData, DefaultDriverMod) ->
+    {DefaultPoolsData, DefaultDriverPoolId, DefaultOptions} =
+	gb_trees:get(DefaultDriverMod, DriversData),
+    case proplists:get_value(
+	   erlydb_options,
+	   Module:module_info(attributes)) of
 	undefined ->
-	    PoolId = DriverMod:get_default_pool_name(),
-	    {PoolId, [{pool_id, PoolId} | Options1]};
-	Other ->
-	    {Other, Options1}
+	    {DefaultDriverMod,
+	     DefaultDriverPoolId,
+	     DefaultPoolsData,
+	     DefaultOptions};
+	DriverOpts ->
+	    {DriverMod, PoolsData, DefaultPoolId, Options} =
+		case proplists:get_value(driver, DriverOpts) of
+		    undefined ->
+			{DefaultDriverMod,
+			 DefaultPoolsData,
+			 DefaultDriverPoolId,
+			 DefaultOptions};
+		    OtherDriver ->
+			case gb_trees:lookup(OtherDriver, DriversData) of
+			    {value, {PoolsData2, DefaultPoolId2, Options2}} ->
+				{OtherDriver, PoolsData2, DefaultPoolId2,
+				 Options2};
+			    none ->
+				exit({invalid_erlydb_driver_option,
+				      {{module, Module},
+				       {driver, OtherDriver}}})
+			end
+		end,
+	    PoolId =
+		case proplists:get_value(pool_id, DriverOpts) of
+		    undefined ->
+			DefaultPoolId;
+		    OtherPoolId ->
+			OtherPoolId
+		end,
+	    {DriverMod, PoolsData, PoolId, Options}
     end.
 
 get_table(Module) ->

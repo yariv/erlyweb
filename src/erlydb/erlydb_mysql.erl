@@ -21,7 +21,7 @@
 	 connect/7,
 	 connect/8,
 	 get_metadata/1,
-	 get_default_pool_name/0,
+	 get_default_pool_id/0,
 	 q/1,
 	 q/2,
 	 q2/1,
@@ -70,11 +70,16 @@
 %%
 %%  `database': a string indicating the database name.
 %%
-%%  `allow_unsafe_statements': a boolean value indicating whether the driver should
+%%  `allow_unsafe_statements': a boolean value indicating whether the driver
+%%  should
 %%  accept string and/or binary SQL queries and query fragments. If you
 %%  set this value to
 %%  'true', ErlyDB lets you use string or binary Where and Extras expressions
 %%  in generated functions. For more information, see {@link erlydb}.
+%%
+%% `encoding': the character encoding MySQL will use.
+%%
+%% `poolsize': the number of connections to start.
 %%
 %% This function calls mysql:start(), not mysql:start_link(). To
 %% link the MySQL dispatcher to the calling process, use {@link start_link/1}.
@@ -91,7 +96,8 @@ start_link(Options) ->
     start1(Options, fun mysql:start_link/8).
 
 start1(Options, Fun) ->
-    [PoolId, Hostname, Port, Username, Password, Database, LogFun, Encoding, PoolSize] =
+    [PoolId, Hostname, Port, Username, Password, Database, LogFun,
+     Encoding, PoolSize] =
 	lists:foldl(
 	  fun(Key, Acc) ->
 		  [proplists:get_value(Key, Options) | Acc]
@@ -100,12 +106,15 @@ start1(Options, Fun) ->
 			 password, database, logfun, encoding, poolsize])),
 
     PoolId1 = if PoolId == undefined -> ?Epid; true -> PoolId end,
-    Fun(PoolId1, Hostname, Port, Username, Password, Database, LogFun, Encoding),
-    case PoolSize of
-	undefined -> 0;
-	_ -> make_connection(PoolSize, PoolId, Database, Hostname, Port,
-			     Username, Password, Encoding)
-    end.
+    PoolSize1 = if PoolSize == undefined ->
+			1;
+		   true ->
+			PoolSize
+		end,
+    Fun(PoolId1, Hostname, Port, Username, Password, Database, LogFun,
+	Encoding),
+    make_connection(PoolSize1-1, PoolId, Database, Hostname, Port,
+		    Username, Password, Encoding).
 
 %% @doc Create a a number of database connections in the pool.
 make_connection(PoolSize, PoolId, Database, Hostname, Port,
@@ -116,7 +125,7 @@ make_connection(PoolSize, PoolId, Database, Hostname, Port,
 	    make_connection(PoolSize-1, PoolId, Database, Hostname, Port,
 			    Username, Password, Encoding);
        true ->
-	    undefined
+	    ok
     end.
 
 %% @doc Call connect/7 with Port set to 3306 and Reconnect set to 'true'.
@@ -139,6 +148,11 @@ connect(PoolId, Hostname, Port, Username, Password, Database,
 		  Reconnect).
 
 %% @doc Add a connection to the connection pool, with encoding specified.
+%%
+%% @spec connect(PoolId::atom(), Hostname::string, Port::integer(),
+%%    Username::string(), Password::string(), Database::string(),
+%%    Encoding,
+%%    Reconnect::boolean()) -> ok
 connect(PoolId, Hostname, Port, Username, Password, Database,
 	 Encoding, Reconnect) ->
     mysql:connect(PoolId, Hostname, Port, Username, Password, Database,
@@ -148,20 +162,6 @@ connect(PoolId, Hostname, Port, Username, Password, Database,
 %%
 %% @spec get_metadata(Options::options()) -> gb_trees()
 get_metadata(Options) ->
-    {Pools, OtherOpts} = get_pools(Options),
-    lists:foldl(
-      fun({pool_id, Val} = PoolId, Acc) ->
-	      Metadata = get_metadata_for_pool([PoolId | OtherOpts]),
-	      gb_trees:insert(Val, Metadata, Acc)
-      end, gb_trees:empty(), Pools).
-
-%% @doc Get the default connection pool name for the driver.
-%%
-%% @spec get_default_pool_name() -> atom()
-get_default_pool_name() ->
-    erlydb_mysql.
-
-get_metadata_for_pool(Options) ->
     case q2(<<"show tables">>, Options) of
 	{data, Res} ->
 	    Tables = mysql:get_result_rows(Res),
@@ -183,17 +183,11 @@ get_metadata_for_pool(Options) ->
 	    exit(Err)
     end.
 
-get_pools(Options) ->
-    {Pools, OtherOpts} =
-	lists:partition(
-	  fun({pool_id, _}) -> true;
-	     (_) -> false
-	  end, Options),
-    if Pools == [] ->
-	    {[{pool_id, get_default_pool_name()}], OtherOpts};
-       true ->
-	    {lists:usort(Pools), OtherOpts}
-    end.
+%% @doc Get the default connection pool name for the driver.
+%%
+%% @spec get_default_pool_name() -> atom()
+get_default_pool_id() ->
+    ?Epid.
 
 new_field([Name, Type, Null, Key, Default, Extra]) ->
     Type1 = parse_type(binary_to_list(Type)),
@@ -431,7 +425,7 @@ get_pool_id(undefined) -> erlydb_mysql;
 get_pool_id(Options) ->
     case proplists:get_value(pool_id, Options) of
 	undefined ->
-	    get_default_pool_name();
+	    get_default_pool_id();
 	Other ->
 	    Other
     end.

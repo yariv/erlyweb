@@ -106,8 +106,9 @@ compile(AppDir, Options) ->
 			   [[filename:basename(Model), " "] ||
 			       Model <- Models])]),
 		 case lists:keysearch(erlydb_driver, 1, Options3) of
-		     {value, {erlydb_driver, Driver}} ->
-			 erlydb:code_gen(Driver, lists:reverse(Models),
+		     {value, {erlydb_driver, Drivers}} ->
+			 erlydb:code_gen(lists:reverse(Models),
+					 Drivers,
 					 Options3, IncludePaths);
 		     false -> {error, missing_erlydb_driver_option}
 		 end
