@@ -148,8 +148,8 @@
     %% private exports
 
     %% one-to-many functions
-    find_related_one_to_many/2,
-    set_related_one_to_many/2,
+    find_related_one_to_many/3,
+    set_related_one_to_many/3,
 
     %% many-to-one functions
     find_related_many_to_one/4,
@@ -1029,16 +1029,16 @@ driver(Driver) ->
 %% to the values of the 'dog' record's corresponding primary key
 %% values.
 %%
-%% @spec set_related_one_to_many(Rec::record(), Other::record()) -> record()
+%% @spec set_related_one_to_many(
+%%      Rec::record(), PkFkFields::proplist(), Other::record()) -> record()
 %%   | exit(Err)
-set_related_one_to_many(Rec, Other) ->
+set_related_one_to_many(PkFkFields, Rec, Other) ->
     OtherModule = get_module(Other),
-    PkFields = OtherModule:get_pk_fk_fields(),
     Module = get_module(Rec),
     lists:foldl(
       fun({PkField, FkField}, Rec1) ->
 	      Module:FkField(Rec1, OtherModule:PkField(Other))
-      end, Rec, PkFields).
+      end, Rec, PkFkFields).
 
 %% @doc Find the related record for a record from a module having a
 %% many-to-one relation.
@@ -1056,14 +1056,14 @@ set_related_one_to_many(Rec, Other) ->
 %% This function works as expected when the related module has multiple
 %% primary key fields.
 %%
-%% @spec find_related_one_to_many(OtherModule::atom(), Rec::record()) ->
+%% @spec find_related_one_to_many(OtherModule::atom(),
+%%  PkFkfields::proplist(), Rec::record()) ->
 %%  record() | exit(Err)
-find_related_one_to_many(OtherModule, Rec) ->
+find_related_one_to_many(OtherModule, PkFkFields, Rec) ->
     Module = get_module(Rec),
-    PkFields = OtherModule:get_pk_fk_fields(),
     WhereClause =
 	{'and', [{PkField, '=', Module:FkField(Rec)} ||
-		    {PkField, FkField} <- PkFields]},
+		    {PkField, FkField} <- PkFkFields]},
     as_single_val(OtherModule:find(WhereClause)).
 
 %% one-to-many functions

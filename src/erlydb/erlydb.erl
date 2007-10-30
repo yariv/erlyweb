@@ -377,8 +377,10 @@ gen_module_code(ModulePath, DefaultDriverMod,
     	    case gb_trees:lookup(get_table(Module), TablesData) of
 		{value, Fields} ->
 		    Options2 = DriverOptions ++ Options,
-		    MetaMod = make_module(DriverMod, C2, Fields,
-					  [{pool_id, PoolId1} | Options2]),
+		    MetaMod =
+			make_module(DriverMod, C2, Fields,
+				    [{pool_id, PoolId1} | Options2],
+				    TablesData),
 		    smerl:compile(MetaMod, Options);
 		none ->
 		    exit(
@@ -458,16 +460,18 @@ get_table(Module) ->
     end.
 
 %% Make the abstract forms for the module.
-make_module(DriverMod, MetaMod, DbFields, Options) ->
+make_module(DriverMod, MetaMod, DbFields, Options, TablesData) ->
     Module = smerl:get_module(MetaMod),
 
     {Fields, FieldNames} = get_db_fields(Module, DbFields), 
     
-    PkFields = [Field || Field <- Fields, erlydb_field:key(Field) == primary],
+    PkFields = filter_pk_fields(Fields),
+    PkFieldNames = 
+	[erlydb_field:name(Field) || Field <- PkFields],
     
     {ok, M24} = smerl:curry_replace(MetaMod, db_pk_fields, 1, [PkFields]),
 
-    M26 = add_pk_fk_field_names(M24, PkFields),
+    M26 = add_pk_fk_field_names(M24, PkFieldNames),
     
     %% inject the fields list into the db_fields/1 function
     {ok, M30} = smerl:curry_replace(M26, db_fields, 1, [Fields]),
@@ -509,7 +513,7 @@ make_module(DriverMod, MetaMod, DbFields, Options) ->
 		  [{DriverMod, Options}]),
     
     %% make the relations function forms
-    M90 = make_rel_funcs(M80),
+    M90 = make_rel_funcs(M80, TablesData),
     
     %% make the aggregate function forms
     M100 = make_aggregate_forms(M90, aggregate, 5, [Module],
@@ -618,15 +622,9 @@ set_attributes(Field, Atts) ->
 	    end,
     erlydb_field:attributes(Field, Atts1).
 
-add_pk_fk_field_names(MetaMod, PkFields) ->
+add_pk_fk_field_names(MetaMod, PkFieldNames) ->
     Module = smerl:get_module(MetaMod),
-    PkFieldNames = 
-	[erlydb_field:name(Field) || Field <- PkFields],
-    
-    PkFkFieldNames =
-	[{FieldName, append([get_table(Module), '_', FieldName])} ||
-	    FieldName <- PkFieldNames],
-    
+    PkFkFieldNames = pk_fk_fields(Module, PkFieldNames),
     {ok, M2} = smerl:curry_replace(
 		  MetaMod, get_pk_fk_fields, 1, [PkFkFieldNames]),
 
@@ -637,7 +635,6 @@ add_pk_fk_field_names(MetaMod, PkFields) ->
     {ok, M5} = smerl:curry_replace(
 		  M2, get_pk_fk_fields2, 1, [PkFkFieldNames2]),
     M5.
-
 
 %% Create the abstract form for the given Module's 'new' function,
 %% accepting all field values as parameters, except for fields that
@@ -741,95 +738,54 @@ make_aggregate_forms(MetaMod, BaseFuncName, Arity, CurryParams, PostFix) ->
 
 %% Generate the forms for functions that enable working with related
 %% records.
-make_rel_funcs(MetaMod) ->
+make_rel_funcs(MetaMod, TablesData) ->
     Module = smerl:get_module(MetaMod),
     lists:foldl(
       fun({RelType, Modules}, MetaMod1) ->
 	      make_rel_forms(RelType,
-			     Modules, MetaMod1)
+			     Modules, MetaMod1, TablesData)
       end, MetaMod, Module:relations()).
 
-make_rel_forms(RelType, Modules, MetaMod) ->
+make_rel_forms(RelType, Relations, MetaMod, TablesData) ->
     Fun =
 	case RelType of
 	    many_to_one ->
-		fun make_many_to_one_forms/2;
+		fun make_many_to_one_forms/3;
 	    one_to_many ->
-		fun make_one_to_many_forms/2;
+		fun make_one_to_many_forms/3;
 	    many_to_many ->
-		fun make_many_to_many_forms/2
+		fun make_many_to_many_forms/3
 	end,
 
-    M1 = lists:foldl(Fun, MetaMod, Modules),
-    M1.    
+    %% currying would be nice :)
+    Fun1 = fun(Relation, MetaMod1) ->
+		   Fun(Relation, MetaMod1, TablesData)
+	   end,
 
-make_many_to_one_forms(OtherModule, MetaMod) ->
-    {ok, M1} = smerl:curry_add(MetaMod, find_related_one_to_many, 2,
-			       [OtherModule], OtherModule),
-    {ok, M2} = smerl:curry_add(M1, set_related_one_to_many, 2,
-		   [], OtherModule),
+    lists:foldl(Fun1, MetaMod, Relations).
+
+make_many_to_one_forms(Relation, MetaMod, TablesData) ->
+    {OtherModule, Alias, PkFkFields} =
+	get_rel_options(smerl:get_module(MetaMod),
+			Relation, TablesData),
+
+    {ok, M1} = smerl:curry_add(
+		 MetaMod, find_related_one_to_many, 3,
+		 [OtherModule, PkFkFields], Alias),
+
+    {ok, M2} = smerl:curry_add(M1, set_related_one_to_many, 3,
+		   [PkFkFields], Alias),
     M2.
 
-make_one_to_many_forms(OtherModule, MetaMod) ->
+
+
+make_one_to_many_forms(OtherModule, MetaMod, _TablesData) ->
     make_some_to_many_forms(
       MetaMod, OtherModule, [],
       find_related_many_to_one, 4,
       aggregate_related_many_to_one, 6).
 
-add_find_configs(MetaMod, BaseFuncName, Arity) ->
-    NoWhere = {'Where', undefined},
-    NoExtras = {'Extras', undefined},
-
-    Configs = 
-	[{BaseFuncName, [NoWhere, NoExtras]},
-	 {BaseFuncName, [NoExtras]},
-	 {append([BaseFuncName, "_with"]), [NoWhere]}],
-
-    M4 = lists:foldl(
-	   fun({NewName, Replacements}, M2) ->
-		   {ok, M3} =
-		       smerl:embed_params(M2, BaseFuncName, Arity,
-					  Replacements, NewName),
-		   M3
-	   end, MetaMod, Configs),
-    M4.
-    
-make_some_to_many_forms(MetaMod, OtherModule, ExtraCurryParams,
-		       BaseFindFuncName, BaseFindFuncArity,
-		       AggregateFuncName, AggregateFuncArity) ->
-    FindFuncName = pluralize(OtherModule),
-    {ok, M1} = smerl:curry_add(MetaMod, BaseFindFuncName, BaseFindFuncArity,
-		     [OtherModule | ExtraCurryParams], FindFuncName),
-
-    M2 = add_find_configs(M1, FindFuncName, BaseFindFuncArity -
-			  (1 + length(ExtraCurryParams))),
-
-    AggPostFix = "_of_" ++ atom_to_list(pluralize(OtherModule)),
-    M3 = make_aggregate_forms(M2, AggregateFuncName, AggregateFuncArity,
-			      [OtherModule | ExtraCurryParams], AggPostFix),
-    
-    FindFuncs = [
- 		 {find_related_many_first,4},
- 		 {find_related_many_max,5},
-		 {find_related_many_range,6}
-		],
-
-    M6 = lists:foldl(
-	   fun({FuncName, Arity}, M4) ->
-		   PostFix = lists:nthtail(length("find_related_many"),
-					   atom_to_list(FuncName)),
-		   NewName = append([FindFuncName, PostFix]),
-		   {ok, M5} = smerl:curry_add(M4, FuncName, Arity,
-					      [FindFuncName], NewName),
-		   add_find_configs(M5, NewName, Arity-1)
-	   end, M3, FindFuncs),
-
-    CountFuncName = append(["count", AggPostFix]),
-    {ok, M7} =
-	smerl:embed_params(M6, CountFuncName, 2, [{'Field', '*'}]),
-    M7.
-
-make_many_to_many_forms(OtherModule, MetaMod) ->
+make_many_to_many_forms(OtherModule, MetaMod, _TablesData) ->
     ModuleName = smerl:get_module(MetaMod),
     
     %% The name of the join table is currently assumed
@@ -881,6 +837,148 @@ make_many_to_many_forms(OtherModule, MetaMod) ->
 	   aggregate_related_many_to_many, 7),
 				 
     M7.
+    
+make_some_to_many_forms(MetaMod, OtherModule, ExtraCurryParams,
+		       BaseFindFuncName, BaseFindFuncArity,
+		       AggregateFuncName, AggregateFuncArity) ->
+    FindFuncName = pluralize(OtherModule),
+    {ok, M1} = smerl:curry_add(MetaMod, BaseFindFuncName, BaseFindFuncArity,
+		     [OtherModule | ExtraCurryParams], FindFuncName),
+
+    M2 = add_find_configs(M1, FindFuncName, BaseFindFuncArity -
+			  (1 + length(ExtraCurryParams))),
+
+    AggPostFix = "_of_" ++ atom_to_list(pluralize(OtherModule)),
+    M3 = make_aggregate_forms(M2, AggregateFuncName, AggregateFuncArity,
+			      [OtherModule | ExtraCurryParams], AggPostFix),
+    
+    FindFuncs = [
+ 		 {find_related_many_first,4},
+ 		 {find_related_many_max,5},
+		 {find_related_many_range,6}
+		],
+
+    M6 = lists:foldl(
+	   fun({FuncName, Arity}, M4) ->
+		   PostFix = lists:nthtail(length("find_related_many"),
+					   atom_to_list(FuncName)),
+		   NewName = append([FindFuncName, PostFix]),
+		   {ok, M5} = smerl:curry_add(M4, FuncName, Arity,
+					      [FindFuncName], NewName),
+		   add_find_configs(M5, NewName, Arity-1)
+	   end, M3, FindFuncs),
+
+    CountFuncName = append(["count", AggPostFix]),
+    {ok, M7} =
+	smerl:embed_params(M6, CountFuncName, 2, [{'Field', '*'}]),
+    M7.
+
+
+%% Get the relation name and primary/foreign key field mappings for
+%% a give relation.
+get_rel_options(Module, OtherModule, TablesData) ->
+    Res = {Mod, _Alias, PkFks} =
+	case OtherModule of
+	    Mod1 when is_atom(Mod1) ->
+		{Mod1, Mod1, pk_fk_fields2(Mod1, TablesData)};
+	    {Mod1, Opts} ->
+		Alias1 = case proplists:get_value(alias, Opts) of
+			     undefined ->
+				 Mod1;
+			     Other ->
+				 Other
+			 end,
+		PkFks1 = case proplists:get_value(foreign_keys, Opts) of
+			    undefined ->
+				pk_fk_fields2(Mod1, TablesData);
+			    Mappings ->
+				Mappings
+			end,
+		{Mod1, Alias1, PkFks1}
+	end,
+    verify_field_mappings(Module, Mod,
+			  TablesData, PkFks),
+    Res.
+
+
+%% Verify all mapped fields are present.
+%%
+%% TODO We can add additional validations, e.g. test data types compatibility
+%% and ensure no entries have duplicates.
+verify_field_mappings(Module, OtherModule, TablesData, Mappings) ->
+    Fields1 = get_fields(Module, TablesData),
+    FieldNames1 = [erlydb_field:name(F) || F <- Fields1],
+    Fields2 = get_fields(OtherModule, TablesData),
+    FieldNames2 = [erlydb_field:name(F) || F <- Fields2],
+    
+    Errs = lists:foldr(
+	     fun({F2, F1}, Acc) ->
+		     lists:foldr(
+		       fun({Field, FieldNames, Module1}, Acc1) ->
+			       case lists:member(Field, FieldNames) of
+				   true ->
+				       Acc1;
+				   false ->
+				       [{invalid_field,
+					 {{module, Module1},
+					  {table, get_table(Module1)},
+					  {field, Field}}} | Acc1]
+			       end
+		       end, Acc, [{F1, FieldNames1, Module},
+				  {F2, FieldNames2, OtherModule}])
+	     end, [], Mappings),
+    if Errs == [] ->
+	    ok;
+       true ->
+	    exit({bad_relation_definition,
+		  {{module, Module},
+		   {table, get_table(Module)},
+		   {related_module, OtherModule},
+		   {related_table, get_table(OtherModule)},
+		   {errors, Errs}}})
+    end.
+
+
+get_fields(Module, TablesData) ->
+    case gb_trees:lookup(get_table(Module), TablesData) of
+	none ->
+	    exit({missing_table_data,
+		  {{module, Module},
+		   {table, get_table(Module)}}});
+	{value, Fields} ->
+	    Fields
+    end.
+
+filter_pk_fields(Fields) ->
+    [Field || Field <- Fields, erlydb_field:key(Field) == primary].
+
+pk_fk_fields(Module, PkFieldNames) ->
+    [{FieldName, append([get_table(Module), '_', FieldName])} ||
+	FieldName <- PkFieldNames].
+
+pk_fk_fields2(Module, TablesData) ->
+    pk_fk_fields(
+      Module,
+      [erlydb_field:name(F) ||
+	  F <- filter_pk_fields(get_fields(Module, TablesData))]).
+
+add_find_configs(MetaMod, BaseFuncName, Arity) ->
+    NoWhere = {'Where', undefined},
+    NoExtras = {'Extras', undefined},
+
+    Configs = 
+	[{BaseFuncName, [NoWhere, NoExtras]},
+	 {BaseFuncName, [NoExtras]},
+	 {append([BaseFuncName, "_with"]), [NoWhere]}],
+
+    M4 = lists:foldl(
+	   fun({NewName, Replacements}, M2) ->
+		   {ok, M3} =
+		       smerl:embed_params(M2, BaseFuncName, Arity,
+					  Replacements, NewName),
+		   M3
+	   end, MetaMod, Configs),
+    M4.
 
 
 %% TODO There are probably a bunch of additional cases, but this is good
