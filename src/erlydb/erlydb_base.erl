@@ -152,8 +152,8 @@
     set_related_one_to_many/3,
 
     %% many-to-one functions
-    find_related_many_to_one/4,
-    aggregate_related_many_to_one/6,
+    find_related_many_to_one/5,
+    aggregate_related_many_to_one/7,
 
     %% many-to-many functions
     is_related/3,
@@ -1106,10 +1106,10 @@ find_related_one_to_many(OtherModule, PkFkFields, Rec) ->
 %% @see find_range/5
 %% @spec find_related_many_to_one(OtherModule::atom(), Rec::record(),
 %%    Where::where_expr(), Extras::extras_expr()) -> [record()] | exit(Err)
-find_related_many_to_one(OtherModule, Rec, Where,
+find_related_many_to_one(OtherModule, PkFks, Rec, Where,
 			Extras) ->
     OtherModule:find(
-      make_fk_expr(Rec, Where), Extras).
+      make_fk_expr(PkFks, Rec, Where), Extras).
 
 %% @doc Get aggregate statistics about fields from related records in
 %% one-to-many relations.
@@ -1139,10 +1139,10 @@ find_related_many_to_one(OtherModule, Rec, Where,
 %% Rec::record(), Field::atom(),
 %% Where::where_expr(), Extras::extras_expr()) -> float() | integer() |
 %%   exit(Err)
-aggregate_related_many_to_one(OtherModule, AggFunc, Rec, Field, Where,
+aggregate_related_many_to_one(OtherModule, PkFks, AggFunc, Rec, Field, Where,
 			      Extras) ->
     OtherModule:AggFunc(Field,
-			make_fk_expr(Rec, Where), Extras).
+			make_fk_expr(PkFks, Rec, Where), Extras).
 
 %% many-to-many functions
 
@@ -1633,28 +1633,29 @@ make_pk_expr(Rec) ->
     make_pk_expr(Rec, undefined).
 
 make_pk_expr(Rec, Where) ->
-    make_pk_expr2(Rec, Where, false).
+    Mod = get_module(Rec),
+    FieldsExpr = [{PkField, '=', Mod:PkField(Rec)} ||
+		     {PkField, _FkField} <- Mod:get_pk_fk_fields()],
+    make_pk_expr2(Where, FieldsExpr).
 
-make_fk_expr(Rec, Where) ->
-    make_pk_expr2(Rec, Where, true).
+make_fk_expr(PkFks, Rec, Where) ->
+    Mod = get_module(Rec),
+    PkFks1 = if PkFks == undefined ->
+		     Mod:get_pk_fk_fields();
+		true ->
+		     PkFks
+	     end,
+    FieldsExpr = [{FkField, '=', Mod:PkField(Rec)} ||
+		 {PkField, FkField} <- PkFks1],
+    make_pk_expr2(Where, FieldsExpr).
 
-make_pk_expr2(Rec, WhereExpr, UseFk) ->
+make_pk_expr2(WhereExpr, FieldsExpr) ->
     WhereList =
 	case WhereExpr of
 	    undefined -> [];
 	    _ -> [WhereExpr]
 	end,
-    Mod = get_module(Rec),
-    if not UseFk ->
-	    {'and', WhereList ++
-	     [{PkField, '=', Mod:PkField(Rec)} ||
-		 {PkField, _FkField} <- Mod:get_pk_fk_fields()]};
-       true ->
-	    {'and', WhereList ++
-	     [{FkField, '=', Mod:PkField(Rec)} ||
-		 {PkField, FkField} <- Mod:get_pk_fk_fields()]}
-    end.
-
+    {'and', WhereList ++ FieldsExpr}.
 
 append_extras(Clause, Extras) ->
     case Extras of

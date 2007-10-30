@@ -624,7 +624,7 @@ set_attributes(Field, Atts) ->
 
 add_pk_fk_field_names(MetaMod, PkFieldNames) ->
     Module = smerl:get_module(MetaMod),
-    PkFkFieldNames = pk_fk_fields(Module, PkFieldNames),
+    PkFkFieldNames = pk_fk_fields(get_table(Module), PkFieldNames),
     {ok, M2} = smerl:curry_replace(
 		  MetaMod, get_pk_fk_fields, 1, [PkFkFieldNames]),
 
@@ -765,27 +765,31 @@ make_rel_forms(RelType, Relations, MetaMod, TablesData) ->
     lists:foldl(Fun1, MetaMod, Relations).
 
 make_many_to_one_forms(Relation, MetaMod, TablesData) ->
-    {OtherModule, Alias, PkFkFields} =
+    {OtherModule, Alias, PkFks} =
 	get_rel_options(smerl:get_module(MetaMod),
-			Relation, TablesData),
+			Relation, TablesData, true),
 
     {ok, M1} = smerl:curry_add(
 		 MetaMod, find_related_one_to_many, 3,
-		 [OtherModule, PkFkFields], Alias),
+		 [OtherModule, PkFks], Alias),
 
     {ok, M2} = smerl:curry_add(M1, set_related_one_to_many, 3,
-		   [PkFkFields], Alias),
+		   [PkFks], Alias),
     M2.
 
 
 
-make_one_to_many_forms(OtherModule, MetaMod, _TablesData) ->
+make_one_to_many_forms(Relation, MetaMod, TablesData) ->
+    {OtherModule, Alias, PkFks} =
+	get_rel_options(smerl:get_module(MetaMod),
+			Relation, TablesData, false),
     make_some_to_many_forms(
-      MetaMod, OtherModule, [],
-      find_related_many_to_one, 4,
-      aggregate_related_many_to_one, 6).
+      MetaMod, OtherModule, Alias, [PkFks],
+      find_related_many_to_one, 5,
+      aggregate_related_many_to_one, 7,
+      TablesData).
 
-make_many_to_many_forms(OtherModule, MetaMod, _TablesData) ->
+make_many_to_many_forms(OtherModule, MetaMod, TablesData) ->
     ModuleName = smerl:get_module(MetaMod),
     
     %% The name of the join table is currently assumed
@@ -832,23 +836,30 @@ make_many_to_many_forms(OtherModule, MetaMod, _TablesData) ->
 	 end,
 
     M7 = make_some_to_many_forms(
-	   M6, OtherModule, [JoinTableName],
+	   M6, OtherModule, OtherModule, [JoinTableName],
 	   find_related_many_to_many, 5,
-	   aggregate_related_many_to_many, 7),
+	   aggregate_related_many_to_many, 7,
+	   TablesData),
 				 
     M7.
     
-make_some_to_many_forms(MetaMod, OtherModule, ExtraCurryParams,
-		       BaseFindFuncName, BaseFindFuncArity,
-		       AggregateFuncName, AggregateFuncArity) ->
-    FindFuncName = pluralize(OtherModule),
+make_some_to_many_forms(MetaMod, OtherModule, Alias, ExtraCurryParams,
+			BaseFindFuncName, BaseFindFuncArity,
+			AggregateFuncName, AggregateFuncArity,
+			TablesData) ->
+
+%    {OtherModule, Alias, PkFks} =
+%	get_rel_options(smerl:get_module(MetaMod),
+%			Relation, TablesData),
+
+    FindFuncName = pluralize(Alias),
     {ok, M1} = smerl:curry_add(MetaMod, BaseFindFuncName, BaseFindFuncArity,
 		     [OtherModule | ExtraCurryParams], FindFuncName),
 
     M2 = add_find_configs(M1, FindFuncName, BaseFindFuncArity -
 			  (1 + length(ExtraCurryParams))),
 
-    AggPostFix = "_of_" ++ atom_to_list(pluralize(OtherModule)),
+    AggPostFix = "_of_" ++ atom_to_list(pluralize(Alias)),
     M3 = make_aggregate_forms(M2, AggregateFuncName, AggregateFuncArity,
 			      [OtherModule | ExtraCurryParams], AggPostFix),
     
@@ -876,28 +887,31 @@ make_some_to_many_forms(MetaMod, OtherModule, ExtraCurryParams,
 
 %% Get the relation name and primary/foreign key field mappings for
 %% a give relation.
-get_rel_options(Module, OtherModule, TablesData) ->
-    Res = {Mod, _Alias, PkFks} =
+get_rel_options(Module, OtherModule, TablesData, ReverseFieldOrder) ->
+    Res = {OtherMod, _Alias, PkFks} =
 	case OtherModule of
-	    Mod1 when is_atom(Mod1) ->
-		{Mod1, Mod1, pk_fk_fields2(Mod1, TablesData)};
-	    {Mod1, Opts} ->
-		Alias1 = case proplists:get_value(alias, Opts) of
-			     undefined ->
-				 Mod1;
-			     Other ->
-				 Other
-			 end,
+	    OtherMod1 when is_atom(OtherMod1) ->
+		{OtherMod1, OtherMod1,
+		 pk_fk_fields2(OtherMod1, OtherMod1, TablesData)};
+	    {OtherMod1, Opts} ->
+		Alias1 =
+		    case proplists:get_value(alias, Opts) of
+			undefined ->
+			    OtherMod1;
+			Other ->
+			    Other
+		    end,
 		PkFks1 = case proplists:get_value(foreign_keys, Opts) of
 			    undefined ->
-				pk_fk_fields2(Mod1, TablesData);
-			    Mappings ->
-				Mappings
+				pk_fk_fields2(OtherMod1,
+					      Alias1, TablesData);
+			    Other1 ->
+				Other1
 			end,
-		{Mod1, Alias1, PkFks1}
+		{OtherMod1, Alias1, PkFks1}
 	end,
-    verify_field_mappings(Module, Mod,
-			  TablesData, PkFks),
+    verify_field_mappings(Module, OtherMod,
+			  TablesData, PkFks, ReverseFieldOrder),
     Res.
 
 
@@ -905,28 +919,34 @@ get_rel_options(Module, OtherModule, TablesData) ->
 %%
 %% TODO We can add additional validations, e.g. test data types compatibility
 %% and ensure no entries have duplicates.
-verify_field_mappings(Module, OtherModule, TablesData, Mappings) ->
+verify_field_mappings(Module, OtherModule, TablesData, PkFks,
+		      ReverseFieldOrder) ->
     Fields1 = get_fields(Module, TablesData),
     FieldNames1 = [erlydb_field:name(F) || F <- Fields1],
     Fields2 = get_fields(OtherModule, TablesData),
     FieldNames2 = [erlydb_field:name(F) || F <- Fields2],
-    
     Errs = lists:foldr(
-	     fun({F2, F1}, Acc) ->
+	     fun(Pair = {F1, F2}, Acc) ->
+		     {Field1, Field2} =
+			 if ReverseFieldOrder ->
+				 {F2, F1};
+			    true ->
+				 Pair
+			 end,
 		     lists:foldr(
 		       fun({Field, FieldNames, Module1}, Acc1) ->
 			       case lists:member(Field, FieldNames) of
 				   true ->
 				       Acc1;
 				   false ->
-				       [{invalid_field,
+				       [{missing_field,
 					 {{module, Module1},
 					  {table, get_table(Module1)},
 					  {field, Field}}} | Acc1]
 			       end
-		       end, Acc, [{F1, FieldNames1, Module},
-				  {F2, FieldNames2, OtherModule}])
-	     end, [], Mappings),
+		       end, Acc, [{Field1, FieldNames1, Module},
+				  {Field2, FieldNames2, OtherModule}])
+	     end, [], PkFks),
     if Errs == [] ->
 	    ok;
        true ->
@@ -953,12 +973,12 @@ filter_pk_fields(Fields) ->
     [Field || Field <- Fields, erlydb_field:key(Field) == primary].
 
 pk_fk_fields(Module, PkFieldNames) ->
-    [{FieldName, append([get_table(Module), '_', FieldName])} ||
+    [{FieldName, append([Module, '_', FieldName])} ||
 	FieldName <- PkFieldNames].
 
-pk_fk_fields2(Module, TablesData) ->
+pk_fk_fields2(Module, Alias, TablesData) ->
     pk_fk_fields(
-      Module,
+      Alias,
       [erlydb_field:name(F) ||
 	  F <- filter_pk_fields(get_fields(Module, TablesData))]).
 
