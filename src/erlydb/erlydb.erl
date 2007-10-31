@@ -893,22 +893,34 @@ get_rel_options(Module, OtherModule, TablesData, ReverseFieldOrder) ->
 	    OtherMod1 when is_atom(OtherMod1) ->
 		{OtherMod1, OtherMod1,
 		 pk_fk_fields2(OtherMod1, OtherMod1, TablesData)};
-	    {OtherMod1, Opts} ->
+	    {OtherMod2, Opts} ->
 		Alias1 =
 		    case proplists:get_value(alias, Opts) of
 			undefined ->
-			    OtherMod1;
+			    OtherMod2;
 			Other ->
 			    Other
 		    end,
+		Alias2 =
+		    if not ReverseFieldOrder ->
+			    case proplists:get_value(
+				   reverse_alias, Opts) of
+				undefined ->
+				    OtherMod2;
+				RevAlias ->
+				    RevAlias
+			    end;
+		       true ->
+			    Alias1
+		    end,
 		PkFks1 = case proplists:get_value(foreign_keys, Opts) of
 			    undefined ->
-				pk_fk_fields2(OtherMod1,
-					      Alias1, TablesData);
+				pk_fk_fields2(OtherMod2,
+					      Alias2, TablesData);
 			    Other1 ->
 				Other1
 			end,
-		{OtherMod1, Alias1, PkFks1}
+		{OtherMod2, Alias1, PkFks1}
 	end,
     verify_field_mappings(Module, OtherMod,
 			  TablesData, PkFks, ReverseFieldOrder),
