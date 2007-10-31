@@ -786,8 +786,7 @@ make_one_to_many_forms(Relation, MetaMod, TablesData) ->
     make_some_to_many_forms(
       MetaMod, OtherModule, Alias, [PkFks],
       find_related_many_to_one, 5,
-      aggregate_related_many_to_one, 7,
-      TablesData).
+      aggregate_related_many_to_one, 7).
 
 make_many_to_many_forms(Relation, MetaMod, TablesData) ->
     Module = smerl:get_module(MetaMod),
@@ -825,7 +824,7 @@ make_many_to_many_forms(Relation, MetaMod, TablesData) ->
     %% separated by an underscore.
     %% Good example: person_project
     %% Bad example: project_person
-    RelationTable1 = if RelationTable == undefined ->
+    RelationTable2 = if RelationTable == undefined ->
 			    [Module1, Module2] = 
 				lists:sort(
 				  fun(Mod1, Mod2) ->
@@ -853,7 +852,7 @@ make_many_to_many_forms(Relation, MetaMod, TablesData) ->
 	   fun({FuncName, Arity, ExtraParams, NewName}, M1) ->
 		   {ok, M2} = smerl:curry_add(
 				M1, FuncName, Arity,
-				[RelationTable1 | ExtraParams],
+				[RelationTable2 | ExtraParams],
 				NewName),
 		   M2
 	   end, MetaMod, CurryFuncs),
@@ -869,21 +868,15 @@ make_many_to_many_forms(Relation, MetaMod, TablesData) ->
 	 end,
 
     M7 = make_some_to_many_forms(
-	   M6, OtherModule, Alias, [RelationTable1],
+	   M6, OtherModule, Alias, [RelationTable2],
 	   find_related_many_to_many, 5,
-	   aggregate_related_many_to_many, 7,
-	   TablesData),
+	   aggregate_related_many_to_many, 7),
 				 
     M7.
     
 make_some_to_many_forms(MetaMod, OtherModule, Alias, ExtraCurryParams,
 			BaseFindFuncName, BaseFindFuncArity,
-			AggregateFuncName, AggregateFuncArity,
-			TablesData) ->
-
-%    {OtherModule, Alias, PkFks} =
-%	get_rel_options(smerl:get_module(MetaMod),
-%			Relation, TablesData),
+			AggregateFuncName, AggregateFuncArity) ->
 
     FindFuncName = pluralize(Alias),
     {ok, M1} = smerl:curry_add(MetaMod, BaseFindFuncName, BaseFindFuncArity,
