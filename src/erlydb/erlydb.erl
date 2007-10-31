@@ -789,29 +789,62 @@ make_one_to_many_forms(Relation, MetaMod, TablesData) ->
       aggregate_related_many_to_one, 7,
       TablesData).
 
-make_many_to_many_forms(OtherModule, MetaMod, TablesData) ->
-    ModuleName = smerl:get_module(MetaMod),
+make_many_to_many_forms(Relation, MetaMod, TablesData) ->
+    Module = smerl:get_module(MetaMod),
+    {OtherModule, JoinTable, Alias} =
+	case Relation of
+	    Mod when is_atom(Mod) ->
+		{Mod, undefined, Mod};
+	    {Mod, Opts} ->
+		JoinTable1 = proplists:get_value(join_table, Opts),
+		if JoinTable1 =/= undefined ->
+			case gb_trees:lookup(JoinTable1, TablesData) of
+			    none ->
+				exit({join_table_not_found,
+				      {{module, Module},
+				       {relatedModule, Mod},
+				       {join_table, JoinTable1}}});
+			    _ ->
+				ok
+			end;
+		   true ->
+			ok
+		end,
+		Alias1 = case proplists:get_value(alias, Opts) of
+			    undefined ->
+				Mod;
+			    Alias2 ->
+				Alias2
+			end,
+		{Mod, JoinTable1, Alias1}
+	end,
     
-    %% The name of the join table is currently assumed
-    %% to be the alphabetical ordering of the two tables,
+    %% The name of the join table is by default assumed
+    %% to be the alphabetical ordering of the two
+    %% tables,
     %% separated by an underscore.
     %% Good example: person_project
     %% Bad example: project_person
-    [Module1, Module2] = 
-	lists:sort(
-	  fun(Mod1, Mod2) ->
-		  get_table(Mod1) < get_table(Mod2)
-	  end,
-	  [ModuleName, OtherModule]),
-    JoinTableName = append([get_table(Module1), "_", get_table(Module2)]),
-    RemoveAllFuncName = append(["remove_all_", pluralize(OtherModule)]),
-    IsRelatedFuncName = append(["is_", OtherModule, "_related"]),
+    JoinTableName = if JoinTable == undefined ->
+			    [Module1, Module2] = 
+				lists:sort(
+				  fun(Mod1, Mod2) ->
+					  get_table(Mod1) < get_table(Mod2)
+				  end,
+				  [Module, OtherModule]),
+			    append([get_table(Module1), "_",
+				    get_table(Module2)]);
+		       true ->
+			    JoinTable
+		    end,
+    RemoveAllFuncName = append(["remove_all_", pluralize(Alias)]),
+    IsRelatedFuncName = append(["is_", Alias, "_related"]),
 
     CurryFuncs =
 	[{add_related_many_to_many, 3, [],
-	  append(["add_", OtherModule])},
+	  append(["add_", Alias])},
 	 {remove_related_many_to_many, 3, [],
-	  append(["remove_", OtherModule])},
+	  append(["remove_", Alias])},
 	 {remove_related_many_to_many_all, 5, [get_table(OtherModule)],
 	  RemoveAllFuncName},
 	 {is_related, 3, [], IsRelatedFuncName}],
@@ -824,10 +857,10 @@ make_many_to_many_forms(OtherModule, MetaMod, TablesData) ->
 				NewName),
 		   M2
 	   end, MetaMod, CurryFuncs),
-    
+
     M4 = add_find_configs(M3, RemoveAllFuncName, 3),
 
-    M6 = case get_table(Module1) == get_table(Module2) of
+    M6 = case get_table(Module) == get_table(OtherModule) of
 	     true ->
 		 M5 = smerl:remove_func(M4, RemoveAllFuncName, 2),
 		 smerl:remove_func(M5, RemoveAllFuncName, 3);
@@ -836,7 +869,7 @@ make_many_to_many_forms(OtherModule, MetaMod, TablesData) ->
 	 end,
 
     M7 = make_some_to_many_forms(
-	   M6, OtherModule, OtherModule, [JoinTableName],
+	   M6, OtherModule, Alias, [JoinTableName],
 	   find_related_many_to_many, 5,
 	   aggregate_related_many_to_many, 7,
 	   TablesData),
