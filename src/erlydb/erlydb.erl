@@ -791,19 +791,19 @@ make_one_to_many_forms(Relation, MetaMod, TablesData) ->
 
 make_many_to_many_forms(Relation, MetaMod, TablesData) ->
     Module = smerl:get_module(MetaMod),
-    {OtherModule, JoinTable, Alias} =
+    {OtherModule, RelationTable, Alias} =
 	case Relation of
 	    Mod when is_atom(Mod) ->
 		{Mod, undefined, Mod};
 	    {Mod, Opts} ->
-		JoinTable1 = proplists:get_value(join_table, Opts),
-		if JoinTable1 =/= undefined ->
-			case gb_trees:lookup(JoinTable1, TablesData) of
+		RelationTable1 = proplists:get_value(relation_table, Opts),
+		if RelationTable1 =/= undefined ->
+			case gb_trees:lookup(RelationTable1, TablesData) of
 			    none ->
-				exit({join_table_not_found,
+				exit({relation_table_not_found,
 				      {{module, Module},
 				       {relatedModule, Mod},
-				       {join_table, JoinTable1}}});
+				       {relation_table, RelationTable1}}});
 			    _ ->
 				ok
 			end;
@@ -816,7 +816,7 @@ make_many_to_many_forms(Relation, MetaMod, TablesData) ->
 			    Alias2 ->
 				Alias2
 			end,
-		{Mod, JoinTable1, Alias1}
+		{Mod, RelationTable1, Alias1}
 	end,
     
     %% The name of the join table is by default assumed
@@ -825,7 +825,7 @@ make_many_to_many_forms(Relation, MetaMod, TablesData) ->
     %% separated by an underscore.
     %% Good example: person_project
     %% Bad example: project_person
-    JoinTableName = if JoinTable == undefined ->
+    RelationTable1 = if RelationTable == undefined ->
 			    [Module1, Module2] = 
 				lists:sort(
 				  fun(Mod1, Mod2) ->
@@ -835,7 +835,7 @@ make_many_to_many_forms(Relation, MetaMod, TablesData) ->
 			    append([get_table(Module1), "_",
 				    get_table(Module2)]);
 		       true ->
-			    JoinTable
+			    RelationTable
 		    end,
     RemoveAllFuncName = append(["remove_all_", pluralize(Alias)]),
     IsRelatedFuncName = append(["is_", Alias, "_related"]),
@@ -853,7 +853,7 @@ make_many_to_many_forms(Relation, MetaMod, TablesData) ->
 	   fun({FuncName, Arity, ExtraParams, NewName}, M1) ->
 		   {ok, M2} = smerl:curry_add(
 				M1, FuncName, Arity,
-				[JoinTableName | ExtraParams],
+				[RelationTable1 | ExtraParams],
 				NewName),
 		   M2
 	   end, MetaMod, CurryFuncs),
@@ -869,7 +869,7 @@ make_many_to_many_forms(Relation, MetaMod, TablesData) ->
 	 end,
 
     M7 = make_some_to_many_forms(
-	   M6, OtherModule, Alias, [JoinTableName],
+	   M6, OtherModule, Alias, [RelationTable1],
 	   find_related_many_to_many, 5,
 	   aggregate_related_many_to_many, 7,
 	   TablesData),
