@@ -1566,24 +1566,35 @@ do_save(Rec) ->
 
 make_save_statement(Rec) ->
     Module = get_module(Rec),
-    Fields = [erlydb_field:name(Field) ||
-		 Field <- Module:db_fields(),
-		 not is_read_only(Field),
-                 not is_transient(Field)],
+    Fields =
+	[erlydb_field:name(Field) ||
+	    Field <- Module:db_fields(),
+	    not is_read_only(Field),
+	    not is_transient(Field)],
     case is_new(Rec) of
 	false ->
 	    Vals = [{Field, Module:Field(Rec)} || Field <- Fields],
 	    {update, {update, get_table(Rec), Vals,
 		      {where, make_pk_expr(Rec)}}};
 	true ->
-	    Vals = [Module:Field(Rec) || Field <- Fields],
-	    {Fields2, Vals1} = 
+	    %% filter out the fields whose values are null
+	    {Fields1, Vals1} =
+		lists:foldl(
+		  fun(Field, {FieldsAcc, ValsAcc} = Acc) ->
+			  case Module:Field(Rec) of
+			      undefined -> Acc;
+			      Val ->
+				  {[Field | FieldsAcc],
+				   [Val | ValsAcc]}
+			  end
+		  end, {[], []}, Fields),
+	    {Fields2, Vals2} = 
 		case Module:type_field() of
-		    undefined -> {Fields, Vals};
-		    TypeField -> {[TypeField | Fields],
-				  [atom_to_list(Module) | Vals]}
+		    undefined -> {Fields1, Vals1};
+		    TypeField -> {[TypeField | Fields1],
+				  [atom_to_list(Module) | Vals1]}
 		end,
-	    {insert, {insert, get_table(Rec), Fields2, [Vals1]}}
+	    {insert, {insert, get_table(Rec), Fields2, [Vals2]}}
     end.
 
 %% @hidden
