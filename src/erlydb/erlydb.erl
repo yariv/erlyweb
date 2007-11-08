@@ -918,7 +918,13 @@ get_rel_options(Module, OtherModule, TablesData, ReverseFieldOrder) ->
 	case OtherModule of
 	    OtherMod1 when is_atom(OtherMod1) ->
 		{OtherMod1, OtherMod1,
-		 pk_fk_fields2(OtherMod1, OtherMod1, TablesData)};
+		 if ReverseFieldOrder ->
+			 pk_fk_fields2(OtherModule,
+				       get_table(OtherModule), TablesData);
+		    true ->
+			 pk_fk_fields2(Module,
+				       get_table(Module), TablesData)
+		 end};
 	    {OtherMod1, Opts} ->
 		Alias1 =
 		    case proplists:get_value(alias, Opts) of
@@ -1012,7 +1018,7 @@ pk_fk_fields2(Module, Alias, TablesData) ->
     pk_fk_fields(
       Alias,
       [erlydb_field:name(F) ||
-	  F <- filter_pk_fields(get_fields(Module, TablesData))]).
+	  F <- filter_pk_fields(get_fields(get_table(Module), TablesData))]).
 
 add_find_configs(MetaMod, BaseFuncName, Arity) ->
     NoWhere = {'Where', undefined},
