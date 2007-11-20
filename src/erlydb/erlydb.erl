@@ -193,7 +193,7 @@ code_gen(Modules, Drivers, Options) ->
 %% the pool id, or a tuple of the form `{PoolId, default}', which indicates
 %% that this pool will be used as the default pool for the driver.
 %% If you don't provide a `{PoolId, default}' pool option, ErlyDB will use
-%% the driver-defined default pool id (you can obtain it by
+%% the driver-defined default pool id if it exists (you can obtain it by
 %% calling Mod:get_default_pool_id(), where 'Mod' is the driver's
 %% module, e.g. 'erlydb_mysql').
 %%
@@ -310,7 +310,12 @@ code_gen(Modules, Drivers, Options, IncludePaths) ->
 			       true ->
 				   Pools;
 			       _ ->
-				   [{DriverMod:get_default_pool_id(),
+				   [{case catch DriverMod:get_default_pool_id() of
+					 {'EXIT', _} ->
+					     undefined;
+					 DefaultPoolId ->
+					     DefaultPoolId
+				     end,
 				     default} |
 				    Pools]
 			   end,

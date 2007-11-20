@@ -54,32 +54,39 @@ stop() ->
 
 
 table_names_sql(SchemaName) ->
-    "select tablename from pg_tables where schemaname = '" ++ SchemaName ++ "'".
+    "select tablename from pg_tables where schemaname = '" ++
+	SchemaName ++ "'".
         
 column_attributes_sql(TableName) ->
-    "SELECT a.attname, format_type(a.atttypid, a.atttypmod), d.adsrc, a.attnotnull" ++
-    " FROM pg_attribute a LEFT JOIN pg_attrdef d" ++
-    " ON a.attrelid = d.adrelid AND a.attnum = d.adnum" ++
-    " WHERE a.attrelid = '" ++ TableName ++ "'::regclass" ++
-    " AND a.attnum > 0 AND NOT a.attisdropped" ++
-    " ORDER BY a.attnum".
+    "SELECT a.attname, format_type(a.atttypid, a.atttypmod), d.adsrc, "
+	"a.attnotnull"
+	" FROM pg_attribute a LEFT JOIN pg_attrdef d"
+	" ON a.attrelid = d.adrelid AND a.attnum = d.adnum"
+	" WHERE a.attrelid = '" ++ TableName ++ "'::regclass"
+	" AND a.attnum > 0 AND NOT a.attisdropped"
+	" ORDER BY a.attnum".
 
 constraints_sql(TableName, SchemaName) ->
-    "SELECT column_name, constraint_name  FROM" ++
-    " information_schema.constraint_column_usage where" ++
-    " table_name = '" ++ TableName ++ "' AND table_schema = '" ++ SchemaName ++ "'".
+    "SELECT column_name, constraint_name  FROM"
+	" information_schema.constraint_column_usage where"
+	" table_name = '" ++ TableName ++ "' AND table_schema = '" ++
+	SchemaName ++ "'".
 
 %% @doc Get the table names and fields for the database.
 get_metadata(_Options) ->
     Pid = psql:allocate(),
     Schema = "public",
     TableNames = q3(Pid, table_names_sql(Schema)),
-    ConstraintInfo = lists:flatten(
-                       [q3(Pid, constraints_sql(element(1, Name), Schema)) || Name <- TableNames]),
-    Result = case catch lists:foldl(fun(Table, TablesTree) ->
-                                            get_metadata(Pid, Table, ConstraintInfo, TablesTree)
-                                    end, 
-                                    gb_trees:empty(), TableNames) of
+    ConstraintInfo =
+	lists:flatten(
+	  [q3(Pid, constraints_sql(element(1, Name), Schema)) ||
+	      Name <- TableNames]),
+    Result = case catch lists:foldl(
+			  fun(Table, TablesTree) ->
+				  get_metadata(Pid, Table, ConstraintInfo,
+					       TablesTree)
+			  end, 
+			  gb_trees:empty(), TableNames) of
                  {error, _} = Err -> Err;
                  Tree -> {ok, Tree}
              end,
@@ -88,7 +95,8 @@ get_metadata(_Options) ->
 
 get_metadata(Pid, Table, ConstraintInfo, TablesTree) ->
     Columns = q3(Pid, column_attributes_sql(element(1, Table))),
-    Fields = [new_field(Column, element(1, Table), ConstraintInfo) || Column <- Columns],
+    Fields = [new_field(Column, element(1, Table), ConstraintInfo) ||
+		 Column <- Columns],
     TableName = list_to_atom(element(1, Table)),
     gb_trees:enter(TableName, lists:reverse(Fields), TablesTree).
                                                           
@@ -247,12 +255,13 @@ select2(Statement, Options, FixedVals) ->
 get_select_result({ok, _Rows}=Result, undefined) ->
     Result;
 get_select_result({ok, Rows}, FixedVals)->
-    Result = lists:foldl(fun(Fields, Acc) ->
-                                 Row = FixedVals ++ lists_to_binaries(tuple_to_list(Fields)),
-                                 [list_to_tuple(Row) | Acc]
-                         end, [], Rows),
+    Result = lists:foldl(
+	       fun(Fields, Acc) ->
+		       Row = FixedVals ++
+			   lists_to_binaries(tuple_to_list(Fields)),
+		       [list_to_tuple(Row) | Acc]
+	       end, [], Rows),
     {ok, Result};
-
 get_select_result(Other, _) -> 
     Other.
 
@@ -300,4 +309,4 @@ get_last_insert_id(Table, Options) ->
         [{N}] ->  {ok, N};
         Err -> exit(Err)   
     end.
-    
+
