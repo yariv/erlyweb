@@ -386,6 +386,7 @@ gen_module_code(ModulePath, DefaultDriverMod,
 
     	    case gb_trees:lookup(get_table(Module), TablesData) of
 		{value, Fields} ->
+		    ?Debug("Generating code for ~w", [Module]),
 		    Options2 = DriverOptions ++ Options,
 		    MetaMod =
 			make_module(DriverMod, C2, Fields,
