@@ -523,7 +523,7 @@ make_module(DriverMod, MetaMod, DbFields, Options, TablesData) ->
 		  [{DriverMod, Options}]),
     
     %% make the relations function forms
-    M90 = make_rel_funcs(M80, TablesData),
+    M90 = make_rel_funcs(M80, TablesData, Options),
     
     %% make the aggregate function forms
     M100 = make_aggregate_forms(M90, aggregate, 5, [Module],
@@ -748,36 +748,36 @@ make_aggregate_forms(MetaMod, BaseFuncName, Arity, CurryParams, PostFix) ->
 
 %% Generate the forms for functions that enable working with related
 %% records.
-make_rel_funcs(MetaMod, TablesData) ->
+make_rel_funcs(MetaMod, TablesData, Opts) ->
     Module = smerl:get_module(MetaMod),
     lists:foldl(
       fun({RelType, Modules}, MetaMod1) ->
 	      make_rel_forms(RelType,
-			     Modules, MetaMod1, TablesData)
+			     Modules, MetaMod1, TablesData, Opts)
       end, MetaMod, Module:relations()).
 
-make_rel_forms(RelType, Relations, MetaMod, TablesData) ->
+make_rel_forms(RelType, Relations, MetaMod, TablesData, Opts) ->
     Fun =
 	case RelType of
 	    many_to_one ->
-		fun make_many_to_one_forms/3;
+		fun make_many_to_one_forms/4;
 	    one_to_many ->
-		fun make_one_to_many_forms/3;
+		fun make_one_to_many_forms/4;
 	    many_to_many ->
-		fun make_many_to_many_forms/3
+		fun make_many_to_many_forms/4
 	end,
 
     %% currying would be nice :)
     Fun1 = fun(Relation, MetaMod1) ->
-		   Fun(Relation, MetaMod1, TablesData)
+		   Fun(Relation, MetaMod1, TablesData, Opts)
 	   end,
 
     lists:foldl(Fun1, MetaMod, Relations).
 
-make_many_to_one_forms(Relation, MetaMod, TablesData) ->
+make_many_to_one_forms(Relation, MetaMod, TablesData, Opts) ->
     {OtherModule, Alias, PkFks} =
 	get_rel_options(smerl:get_module(MetaMod),
-			Relation, TablesData, true),
+			Relation, TablesData, true, Opts),
 
     {ok, M1} = smerl:curry_add(
 		 MetaMod, find_related_one_to_many, 3,
@@ -789,16 +789,16 @@ make_many_to_one_forms(Relation, MetaMod, TablesData) ->
 
 
 
-make_one_to_many_forms(Relation, MetaMod, TablesData) ->
+make_one_to_many_forms(Relation, MetaMod, TablesData, Opts) ->
     {OtherModule, Alias, PkFks} =
 	get_rel_options(smerl:get_module(MetaMod),
-			Relation, TablesData, false),
+			Relation, TablesData, false, Opts),
     make_some_to_many_forms(
       MetaMod, OtherModule, Alias, [PkFks],
       find_related_many_to_one, 5,
       aggregate_related_many_to_one, 7).
 
-make_many_to_many_forms(Relation, MetaMod, TablesData) ->
+make_many_to_many_forms(Relation, MetaMod, TablesData, _Opts) ->
     Module = smerl:get_module(MetaMod),
     {OtherModule, RelationTable, Alias} =
 	case Relation of
@@ -923,7 +923,7 @@ make_some_to_many_forms(MetaMod, OtherModule, Alias, ExtraCurryParams,
 
 %% Get the relation name and primary/foreign key field mappings for
 %% a give one-to-many or many-to-one relation.
-get_rel_options(Module, OtherModule, TablesData, ReverseFieldOrder) ->
+get_rel_options(Module, OtherModule, TablesData, ReverseFieldOrder, Opts) ->
     Res = {OtherMod, _Alias, PkFks} =
 	case OtherModule of
 	    OtherMod1 when is_atom(OtherMod1) ->
@@ -959,9 +959,14 @@ get_rel_options(Module, OtherModule, TablesData, ReverseFieldOrder) ->
 			end,
 		{OtherMod1, Alias1, PkFks1}
 	end,
-    ?Debug("Checking foreign keys for ~w\t->\t~w", [Module, OtherMod]),
-    verify_field_mappings(Module, OtherMod,
-			  TablesData, PkFks, ReverseFieldOrder),
+    case proplists:get_value(skip_fk_checks, Opts) of
+	true ->
+	    Res;
+	_ ->
+	    ?Debug("Checking foreign keys for ~w\t->\t~w", [Module, OtherMod]),
+	    verify_field_mappings(Module, OtherMod,
+				  TablesData, PkFks, ReverseFieldOrder)
+    end,
     Res.
 
 %% Verify all mapped fields are present.
