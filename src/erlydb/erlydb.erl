@@ -97,6 +97,11 @@
     code_gen/3,
     code_gen/4]).
 
+-import(erlyweb_util, [log/5]).
+-define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
+-define(Info(Msg, Params), log(?MODULE, ?LINE, info, Msg, Params)).
+-define(Error(Msg, Params), log(?MODULE, ?LINE, error, Msg, Params)).
+
 %% useful for debugging
 -define(L(Obj), io:format("LOG ~w ~p\n", [?LINE, Obj])).
 -define(S(Obj), io:format("LOG ~w ~s\n", [?LINE, Obj])).
@@ -954,6 +959,7 @@ get_rel_options(Module, OtherModule, TablesData, ReverseFieldOrder) ->
 			end,
 		{OtherMod1, Alias1, PkFks1}
 	end,
+    ?Debug("Checking foreign keys for ~w\t->\t~w", [Module, OtherMod]),
     verify_field_mappings(Module, OtherMod,
 			  TablesData, PkFks, ReverseFieldOrder),
     Res.
