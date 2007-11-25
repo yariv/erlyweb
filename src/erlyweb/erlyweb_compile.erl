@@ -58,14 +58,24 @@ compile(AppDir, Options) ->
 	end,
 
     {Options3, LastCompileTime} =
-	get_option(last_compile_time, {{1980,1,1},{0,0,0}}, Options2),
-    LastCompileTime1 = case LastCompileTime of
-			   {{1980,1,1},{0,0,0}} -> undefined;
-			   OtherTime -> OtherTime
-		       end,
-
-    LastCompileTimeInSeconds =
-	calendar:datetime_to_gregorian_seconds(LastCompileTime),
+	get_option(last_compile_time,undefined, Options2),
+    LastCompileTimeInSeconds = case LastCompileTime of % let's be liberal about the styles of Time that we accept
+                                   Atom when is_atom(Atom) ->
+                                       %% undefined, force, auto, etc;
+                                       %% special values for
+                                       %% should_compile
+                                       Atom;
+                                   GregorianSeconds when is_integer(GregorianSeconds) ->
+                                       GregorianSeconds;
+                                   {_,_,_} = NowTime ->
+                                       calendar:datetime_to_gregorian_seconds(
+                                         calendar:now_to_datetime(NowTime));
+                                   {{_,_,_},{_,_,_}} = DateTime ->
+                                       %% any other time (including
+                                       %% the default) should come in
+                                       %% as a DateTime tuple
+                                       calendar:datetime_to_gregorian_seconds(DateTime)
+                               end,
 
     AppControllerStr = AppName ++ "_app_controller",
     AppControllerFile = AppControllerStr ++ ".erl",
@@ -81,7 +91,7 @@ compile(AppDir, Options) ->
     end,
 
     AppController = list_to_atom(AppControllerStr),
-    try_func(AppController, before_compile, [LastCompileTime1], ok),
+    try_func(AppController, before_compile, [LastCompileTime], ok),
 
     ComponentsDir = http_util:to_lower(AppDir1 ++ "src/components"),
     {ComponentTree1, Models} =
@@ -126,7 +136,7 @@ compile(AppDir, Options) ->
 	end,
 
     if Result == ok ->
-	    try_func(AppController, after_compile, [LastCompileTime1],
+	    try_func(AppController, after_compile, [LastCompileTime],
 		     ok),
 	    {ok, calendar:local_time()};
        true -> Result
@@ -222,8 +232,9 @@ make_get_component_function(ComponentTree) ->
     {function,1,get_component,3,lists:reverse(Clauses2)}.
 
 
-%% This function generates the abstract form for the AppData:get_component/3
-%% function clauses that apply to a the given component.
+%% This function generates the abstract form for the
+%% AppData:get_component/3 function clauses that apply to a the given
+%% component.
 make_clauses_for_component(ComponentStr, Exports) ->
     Clauses =
 	lists:foldl(
@@ -355,26 +366,25 @@ _LastCompileTimeInSeconds, _Options, _IncludePaths) ->
     {ok, ignore};
 compile_file(FileName, BaseName, Extension, Type,
 	     LastCompileTimeInSeconds, Options, IncludePaths) ->
-    case file:read_file_info(FileName) of
-	{ok, FileInfo} ->
-	    ModifyTime =
-		calendar:datetime_to_gregorian_seconds(
-		  FileInfo#file_info.mtime),
-	    if ModifyTime > LastCompileTimeInSeconds ->
-		    case Extension of
-			".et" ->
-			    ?Debug("Compiling ErlTL file ~p", [BaseName]),
-			    erltl:compile(FileName,
-					  Options ++ [nowarn_unused_vars] ++
-					  [{i, P} || P <- IncludePaths]);
-			".erl" ->
-			    ?Debug("Compiling Erlang file ~p", [BaseName]),
-			    compile_file(FileName, BaseName, Type, Options,
-					 IncludePaths)
-		    end;
-	       true -> 
-		    ok
-	    end;
+    %%?Debug("Filename: ~p~nBaseName: ~p~nExtension: ~p~nType: ~p~n" ++
+    %%       "LastCompileTimeInSeconds: ~p~nOptions: ~p~nIncludePaths: ~p~n",
+    %%       [FileName, BaseName, Extension, Type,
+    %%        LastCompileTimeInSeconds, Options, IncludePaths]),
+    case should_compile(FileName,BaseName,LastCompileTimeInSeconds) of
+        true ->
+            case Extension of
+                ".et" ->
+                    ?Debug("Compiling ErlTL file ~p", [BaseName]),
+                    erltl:compile(FileName,
+                                  Options ++ [nowarn_unused_vars] ++
+                                  [{i, P} || P <- IncludePaths]);
+                ".erl" ->
+                    ?Debug("Compiling Erlang file ~p", [BaseName]),
+                    compile_file(FileName, BaseName, Type, Options,
+                                 IncludePaths)
+            end;
+        false ->
+            ok;
 	{error, _} = Err1 ->
 	    Err1
     end.
@@ -391,6 +401,67 @@ compile_file(FileName, BaseName, Type, Options, IncludePaths) ->
 	    end;
 	Err ->
 	    Err
+    end.
+
+%%% Determine whether a given file should be compiled based on the
+%%% last time it was compiled. In the event of
+%%% {last_compile_time,auto}, we'll try some dirty tricks to see
+%%% whether we should do it.
+should_compile(_FileName,_BaseName,force)     -> true;
+should_compile(_FileName,_BaseName,undefined) -> true;
+should_compile(FileName, _BaseName,LastCompileTimeInSeconds) when is_integer(LastCompileTimeInSeconds) ->
+    case file:read_file_info(FileName) of
+        {ok,FileInfo} ->
+            Mtime = calendar:datetime_to_gregorian_seconds(FileInfo#file_info.mtime),
+            
+            Mtime >= LastCompileTimeInSeconds;
+        {error,_} = Error ->
+            Error
+    end;
+should_compile(FileName,BaseName,auto) ->
+    case file:read_file_info(FileName) of
+        {ok,FileInfo} ->
+            Mtime = calendar:datetime_to_gregorian_seconds(FileInfo#file_info.mtime),
+
+            %% Here are our dirty tricks for determining whether to
+            %% re-compile. In general, since these are dirty hacks, if
+            %% they fail we should just fall back to say "Yes, compile
+            %% the damn thing". Our goal is basically to locate the
+            %% module, see if it's compiled, then ask its BEAM header
+            %% when it was built.
+
+            %% try to locate the atom of the BaseName, which should be
+            %% the module name.
+            case catch(list_to_existing_atom(BaseName)) of
+                ModuleAtom when is_atom(ModuleAtom) ->
+                    %% and try to locate the actual module, then
+                    %% extract the last compile time
+                    case catch(lists:keysearch(time,1,
+                                               ModuleAtom:module_info(compile))) of
+                        {value,
+                         {time,
+                          {Year,Month,Day,Hour,Minute,Second}}} ->
+                            %% now take that time, compare it to the
+                            %% last modified time, and return the
+                            %% result of the comparison
+                            
+                            %% compile-time is in universal time, but
+                            %% mtime is in local time
+                            CompileTime=calendar:universal_time_to_local_time({{Year,Month,Day},
+                                                                               {Hour,Minute,Second}}),
+                            Mtime >= calendar:datetime_to_gregorian_seconds(CompileTime);
+                        _ ->
+                            %% some part of finding the last
+                            %% compile-time failed
+                            should_compile(FileName,BaseName,undefined)
+                    end;
+                _ ->
+                    %% since the atom wasn't found, the module is not
+                    %% loaded, and hence not queriable
+                    should_compile(FileName,BaseName,undefined)
+            end;
+        {error,_} = Error ->
+            Error
     end.
 
 add_forms(controller, BaseName, MetaMod) ->
