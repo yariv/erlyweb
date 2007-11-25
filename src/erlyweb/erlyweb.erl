@@ -25,11 +25,11 @@
 	 get_app_root/1
 	]).
 
--import(erlyweb_util, [log/5]).
 
 -define(DEFAULT_RECOMPILE_INTERVAL, 30).
 -define(SHUTDOWN_WAIT_PERIOD, 5000).
 
+-import(erlyweb_util, [log/5]).
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
 -define(Info(Msg, Params), log(?MODULE, ?LINE, info, Msg, Params)).
 -define(Error(Msg, Params), log(?MODULE, ?LINE, error, Msg, Params)).
@@ -158,15 +158,8 @@ out(A) ->
  	    case AppData:auto_compile() of
  		false -> ok;
  		{true, Options} ->
-		    case lists:keysearch(auto_compile_exclude, 1, Options) of
-			{value, {_, Val}} -> 
-			    case string:str(yaws_arg:appmoddata(A), Val) of
-				1 -> ok;
-				_ -> auto_compile(AppData, Options)
-			    end;
-			false -> auto_compile(AppData, Options)
-		    end
- 	    end,
+		    auto_compile(A, AppData, Options)
+	    end,
 	    A1 = yaws_arg:opaque(A,
   				 [{app_data_module, AppData} |
 				  yaws_arg:opaque(A)]),
@@ -175,7 +168,31 @@ out(A) ->
 			   AppData)
     end.
 
-auto_compile(AppData, Options) ->
+%% checks that at least 3 seconds have passed since the last compilation
+%% and that the request doesn't match the optional auto_compile_exclude
+%% value.
+auto_compile(A, AppData, Options) ->
+    [Now, Last] =
+	[calendar:datetime_to_gregorian_seconds(T) ||
+	    T <- [calendar:local_time(),
+		  proplists:get_value(last_compile_time,
+				      Options)]],
+    if Now > Last + 3 ->
+	case lists:keysearch(auto_compile_exclude, 1,
+			     Options) of
+	    {value, {_, Val}} -> 
+		case string:str(yaws_arg:appmoddata(A),
+				Val) of
+		    1 -> ok;
+		    _ -> auto_compile1(AppData, Options)
+		end;
+	    false -> auto_compile1(AppData, Options)
+	end;
+       true ->
+	    ok
+    end.
+
+auto_compile1(AppData, Options) ->
     AppDir = AppData:get_app_dir(),
     case compile(AppDir, Options) of
         {ok, _} -> ok;
@@ -190,8 +207,8 @@ handle_request(A,
       A,
       AppController,
       Ewc1, Rest, AppData,
-      fun(Data) ->
-	      DataEwc = Func(Ewc1, Data),
+      fun(Data, PhasedVars) ->
+	      DataEwc = Func(Ewc1, Data, PhasedVars),
 	      render_subcomponent(DataEwc, AppData)
       end);
 handle_request(A,
@@ -202,23 +219,32 @@ handle_request(A,
       A,
       AppController,
       Ewc1, Rest, AppData,
-      fun(Data) ->
+      %% ignore the phased vars if the response isn't rendered in 2 phases
+      fun(Data, _PhasedVars) -> 
 	      Data
       end).
 
-handle_request(_A, _AppController, undefined, Rest, _AppData, _DataFun) ->
+handle_request(_A, _AppController, undefined, Rest, _AppData,
+	       _PostRenderFun) ->
     Rest;
-handle_request(A, AppController, Ewc, Rest, AppData, DataFun) -> 
+handle_request(A, AppController, Ewc, Rest, AppData, PostRenderFun) -> 
     case catch ewc(Ewc, AppData) of
-	{response, Elems} -> 
- 	    Rest ++ lists:map(
-		      fun({rendered, Data}) -> 
-			      {html, DataFun(Data)};
-			 ({rendered, MimeType, Data}) -> 
-			      {content, MimeType, DataFun(Data)};
-			 (Header) ->
-			      Header
-		      end, Elems);
+	{response, Elems} ->
+	    {[PhasedVarsElems], OtherElems} =
+		proplists:split(Elems, [phased_vars]),
+	    PhasedVars = lists:append(
+			   proplists:get_all_values(
+			     phased_vars, PhasedVarsElems)),
+	    Rest ++
+		lists:map(
+		  fun({rendered, Data}) -> 
+			  {html, PostRenderFun(Data, PhasedVars)};
+		     ({rendered, MimeType, Data}) -> 
+			  {content, MimeType,
+			   PostRenderFun(Data, PhasedVars)};
+		     (Other) ->
+			  Other
+		  end, OtherElems);
 	{'EXIT', _} = Err ->
 	    case catch AppController:error(A, Ewc, Err) of
 		{'EXIT', _} ->
@@ -278,6 +304,8 @@ get_initial_ewc1({ewc, A}, AppData) ->
 	    end;
 	Ewc -> {Ewc, []}
     end;
+
+%% allows returning {response, Elems} from AppController:hook/1
 get_initial_ewc1({response, Elems} = Resp, AppData) ->
     case lists:partition(
 	   fun({body, _}) -> true;
@@ -294,11 +322,9 @@ get_initial_ewc1(Ewc, _AppData) -> {Ewc, []}.
 
     
 
+%% Process a controller function's return value
 ewc(Ewcs, AppData) when is_list(Ewcs) ->
-    Rendered = lists:map(
-		 fun(Ewc) ->
-			 render_subcomponent(Ewc, AppData)
-		 end, Ewcs),
+    Rendered = [render_subcomponent(Ewc, AppData) || Ewc <- Ewcs],
     {response, [{rendered, Rendered}]};
 
 ewc({data, Data}, _AppData) -> {response, [{rendered, Data}]};
@@ -324,29 +350,24 @@ ewc({ewc, Controller, View, FuncName, [A | _] = Params}, AppData) ->
     {FuncName1, Params1} = Controller:before_call(FuncName, Params),
     Response = apply(Controller, FuncName1, Params1),    
     Response1 = Controller:before_return(FuncName1, Params1, Response),
-    Response2 = case Response1 of
-		    {response, _} ->
-			Response1;
-		    {replace, Ewc} ->
-			{response, [{replace, Ewc}]};
-		    Body ->
-			case is_redirect(A, Body) of
-			    {true, Val} ->
-				{response, [Val]};
-			    _ ->
-				{response, [{body, Body}]}
-			end
-		end,
-    Response3 = handle_response(A, Response2, View, FuncName1, AppData),
-    [_A | ParamsRest] = Params1, 
-    case Response3 of
-	{response, [{rendered, Val2}]} -> 
-	    catch Controller:after_render(FuncName1, ParamsRest, Val2);
-	{response, [{rendered, _MimeType, Val3}]} ->
-	    catch Controller:after_render(FuncName1, ParamsRest, Val3);
-	_ -> done
-    end,
-    Response3;
+    case Response1 of
+	({replace, Ewc})  when is_tuple(Ewc), element(1, Ewc) ==
+			       'ewc'->
+	    ewc(Ewc, AppData);
+	({replace, Ewc}) ->
+	    exit({expecting_ewc_tuple_for_replace, Ewc});
+	_ ->
+	    %% if the response is an ewr tuple, we can return without
+	    %% rendering anything
+	    case is_redirect(A, Response1) of
+		{true, Val} ->
+		    {response, [Val]};
+		_ ->
+		    render_response_body(
+		      A, Response1, Controller, View,
+		      FuncName, Params, AppData)
+	    end
+    end;
 ewc(Other, _AppData) ->  {response, [Other]}.
 
 
@@ -358,6 +379,7 @@ is_redirect(A, Elem) ->
 	_ -> false
     end.
 
+%% Process a redirect
 ewr(A, ewr) -> ewr2(A, []);
 ewr(A, {ewr, Component}) -> ewr2(A, [Component]);
 ewr(A, {ewr, Component, FuncName}) -> ewr2(A, [Component, FuncName]);
@@ -383,23 +405,35 @@ ewr2(A, PathElems) ->
 	     end, [], [AppDir | Elems]),
     {redirect_local, Path}.
 
-handle_response(A, {response, Elems}, View, FuncName, AppData) ->
-    Elems2 = lists:map( 
+render_response_body(A, Response, Controller, View, FuncName, Params,
+		     AppData) ->
+    Elems1 =
+	case Response of
+	    {response, Elems} ->
+		Elems;
+	    _ ->
+		{body, Response}
+	end,
+    Elems2 = if is_list(Elems1) ->
+		     Elems1;
+		true ->
+		     [Elems1]
+	     end,
+    RenderFun =
+	fun(Ewc1) ->
+		Rendered = View:FuncName(render_subcomponent(Ewc1, AppData)),
+		Controller:after_render(FuncName, Params, Rendered),
+		Rendered
+	end,
+    Elems3 = lists:map( 
 	       fun({body, Ewc}) ->
-		       {rendered, View:FuncName(
-				    render_subcomponent(Ewc, AppData))};
+		       {rendered, RenderFun(Ewc)};
 		  ({body, MimeType, Ewc}) ->
-		       {rendered, MimeType,
-			View:FuncName(render_subcomponent(Ewc, AppData))};
-		  ({replace, Ewc})  when is_tuple(Ewc), element(1, Ewc) ==
-					 'ewc'->
-		       {rendered, render_subcomponent(Ewc, AppData)};
-		  ({replace, Ewc}) ->
-		       exit({expecting_ewc_tuple, Ewc});
+		       {rendered, MimeType, RenderFun(Ewc)};
 		  (Elem) ->
 		       ewr(A, Elem)
-	       end, Elems),
-    {response, Elems2}.
+	       end, Elems2),
+    {response, Elems3}.
 
 render_subcomponent(Ewc, AppData) ->
     case ewc(Ewc, AppData) of

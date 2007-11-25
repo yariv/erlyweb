@@ -306,13 +306,13 @@ such HTTP headers common to some or all of a controller's functions.
 ==== after_render/3 ====
 
 ErlyWeb lets you implement the after_render/3 hook in controllers to get 
-access to the rendered output. Teh 
+access to the rendered output.
 
 The signature of after_render/2 is
 
 ```
 after_render(FuncName::atom(), Params::[term()], Rendered::iolist()) ->
-  Ignored::any().
+  Ignored::term().
 '''
 
 You can use the after_render/3 hook to implement a granular caching system.
