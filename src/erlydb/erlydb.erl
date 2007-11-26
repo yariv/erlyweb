@@ -368,20 +368,14 @@ gen_module_code(ModulePath, DefaultDriverMod,
 		get_driver_settings(Module, DriversData, DefaultDriverMod),
 	    DriverMod = driver_mod(Driver),
 
-	    PoolId1 = if PoolId == undefined ->
-			      DriverMod:get_default_pool_id();
-			 true ->
-			      PoolId
-		      end,
-
 	    TablesData =
-		case gb_trees:lookup(PoolId1, PoolsData) of
+		case gb_trees:lookup(PoolId, PoolsData) of
 		    {value, Val} ->
 			Val;
 		    _ ->
 			exit({invalid_erlydb_pool_option,
 			      {{module, Module},
-			       {pool_id, PoolId1}}})
+			       {pool_id, PoolId}}})
 		end,
 
     	    case gb_trees:lookup(get_table(Module), TablesData) of
@@ -390,7 +384,7 @@ gen_module_code(ModulePath, DefaultDriverMod,
 		    Options2 = DriverOptions ++ Options,
 		    MetaMod =
 			make_module(DriverMod, C2, Fields,
-				    [{pool_id, PoolId1} | Options2],
+				    [{pool_id, PoolId} | Options2],
 				    TablesData),
 		    smerl:compile(MetaMod, Options);
 		none ->
