@@ -482,9 +482,11 @@ add_forms(controller, BaseName, MetaMod) ->
     M4 = add_func(M3, before_call, 2,
 		  "before_call(FuncName, Params) -> "
 		  "{FuncName, Params}."),
-    add_func(M4, before_return, 3,
-	     "before_return(_FuncName, _Params, Response) -> "
-	     "Response.");
+    M5 = add_func(M4, before_return, 3,
+		  "before_return(_FuncName, _Params, Response) -> "
+		  "Response."),
+    add_func(M5, after_render, 3,
+	     "after_render(_FuncName, _Params, Response) -> ok.");
 add_forms(view, BaseName, MetaMod) ->
     add_forms1(erlyweb_view, BaseName, MetaMod);
 add_forms(_, BaseName, MetaMod) ->
