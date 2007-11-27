@@ -347,6 +347,14 @@ code_gen(Modules, Drivers, Options, IncludePaths) ->
 		    {PoolsData, DefaultPool, DriverOptions}, Acc)
 	  end, gb_trees:empty(), DriverTuples),
 
+
+    case proplists:get_value(skip_fk_checks, Options) of
+	true ->
+	    ok;
+	_ ->
+	    ?Debug("~n~n--- To skip foreign key checks, compile with the {skip_fk_checks, true} option~n~n", [])
+    end,
+
     %% create the modules
     lists:foreach(
       fun(Module) ->
@@ -930,29 +938,29 @@ get_rel_options(Module, OtherModule, TablesData, ReverseFieldOrder, Opts) ->
 			 pk_fk_fields2(Module,
 				       get_table(Module), TablesData)
 		 end};
-	    {OtherMod1, Opts} ->
+	    {OtherMod2, Opts2} ->
 		Alias1 =
-		    case proplists:get_value(alias, Opts) of
+		    case proplists:get_value(alias, Opts2) of
 			undefined ->
-			    OtherMod1;
+			    OtherMod2;
 			Other ->
 			    Other
 		    end,
 		FkBase =
-		    case proplists:get_value(fk_base, Opts) of
+		    case proplists:get_value(fk_base, Opts2) of
 			undefined ->
-			    OtherMod1;
+			    OtherMod2;
 			RevAlias ->
 			    RevAlias
 		    end,
-		PkFks1 = case proplists:get_value(foreign_keys, Opts) of
+		PkFks1 = case proplists:get_value(foreign_keys, Opts2) of
 			    undefined ->
-				pk_fk_fields2(OtherMod1,
+				pk_fk_fields2(OtherMod2,
 					      FkBase, TablesData);
 			    Other1 ->
 				Other1
 			end,
-		{OtherMod1, Alias1, PkFks1}
+		{OtherMod2, Alias1, PkFks1}
 	end,
     case proplists:get_value(skip_fk_checks, Opts) of
 	true ->
