@@ -87,8 +87,8 @@ get_metadata(_Options) ->
 					       TablesTree)
 			  end, 
 			  gb_trees:empty(), TableNames) of
-                 {error, _} = Err -> Err;
-                 Tree -> {ok, Tree}
+                 {error, Err} = exit(Err)
+                 Tree -> Tree
              end,
     psql:free(),
     Result.
