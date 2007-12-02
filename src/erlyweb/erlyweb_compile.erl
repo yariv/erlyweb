@@ -366,8 +366,8 @@ _LastCompileTimeInSeconds, _Options, _IncludePaths) ->
     {ok, ignore};
 compile_file(FileName, BaseName, Extension, Type,
 	     LastCompileTimeInSeconds, Options, IncludePaths) ->
-    %%?Debug("Filename: ~p~nBaseName: ~p~nExtension: ~p~nType: ~p~n" ++
-    %%       "LastCompileTimeInSeconds: ~p~nOptions: ~p~nIncludePaths: ~p~n",
+    %% ?Debug("Filename: ~p~nBaseName: ~p~nExtension: ~p~nType: ~p~n" ++
+    %%        "LastCompileTimeInSeconds: ~p~nOptions: ~p~nIncludePaths: ~p~n",
     %%       [FileName, BaseName, Extension, Type,
     %%        LastCompileTimeInSeconds, Options, IncludePaths]),
     case should_compile(FileName,BaseName,LastCompileTimeInSeconds) of

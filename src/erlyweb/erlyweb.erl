@@ -19,6 +19,7 @@
 	 compile/1,
 	 compile/2,
 	 out/1,
+	 out/2,
 	 get_initial_ewc/1,
 	 get_ewc/1,
 	 get_app_name/1,
@@ -33,6 +34,7 @@
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
 -define(Info(Msg, Params), log(?MODULE, ?LINE, info, Msg, Params)).
 -define(Error(Msg, Params), log(?MODULE, ?LINE, error, Msg, Params)).
+-define(Warn(Msg, Params), log(?MODULE, ?LINE, warn, Msg, Params)).
 
 -define(L(Msg), io:format("~b ~p~n", [?LINE, Msg])).
 
@@ -148,25 +150,43 @@ compile(AppDir, Options) ->
 out(A) ->
     AppName = get_app_name(A),
     AppData = erlyweb_compile:get_app_data_module(AppName),
-    case catch AppData:get_controller() of
- 	{'EXIT', {undef, _}} ->
- 	    exit({no_application_data,
- 		  "Did you forget to call erlyweb:compile(AppDir) or "
- 		  "add the app's previously compiled .beam files to the "
- 		  "Erlang code path?"});
- 	AppController ->
- 	    case AppData:auto_compile() of
- 		false -> ok;
- 		{true, Options} ->
-		    auto_compile(A, AppData, Options)
-	    end,
-	    A1 = yaws_arg:opaque(A,
-  				 [{app_data_module, AppData} |
-				  yaws_arg:opaque(A)]),
- 	    handle_request(A1,
-			   AppController, AppController:hook(A1),
-			   AppData)
-    end.
+    AppController =
+	case catch AppData:get_controller() of
+	    {'EXIT', {undef, _}} ->
+		exit({no_application_data,
+		      "Did you forget to call erlyweb:compile(AppDir) "
+		      "or add the app's previously compiled .beam "
+		      "files to the Erlang code path?"});
+	    Other1 ->
+		Other1
+	end,
+    case AppData:auto_compile() of
+	false -> ok;
+	{true, Options} ->
+	    auto_compile(A, AppData, Options)
+    end,
+
+    out(yaws_arg:add_to_opaque(
+	  A, {app_data_module, AppData}), AppController).
+
+%% @doc This function is useful for embedding the result of a 'phased'
+%% ErlyWeb rendering in an ErlyWeb component from the same application,
+%% but using a different app controller.
+%%
+%% This function was originally designed to simplify Facebook app development
+%% with ErlyWeb using Erlang2Facebook
+%% (http://code.google.com/p/erlang2facebook).
+%% In erlang2facebook, the fb_canvas component intercepts requests
+%% from Facebook and authenticates them. After authentication, it may be
+%% useful to start a new ErlyWeb "flow" using an alternative app controller
+%% and display the result in of this flow the output of fb_canvas.
+%%
+%% @spec out(A::arg(), AppController::atom()) -> term()
+out(A, AppController) ->
+    AppData = proplists:get_value(app_data_module, yaws_arg:opaque(A)),
+    handle_request(A,
+		   AppController, AppController:hook(A),
+		   AppData).
 
 %% checks that at least 3 seconds have passed since the last compilation
 %% and that the request doesn't match the optional auto_compile_exclude
@@ -441,10 +461,10 @@ render_subcomponent(Ewc, AppData) ->
 	    Rendered;
 	{response, Other} ->
 	    exit({invalid_response, Other,
-		  "Response values other than 'data' and "
-		  "'ewc' tuples must be enclosed a 'response' tuple. "
-		  "In addition, subcomponents may only return "
-		  "'data' and/or 'ewc' tuples."})
+                 "Response values other than 'data' and "
+                 "'ewc' tuples must be enclosed a 'response' tuple. "
+                 "In addition, subcomponents may only return "
+                 "'data' and/or 'ewc' tuples."})
     end.
 
 get_ewc(A) ->
