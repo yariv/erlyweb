@@ -109,6 +109,9 @@ compile(AppDir) ->
 %%
 %%  - `{last_compile_time, LocalTime}': Tells ErlyWeb to not compile files
 %%    that haven't changed since LocalTime.
+%%    Since ErlyWeb 0.7, you can use 'auto' for LocalTime. This
+%%    instructs ErlyWeb to compile only the files that have changed since
+%%    the last compilation. This is the recommended option.
 %%
 %%  - `{erlydb_driver, Name}': Tells ErlyWeb which ErlyDB driver to use
 %%    when calling erlydb:code_gen on models that are placed in src/components.
@@ -276,6 +279,7 @@ handle_request(A, AppController, Ewc, Rest, AppData, PostRenderFun) ->
 				   AppData)
 	    end
     end.
+
 
 %% @doc Get the expanded 'ewc' tuple for the request.
 %%
