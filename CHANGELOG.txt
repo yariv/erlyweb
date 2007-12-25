@@ -1,3 +1,81 @@
+v0.7
+
+- Added support for multiple databases. More information is in the
+documentation. (yariv)
+
+- When a controller function returns a {replace, Ewc} tuple, ErlyWeb no longer
+treats Ewc as a sub-component if it's returned from a main component.
+This lets the component referred by Ewc to
+return any value that a main component function can return
+(e.g. phased_vars, ewr, etc). (yariv)
+
+- Set a 3-second threshold on auto compilation to avoid excessive
+directory scans when loading pages that trigger multiple requests
+(for example, due to img/script/css tags). (yariv)
+
+- Changed the arity of the 'phased' function to 3 from 2. ErlyWeb 0.7 expects
+the last parameter to be a list of variables passed from the controller
+function. The variables are passed using the {phased_vars, Vars} return
+value, e.g.
+
+index(A) ->
+  {response, [{phased_vars, [{title, <<"sample page title">>}]},
+              {body, Body}]}.
+
+The app controller's hook/1 function can now be implemented as follows:
+
+hook(A) ->
+  {phased, {ewc,A}, fun(Ewc, Data, PhasedVars) ->
+    {ewc, html_container, [A, {data, Data},
+	proplists:get_value(title, PhasedVars)]}}.
+
+This tells ErlyWeb to pass the value of the 'title' property as the last
+parameter to html_container. (yariv)
+
+- Added the {last_compile_time, auto} compilation option, which tells ErlyWeb
+to only compile the files that have changed since the last compilation.
+(ketralnis)
+
+- Added an automatic check for the existence of expected foreign key fields
+in related modules during compilation. This can be disabled by adding the
+{skip_fk_checks, true} compilation option. (yariv)
+
+- erlydb_base:save() now avoids setting 'null' values of properties when
+executing INSERT statements. (yariv)
+
+- Added the ability to override the join table names and use aliases for
+related modules in many-to-many relations. E.g.
+
+person.erl:
+
+relations() ->
+  [{many_to_many,
+    [{painting, [{relation_table, creation_person},
+                 {alias, creation}]}]}].
+
+Then you can get the related paintings for a 'person' record as follows:
+
+person:creations(Person).
+
+This uses the 'creation_person' table to look up the related creations. (yariv)
+
+- {encoding, charset_atom} in Options list of erlydb:start/2 that turns on 
+charset support over mysql connections.  This allows us to support utf8,
+for example.  The default is to have no explicit encoding spec at all
+(mysql server chooses latin1 by default.) (haoboy)
+
+- {pool_size, N} in Options list of erlydb:start/2 that starts N mysql
+processes in the process pool.  The default value is to start only one.
+(haoboy)
+
+- erlyweb:create_component now takes options in the form of proplists, to
+allow choice between on/off for magic, model and ErlTL files. (cowmoo)
+
+- Added the {erlydb_timeout, Timout} compilation option to set the timeout
+for SQL queries (currently only works with MySQL). (yariv)
+
+- A bunch of bug fixes. (yariv)
+
 v0.6.2
 
 - Fixed the app controller hook/1 return value handling, letting you return
