@@ -35,13 +35,13 @@
 new() ->
     #arg{}.
 
-%% @equiv Arg#arg{opaque = [Val | A#arg.opaque]}.
+%% @equiv Arg#arg{opaque = [Val | A#arg.opaque]}
 add_to_opaque(Arg, Val) ->
     Arg#arg{opaque = [Val | Arg#arg.opaque]}.
 
 %% @doc applies add_to_opaque for all values in the list
 %%
-%% @spec add_all_to_opaque(A::arg(), Vals::[term()])
+%% @spec add_all_to_opaque(A::arg(), Vals::[term()]) -> arg()
 add_all_to_opaque(A, Vals) ->
     lists:foldl(
       fun(Val, A1) ->

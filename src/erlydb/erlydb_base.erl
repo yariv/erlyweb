@@ -1104,7 +1104,9 @@ find_related_one_to_many(OtherModule, PkFkFields, Rec) ->
 %% @see find_first/3
 %% @see find_max/4
 %% @see find_range/5
-%% @spec find_related_many_to_one(OtherModule::atom(), Rec::record(),
+%% @spec find_related_many_to_one(OtherModule::atom(),
+%%    PkFks::term(),
+%%    Rec::record(),
 %%    Where::where_expr(), Extras::extras_expr()) -> [record()] | exit(Err)
 find_related_many_to_one(OtherModule, PkFks, Rec, Where,
 			Extras) ->
@@ -1135,7 +1137,9 @@ find_related_many_to_one(OtherModule, PkFks, Rec, Where,
 %% {@link aggregate/5}.
 %%
 %% @see aggregate/5
-%% @spec aggregate_related_many_to_one(OtherModule::atom(), AggFunc::atom(),
+%% @spec aggregate_related_many_to_one(OtherModule::atom(),
+%% PkFks::term(),
+%% AggFunc::atom(),
 %% Rec::record(), Field::atom(),
 %% Where::where_expr(), Extras::extras_expr()) -> float() | integer() |
 %%   exit(Err)

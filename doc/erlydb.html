@@ -99,7 +99,7 @@ many-to-many relations.)</p>
 <h2><a name="types">Data Types</a></h2>
 
 <h3><a name="type-driver">driver()</a></h3>
-<p><tt>driver() = {Driver, Options::<a href="#type-proplist">proplist()</a>} | {Driver, Options::<a href="#type-proplist">proplist()</a>, [<a href="#type-pool">pool()</a>]}</tt></p>
+<p><tt>driver() = atom() | {Driver::atom(), DriverOptions::<a href="#type-proplist">proplist()</a>} | {Driver::atom(), DriverOptions::<a href="#type-proplist">proplist()</a>, [<a href="#type-pool">pool()</a>]}</tt></p>
 
 
 <h3><a name="type-pool">pool()</a></h3>
@@ -107,8 +107,11 @@ many-to-many relations.)</p>
 
 
 <h2><a name="index">Function Index</a></h2>
-<table width="100%" border="1"><tr><td valign="top"><a href="#code_gen-2">code_gen/2</a></td><td>Generate code for the list of modules using the provided drivers.</td></tr>
-<tr><td valign="top"><a href="#code_gen-3">code_gen/3</a></td><td/></tr>
+<table width="100%" border="1"><tr><td valign="top"><a href="#code_gen-2">code_gen/2</a></td><td>Equivalent to <a href="#code_gen-3"><tt>code_gen(Modules, Drivers, [])</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#code_gen-3">code_gen/3</a></td><td>Equivalent to <a href="#code_gen-4"><tt>code_gen(Modules, Drivers, Options, [])</tt></a>.
+</td></tr>
+<tr><td valign="top"><a href="#code_gen-4">code_gen/4</a></td><td>Generate code for the list of modules using the provided drivers.</td></tr>
 <tr><td valign="top"><a href="#start-1">start/1</a></td><td>Start an ErlyDB session for the driver using the driver's default
   options.</td></tr>
 <tr><td valign="top"><a href="#start-2">start/2</a></td><td>Start an ErlyDB sessions for the driver using the list of
@@ -118,8 +121,23 @@ many-to-many relations.)</p>
 <h2><a name="functions">Function Details</a></h2>
 
 <h3><a name="code_gen-2">code_gen/2</a></h3>
-<p><tt>code_gen(Modules::[Module::atom() | string()], Options::[<a href="#type-driver">driver()</a>]) -&gt; ok | {error, Err}</tt></p>
+<tt>code_gen(Modules, Drivers) -&gt; term()
+</tt><p>Equivalent to <a href="#code_gen-3"><tt>code_gen(Modules, Drivers, [])</tt></a>.</p>
+
+
+<h3><a name="code_gen-3">code_gen/3</a></h3>
+<tt>code_gen(Modules, Drivers, Options) -&gt; term()
+</tt><p>Equivalent to <a href="#code_gen-4"><tt>code_gen(Modules, Drivers, Options, [])</tt></a>.</p>
+
+
+<h3><a name="code_gen-4">code_gen/4</a></h3>
+<p><tt>code_gen(Modules::[Module::atom() | string()], Driver::[<a href="#type-driver">driver()</a>] | <a href="#type-driver">driver()</a>, Options::[term()], IncludePaths::[IncludePath::string()]) -&gt; ok | {error, Err}</tt></p>
 <p><p>Generate code for the list of modules using the provided drivers.</p>
+ 
+  <p>If you're using ErlyWeb, you shouldn't need to call this function directly.
+  Instead, refer to <a href="erlyweb.html#compile-2"><code>erlyweb:compile/2</code></a>.</p>
+ 
+  <h4><a name="Usage">Usage</a></h4>
  
   <p>In ErlyWeb 0.7, the signature for this function has changed.  
 ErlyDB used to support only a single driver with a single connection  
@@ -127,84 +145,107 @@ pool in a session. As of ErlyWeb 0.7, ErlyDB supports multiple
 drivers in a session, and multiple connection pools for each  
 driver.</p>
  
-  <p>The 'Modules' parameter is a list of files or modules for which to  
+  <h5><a name="Modules">Modules</a></h5><p>  
+The 'Modules' parameter is a list of files or modules for which to  
 generate ErlyDB code. If a list item is an atom, ErlyDB assumes it's  
-a module that has been loaded into the VM or that resides in the  
+a module that has been loaded into the VM or that resides in the VM's  
 code path. In either case, the module's source code should be discoverable  
-either through path conventions or because it includes debug_info.  
-If a list item is a string, ErlyDB treats it as a file name (relative  
+either through Erlang's path conventions or because the module  
+was compiled with debug_info.</p>
+ 
+  <p>If a list item is a string, ErlyDB treats it as a file name (relative  
 or absolute) and attempts to read it from disk.</p>
  
-  <p>The 'Driver's parameter is a list of Driver::atom(),  
-{Driver::atom(), Options::proplist()} or  
-{Driver::atom(), Options::proplist(), Pools::pool()} tuples.  
-The first tuple in the Drivers list is  
+  <h5><a name="Drivers">Drivers</a></h5><p>
+  The 'Drivers' parameter is either a single element or a list of
+  elements of the form
+  <code>Driver::atom()</code>,
+  <code>{Driver::atom(), DriverOptions::proplist()}</code>, or
+  <code>{Driver::atom(), DriverOptions::proplist(), Pools::pool()}</code>.</p>
+ 
+  <p>The first element in the Drivers list is  
 the default driver that ErlyDB will use for all modules that don't  
 override the driver option.</p>
  
-  <p>Driver can be 'mysql', 'psql' or 'mnesia'. Options is a list of  
+  <p>'Driver' can be <code>mysql</code>, <code>psql</code> or <code>mnesia</code>. 'Options' is a list of  
 driver-specific options. For a list of available options, refer to  
 the driver's documentation.</p>
  
-  <p>Pools is a list of available connection pools for the driver.  
-Note that the driver must be started and the pools must be connected  
-before code_gen/2 is called. Each item in Pools is an atom indicating  
-the pool id, or a tuple of the form {default, PoolId}, indicating  
-that this pool will be used as the default pool for the driver.  
-If you don't provide a {default, PoolId} pool option, ErlyDB will use  
-the built-in default pool id.</p>
+  <p>'DriverOptions' is a property list that contains driver-specific options  
+(e.g. '{allow_unsafe_statements, Bool}').  
+For more information refer to the driver's documentation.</p>
  
-  <p>Below are some examples:</p>
+  <p>'Pools' is a list of available connection pools for the driver.
+  Note that the driver must be started and the pools must be connected
+  before code_gen/2 is called. Each item in 'Pools' is an atom indicating
+  the pool id, or a tuple of the form <code>{PoolId, default}</code>, which indicates
+  that this pool will be used as the default pool for the driver.
+  If you don't provide a <code>{PoolId, default}</code> pool option, ErlyDB will use  
+the driver-defined default pool id if it exists (you can obtain it by  
+calling Mod:get_default_pool_id(), where 'Mod' is the driver's  
+module, e.g. 'erlydb_mysql').</p>
+ 
+  <h5><a name="Options">Options</a></h5>
+ 
+  <p>'Options' is a list of options that are used for all modules. This may  
+include global driver options as well as options that are passed to  
+compile:file/2. For more information, refer to this function's documentation  
+in the OTP documentation.</p>
+ 
+  <h5><a name="IncludePaths">IncludePaths</a></h5>
+ 
+  <p>Additional include paths that will be used to search for header files  
+when compiling the modules.</p>
+ 
+  <h4><a name="Examples">Examples</a></h4>
  
   <p>Generate code for "musician.erl" using the MySQL driver. Only the default  
 pool is enabled.</p>
  
-  <pre>  code_gen(["musician.erl"], [mysql]).</pre>
+  <pre>  code_gen(["musician.erl"], mysql).</pre>
  
-  <p>To use the previous settings but allow unsafe SQL statements, use  
-the following:</p>
+  <p>Use the previous settings but allow unsafe SQL statements, and compile  
+with debug_info:</p>
  
-  <pre>  code_gen(["musician.erl"], [{mysql, [{allow_unsafe_statements, true}]}]).</pre>
+  <pre>  code_gen(["musician.erl"],
+    {mysql, [{allow_unsafe_statements, true}]},
+    [debug_info]).</pre>
  
-  <p>Generate code for the modules using the MySQL driver with two additional  
-pools, 'pool1' and 'pool2'. The default pool is not overridden.</p>
+  <p>Generate code for the modules using the MySQL driver with two additional
+  pools, 'pool1' and 'pool2'. The default pool is remains <code>erlydb_mysql</code>:</p>
  
   <pre>  code_gen(["musician.erl", "instrument.erl"],
-    [{mysql, [], [pool1, pool2]}]).</pre>
+    {mysql, [], [pool1, pool2]}).</pre>
  
+  <p>Similar to the previous setting, but allow unsafe statement and use
+  <code>pool2</code> as the default pool name:</p>
  
+  <pre>  code_gen(["src/musician.erl", "src/instrument.erl"],
+    {mysql, [{allow_unsafe_statements, true}],
+      [{pool1, {pool2, default}}]})</pre>
  
-  <p>tells ErlyDB to use the 'mysql' driver with the default  
-code_gen(["src/musician.erl", "src/instrument.erl"],    
-[{mysql, [{allow_unsafe_statements, true}],      
-[{pool1, {default, pool2}}]}])  
-'''</p>
+  <p>Generate code for the modules using both the MySQL and Postgres driver.  
+The MySQL driver has 2 pools enabled: mysql_pool1 and mysql_pool2, which is  
+the default. The Postgres driver has a single default pool, pg_pool1.  
+The MySQL driver allows unsafe statements:</p>
+ 
+  <pre>  code_gen(["src/musician.erl", "src/instrument.erl", "src/song.erl"],
+    [{mysql, [{allow_unsafe_statements, true}],
+      [{mysql_pool1, {mysql_pool2, default}}]},
+     {psql, [], [{pg_pool1, default}]}])</pre>
+ 
+  <h4><a name="Module-Specific_Settings">Module-Specific Settings</a></h4>
  
   <p>To specify which connection pool ErlyDB should for a specific module, add  
 the following line to the module's source code:</p>
  
-  <pre>  -erlydb_options(pool_id, PoolId).</pre>
+  <pre>  -erlydb_options([{driver, Driver}, {pool_id, PoolId}]).</pre>
  
-  <p>This tells ErlyDB to use the default driver, but a non-default pool id.  
-If you want the module to use a non-default driver, use the attribute</p>
- 
-  <p>'''  
--erlydb_options(driver, Driver).  
-'''  
-or</p>
- 
-  <p>'''  
--erlydb_options(driver, {Driver, PoolId}).  
-'''</p>
- 
-  The first option tells ErlyDB to use a non-default driver with the
-  default pool id for the driver. The second option tells ErlyDB
-  to use a non-default driver, and a non-default pool id for the driver.
+  The 'driver' option tells ErlyDB to use a non-default driver for the
+  module. The 'pool_id' option tells ErlyDB to use a non-default pool id
+  for the module. Neither option is required -- you can specify only
+  a 'driver' option or only a 'pool_id' option.
  </p>
-
-<h3><a name="code_gen-3">code_gen/3</a></h3>
-<tt>code_gen(Modules, Options, IncludePaths) -&gt; term()
-</tt>
 
 <h3><a name="start-1">start/1</a></h3>
 <p><tt>start(Driver::atom()) -&gt; ok | {error, Err}</tt></p>

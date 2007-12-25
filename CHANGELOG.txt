@@ -1,5 +1,9 @@
 v0.7
 
+- Added yaws_arg:add_to_opaque/2, yaws_arg:add_all_to_opaque/2, and
+yaws_arg:get_opaque_val/2 to simplify accessing the 'opaque' field of the
+Yaws arg record.
+
 - Added support for multiple databases. More information is in the
 documentation. (yariv)
 

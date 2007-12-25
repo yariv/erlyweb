@@ -28,7 +28,10 @@ having to include yaws_api.hrl.</p>
   with the modified value.
  
 <h2><a name="index">Function Index</a></h2>
-<table width="100%" border="1"><tr><td valign="top"><a href="#appmod_prepath-1">appmod_prepath/1</a></td><td/></tr>
+<table width="100%" border="1"><tr><td valign="top"><a href="#add_all_to_opaque-2">add_all_to_opaque/2</a></td><td>applies add_to_opaque for all values in the list.</td></tr>
+<tr><td valign="top"><a href="#add_to_opaque-2">add_to_opaque/2</a></td><td>Equivalent to <tt>Arg#arg{opaque = [Val | A#arg.opaque]}</tt>.
+</td></tr>
+<tr><td valign="top"><a href="#appmod_prepath-1">appmod_prepath/1</a></td><td/></tr>
 <tr><td valign="top"><a href="#appmod_prepath-2">appmod_prepath/2</a></td><td/></tr>
 <tr><td valign="top"><a href="#appmoddata-1">appmoddata/1</a></td><td/></tr>
 <tr><td valign="top"><a href="#appmoddata-2">appmoddata/2</a></td><td/></tr>
@@ -44,6 +47,7 @@ having to include yaws_api.hrl.</p>
 <tr><td valign="top"><a href="#docroot-2">docroot/2</a></td><td/></tr>
 <tr><td valign="top"><a href="#fullpath-1">fullpath/1</a></td><td/></tr>
 <tr><td valign="top"><a href="#fullpath-2">fullpath/2</a></td><td/></tr>
+<tr><td valign="top"><a href="#get_opaque_val-2">get_opaque_val/2</a></td><td>Return the value corrsponding to the Key in the opaque proplist.</td></tr>
 <tr><td valign="top"><a href="#headers-1">headers/1</a></td><td/></tr>
 <tr><td valign="top"><a href="#headers-2">headers/2</a></td><td/></tr>
 <tr><td valign="top"><a href="#method-1">method/1</a></td><td/></tr>
@@ -65,6 +69,16 @@ having to include yaws_api.hrl.</p>
 </table>
 
 <h2><a name="functions">Function Details</a></h2>
+
+<h3><a name="add_all_to_opaque-2">add_all_to_opaque/2</a></h3>
+<p><tt>add_all_to_opaque(A::<a href="#type-arg">arg()</a>, Vals::[term()]) -&gt; <a href="#type-arg">arg()</a></tt></p>
+<p>applies add_to_opaque for all values in the list
+ </p>
+
+<h3><a name="add_to_opaque-2">add_to_opaque/2</a></h3>
+<tt>add_to_opaque(Arg, Val) -&gt; term()
+</tt><p>Equivalent to <tt>Arg#arg{opaque = [Val | A#arg.opaque]}</tt>.</p>
+
 
 <h3><a name="appmod_prepath-1">appmod_prepath/1</a></h3>
 <tt>appmod_prepath(Arg) -&gt; term()
@@ -129,6 +143,12 @@ having to include yaws_api.hrl.</p>
 <h3><a name="fullpath-2">fullpath/2</a></h3>
 <tt>fullpath(Arg, Val) -&gt; term()
 </tt>
+
+<h3><a name="get_opaque_val-2">get_opaque_val/2</a></h3>
+<p><tt>get_opaque_val(A::<a href="#type-arg">arg()</a>, Key::term()) -&gt; term() | undefined</tt></p>
+<p>Return the value corrsponding to the Key in the opaque proplist.
+  If the key isn't found, return 'undefined'.
+ </p>
 
 <h3><a name="headers-1">headers/1</a></h3>
 <tt>headers(Arg) -&gt; term()

@@ -42,6 +42,7 @@ This module implements the MySQL driver for ErlyDB.
 <table width="100%" border="1"><tr><td valign="top"><a href="#connect-5">connect/5</a></td><td>Call connect/7 with Port set to 3306 and Reconnect set to 'true'.</td></tr>
 <tr><td valign="top"><a href="#connect-7">connect/7</a></td><td>Add a connection to the connection pool.</td></tr>
 <tr><td valign="top"><a href="#connect-8">connect/8</a></td><td>Add a connection to the connection pool, with encoding specified.</td></tr>
+<tr><td valign="top"><a href="#connect-9">connect/9</a></td><td>Add a connection to the connection pool, with encoding specified.</td></tr>
 <tr><td valign="top"><a href="#execute-2">execute/2</a></td><td>Execute a statement that was previously prepared with
    prepare/2.</td></tr>
 <tr><td valign="top"><a href="#execute-3">execute/3</a></td><td>Execute a prepared statement with the list of parameters.</td></tr>
@@ -53,7 +54,7 @@ This module implements the MySQL driver for ErlyDB.
     update() function.</td></tr>
 <tr><td valign="top"><a href="#execute_update-3">execute_update/3</a></td><td>Execute a prepared statement with the list of parameters and
     and return the result as the the update() function.</td></tr>
-<tr><td valign="top"><a href="#get_default_pool_name-0">get_default_pool_name/0</a></td><td>Get the default connection pool name for the driver.</td></tr>
+<tr><td valign="top"><a href="#get_default_pool_id-0">get_default_pool_id/0</a></td><td>Get the default connection pool name for the driver.</td></tr>
 <tr><td valign="top"><a href="#get_last_insert_id-2">get_last_insert_id/2</a></td><td>Get the id of the last inserted record.</td></tr>
 <tr><td valign="top"><a href="#get_metadata-1">get_metadata/1</a></td><td>Get the table names and fields for the database.</td></tr>
 <tr><td valign="top"><a href="#prepare-2">prepare/2</a></td><td>Register a prepared statement with the MySQL dispatcher.</td></tr>
@@ -78,17 +79,28 @@ This module implements the MySQL driver for ErlyDB.
 <h3><a name="connect-5">connect/5</a></h3>
 <p><tt>connect(PoolId::atom(), Hostname::string(), Username::string(), Password::string(), Database::string()) -&gt; ok</tt></p>
 <p>Call connect/7 with Port set to 3306 and Reconnect set to 'true'.
+  If the connection is lost, reconnection is attempted.
+  The connection process is linked to the calling process.
  </p>
 
 <h3><a name="connect-7">connect/7</a></h3>
 <p><tt>connect(PoolId::atom(), Hostname::string, Port::integer(), Username::string(), Password::string(), Database::string(), Reconnect::<a href="#type-boolean">boolean()</a>) -&gt; ok</tt></p>
 <p>Add a connection to the connection pool. If PoolId is
-    'undefined', the default pool, 'erlydb_mysql', is used.
+    'undefined', the default pool, 'erlydb_mysql', is used. The connection
+    process is linked to the calling process.
  </p>
 
 <h3><a name="connect-8">connect/8</a></h3>
 <p><tt>connect(PoolId::atom(), Hostname::string, Port::integer(), Username::string(), Password::string(), Database::string(), Encoding, Reconnect::<a href="#type-boolean">boolean()</a>) -&gt; ok</tt></p>
 <p>Add a connection to the connection pool, with encoding specified.
+  The connection process is linked to the calling process.
+ </p>
+
+<h3><a name="connect-9">connect/9</a></h3>
+<p><tt>connect(PoolId::atom(), Hostname::string, Port::integer(), Username::string(), Password::string(), Database::string(), Encoding::string(), Reconnect::<a href="#type-boolean">boolean()</a>, LinkConnection::bool()) -&gt; ok</tt></p>
+<p>Add a connection to the connection pool, with encoding specified.
+  If LinkConnection == false, the connection will not be linked to the
+  current process.
  </p>
 
 <h3><a name="execute-2">execute/2</a></h3>
@@ -126,8 +138,8 @@ This module implements the MySQL driver for ErlyDB.
     and return the result as the the update() function.
  </p>
 
-<h3><a name="get_default_pool_name-0">get_default_pool_name/0</a></h3>
-<p><tt>get_default_pool_name() -&gt; atom()</tt></p>
+<h3><a name="get_default_pool_id-0">get_default_pool_id/0</a></h3>
+<p><tt>get_default_pool_id() -&gt; atom()</tt></p>
 <p>Get the default connection pool name for the driver.
  </p>
 

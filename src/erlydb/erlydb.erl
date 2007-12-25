@@ -141,11 +141,11 @@ driver_mod(mnesia) -> erlydb_mnesia;
 driver_mod(odbc) -> erlydb_odbc.
 
 
-%% @equiv code_gen(Modules, Drivers, []).
+%% @equiv code_gen(Modules, Drivers, [])
 code_gen(Modules, Drivers) ->
     code_gen(Modules, Drivers, []).
 
-%% @equiv code_gen(Modules, Drivers, Options, []).
+%% @equiv code_gen(Modules, Drivers, Options, [])
 code_gen(Modules, Drivers, Options) ->
     code_gen(Modules, Drivers, Options, []).
 
