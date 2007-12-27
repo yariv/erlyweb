@@ -204,7 +204,7 @@ get_metadata(Options) ->
 
 %% @doc Get the default connection pool name for the driver.
 %%
-%% @spec get_default_pool_name() -> atom()
+%% @spec get_default_pool_id() -> atom()
 get_default_pool_id() ->
     ?Epid.
 

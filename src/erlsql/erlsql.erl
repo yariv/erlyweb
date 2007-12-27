@@ -128,16 +128,19 @@ encode(Val, false) when is_float(Val) ->
     Res;
 encode({datetime, Val}, AsBinary) ->
     encode(Val, AsBinary);
-encode({{Year, Month, Day}, {Hour, Minute, Second}}, false) ->
-    Res = two_digits([Year, Month, Day, Hour, Minute, Second]),
-    lists:flatten(Res);
-encode({TimeType, Val}, AsBinary)
-  when TimeType == 'date';
-       TimeType == 'time' ->
-    encode(Val, AsBinary);
-encode({Time1, Time2, Time3}, false) ->
-    Res = two_digits([Time1, Time2, Time3]),
-    lists:flatten(Res);
+encode({{Year,Month,Day}, {Hour,Minute,Second}}, false) ->
+  [Year1,Month1,Day1,Hour1,Minute1,Second1] =
+    lists:map(fun two_digits/1,[Year, Month, Day, Hour, Minute,Second]),
+  lists:flatten(io_lib:format("'~s-~s-~s ~s:~s:~s'",
+[Year1,Month1,Day1,Hour1,Minute1,Second1]));
+encode({date, {Year, Day, Month}}, false) ->
+  [Year1,Month1,Day1] =
+    lists:map(fun two_digits/1,[Year, Month, Day]),
+  lists:flatten(io_lib:format("'~s-~s-~s'",[Year1,Month1,Day1]));
+encode({time, {Hour, Minute, Second}}, false) ->
+  [Hour1,Minute1,Second1] =
+    lists:map(fun two_digits/1,[Hour, Minute, Second]),
+  lists:flatten(io_lib:format("'~s:~s:~s'",[Hour1,Minute1,Second1]));
 encode(Val, _AsBinary) ->
     {error, {unrecognized_value, {Val}}}.
 

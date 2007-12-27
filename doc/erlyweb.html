@@ -36,6 +36,9 @@ that implements basic CRUD features for a database table.</td></tr>
 <tr><td valign="top"><a href="#get_initial_ewc-1">get_initial_ewc/1</a></td><td>Get the expanded 'ewc' tuple for the request.</td></tr>
 <tr><td valign="top"><a href="#out-1">out/1</a></td><td>This is the out/1 function that Yaws calls when passing
    HTTP requests to the ErlyWeb appmod.</td></tr>
+<tr><td valign="top"><a href="#out-2">out/2</a></td><td>This function is useful for embedding the result of a 'phased'  
+ErlyWeb rendering in an ErlyWeb component from the same application,  
+but using a different app controller.</td></tr>
 </table>
 
 <h2><a name="functions">Function Details</a></h2>
@@ -61,7 +64,10 @@ extension are compiled with ErlTL.</p>
 ErlyWeb also lets you define the following options:</p>
  
    <p>- <code>{last_compile_time, LocalTime}</code>: Tells ErlyWeb to not compile files     
-that haven't changed since LocalTime.</p>
+that haven't changed since LocalTime.     
+Since ErlyWeb 0.7, you can use 'auto' for LocalTime. This     
+instructs ErlyWeb to compile only the files that have changed since     
+the last compilation. This is the recommended option.</p>
  
    <p>- <code>{erlydb_driver, Name}</code>: Tells ErlyWeb which ErlyDB driver to use     
 when calling erlydb:code_gen on models that are placed in src/components.     
@@ -179,6 +185,21 @@ logic for handling client requests for different components.</p>
 <p><tt>out(A::<a href="#type-yaws_arg">yaws_arg()</a>) -&gt; <a href="#type-ret_val">ret_val()</a></tt></p>
 <p>This is the out/1 function that Yaws calls when passing
    HTTP requests to the ErlyWeb appmod.
+ </p>
+
+<h3><a name="out-2">out/2</a></h3>
+<p><tt>out(A::<a href="#type-arg">arg()</a>, AppController::atom()) -&gt; term()</tt></p>
+<p><p>This function is useful for embedding the result of a 'phased'  
+ErlyWeb rendering in an ErlyWeb component from the same application,  
+but using a different app controller.</p>
+ 
+  This function was originally designed to simplify Facebook app development
+  with ErlyWeb using Erlang2Facebook
+  (http://code.google.com/p/erlang2facebook).
+  In erlang2facebook, the fb_canvas component intercepts requests
+  from Facebook and authenticates them. After authentication, it may be
+  useful to start a new ErlyWeb "flow" using an alternative app controller
+  and display the result in of this flow the output of fb_canvas.
  </p>
 </body>
 </html>

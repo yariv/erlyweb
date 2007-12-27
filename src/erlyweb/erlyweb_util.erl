@@ -87,7 +87,7 @@ app_controller(AppName) ->
 	 "-export([hook/1]).\n\n"
 	 "hook(A) ->\n"
 	 "\t{phased, {ewc, A},\n"
-	 "\t\tfun(_Ewc, Data) ->\n"
+	 "\t\tfun(_Ewc, Data, _PhasedVars) ->\n"
 	 "\t\t\t{ewc, html_container, index, [A, {data, Data}]}\n"
 	 "\t\tend}."],
     iolist_to_binary(Text).

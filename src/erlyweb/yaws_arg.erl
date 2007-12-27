@@ -20,7 +20,9 @@
 -module(yaws_arg).
 -author("Yariv Sadan (yarivsblog@gmail.com)").
 
--export([new/0, clisock/1, clisock/2, client_ip_port/1, client_ip_port/2,
+-export([new/0,
+	 add_to_opaque/2, add_all_to_opaque/2, get_opaque_val/2,
+	 clisock/1, clisock/2, client_ip_port/1, client_ip_port/2,
 	 headers/1, headers/2, req/1, req/2,
 	 method/1, clidata/1, clidata/2, server_path/1, server_path/2,
 	 querydata/1, querydata/2, appmoddata/1, appmoddata/2, docroot/1,
@@ -32,6 +34,26 @@
 %% @doc Create a new 'arg' record.
 new() ->
     #arg{}.
+
+%% @equiv Arg#arg{opaque = [Val | A#arg.opaque]}
+add_to_opaque(Arg, Val) ->
+    Arg#arg{opaque = [Val | Arg#arg.opaque]}.
+
+%% @doc applies add_to_opaque for all values in the list
+%%
+%% @spec add_all_to_opaque(A::arg(), Vals::[term()]) -> arg()
+add_all_to_opaque(A, Vals) ->
+    lists:foldl(
+      fun(Val, A1) ->
+	      add_to_opaque(A1, Val)
+      end, A, Vals).
+
+%% @doc Return the value corrsponding to the Key in the opaque proplist.
+%% If the key isn't found, return 'undefined'.
+%%
+%% @spec get_opaque_val(A::arg(), Key::term()) -> term() | undefined
+get_opaque_val(A, Key) ->
+    proplists:get_value(Key, yaws_arg:opaque(A)).
 
 clisock(Arg) ->
     Arg#arg.clisock.

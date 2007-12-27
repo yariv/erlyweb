@@ -84,7 +84,7 @@ that defines the conditions in a {where, Conditions} clause.</p>
   fields.</td></tr>
 <tr><td valign="top"><a href="#aggregate_related_many_to_many-7">aggregate_related_many_to_many/7</a></td><td>This function works as <a href="#aggregate_related_many_to_one-5"><code>aggregate_related_many_to_one/5</code></a>, but
   for modules defining many-to-many relations.</td></tr>
-<tr><td valign="top"><a href="#aggregate_related_many_to_one-6">aggregate_related_many_to_one/6</a></td><td>Get aggregate statistics about fields from related records in  
+<tr><td valign="top"><a href="#aggregate_related_many_to_one-7">aggregate_related_many_to_one/7</a></td><td>Get aggregate statistics about fields from related records in  
 one-to-many relations.</td></tr>
 <tr><td valign="top"><a href="#before_delete-1">before_delete/1</a></td><td>A hook that gets called before a record is deleted.</td></tr>
 <tr><td valign="top"><a href="#before_save-1">before_save/1</a></td><td>A hook that gets called before a record is saved.</td></tr>
@@ -126,8 +126,8 @@ to the Where and Extras expressions.</td></tr>
 according to the Where and Extras expressions.</td></tr>
 <tr><td valign="top"><a href="#find_related_many_to_many-5">find_related_many_to_many/5</a></td><td>This function works as <a href="#find_related_many_to_one-4"><code>find_related_many_to_one/4</code></a>, but
   for modules defining many-to-many relations.</td></tr>
-<tr><td valign="top"><a href="#find_related_many_to_one-4">find_related_many_to_one/4</a></td><td>Find the set of related records in a one-to-many relation.</td></tr>
-<tr><td valign="top"><a href="#find_related_one_to_many-2">find_related_one_to_many/2</a></td><td>Find the related record for a record from a module having a  
+<tr><td valign="top"><a href="#find_related_many_to_one-5">find_related_many_to_one/5</a></td><td>Find the set of related records in a one-to-many relation.</td></tr>
+<tr><td valign="top"><a href="#find_related_one_to_many-3">find_related_one_to_many/3</a></td><td>Find the related record for a record from a module having a  
 many-to-one relation.</td></tr>
 <tr><td valign="top"><a href="#get-2">get/2</a></td><td>A generic getter function ErlyDB uses to generate getters, e.g.</td></tr>
 <tr><td valign="top"><a href="#get_module-1">get_module/1</a></td><td>Get the name of the module to which the record belongs.</td></tr>
@@ -159,7 +159,7 @@ property list, e.g.</td></tr>
 <tr><td valign="top"><a href="#set_fields_from_strs-3">set_fields_from_strs/3</a></td><td>Equivalent to <a href="#set_fields-4"><tt>set_fields(Module, Record, Fields,
 	   fun field_from_string/2)</tt></a>.
 </td></tr>
-<tr><td valign="top"><a href="#set_related_one_to_many-2">set_related_one_to_many/2</a></td><td>Set the foreign key fields of a record from a module having a  
+<tr><td valign="top"><a href="#set_related_one_to_many-3">set_related_one_to_many/3</a></td><td>Set the foreign key fields of a record from a module having a  
 many-to-one relation to the primary key values of the Other record.</td></tr>
 <tr><td valign="top"><a href="#table-0">table/0</a></td><td>Return the name of the table that holds the records for this module.</td></tr>
 <tr><td valign="top"><a href="#to_iolist-2">to_iolist/2</a></td><td>Equivalent to <a href="#to_iolist-3"><tt>to_iolist(Module, Recs, fun field_to_iolist/2)</tt></a>.
@@ -255,8 +255,8 @@ would generate the following functions:</p>
  </p>
 <p><b>See also:</b> <a href="#aggregate_related_many_to_one-5">aggregate_related_many_to_one/5</a>.</p>
 
-<h3><a name="aggregate_related_many_to_one-6">aggregate_related_many_to_one/6</a></h3>
-<p><tt>aggregate_related_many_to_one(OtherModule::atom(), AggFunc::atom(), Rec::<a href="#type-record">record()</a>, Field::atom(), Where::<a href="#type-where_expr">where_expr()</a>, Extras::<a href="#type-extras_expr">extras_expr()</a>) -&gt; float() | integer() | <a href="#type-exit">exit(Err)</a></tt></p>
+<h3><a name="aggregate_related_many_to_one-7">aggregate_related_many_to_one/7</a></h3>
+<p><tt>aggregate_related_many_to_one(OtherModule::atom(), PkFks::term(), AggFunc::atom(), Rec::<a href="#type-record">record()</a>, Field::atom(), Where::<a href="#type-where_expr">where_expr()</a>, Extras::<a href="#type-extras_expr">extras_expr()</a>) -&gt; float() | integer() | <a href="#type-exit">exit(Err)</a></tt></p>
 <p><p>Get aggregate statistics about fields from related records in  
 one-to-many relations.</p>
  
@@ -583,8 +583,8 @@ according to the Where and Extras expressions.</p>
  </p>
 <p><b>See also:</b> <a href="#find_related_many_to_one-4">find_related_many_to_one/4</a>.</p>
 
-<h3><a name="find_related_many_to_one-4">find_related_many_to_one/4</a></h3>
-<p><tt>find_related_many_to_one(OtherModule::atom(), Rec::<a href="#type-record">record()</a>, Where::<a href="#type-where_expr">where_expr()</a>, Extras::<a href="#type-extras_expr">extras_expr()</a>) -&gt; [<a href="#type-record">record()</a>] | <a href="#type-exit">exit(Err)</a></tt></p>
+<h3><a name="find_related_many_to_one-5">find_related_many_to_one/5</a></h3>
+<p><tt>find_related_many_to_one(OtherModule::atom(), PkFks::term(), Rec::<a href="#type-record">record()</a>, Where::<a href="#type-where_expr">where_expr()</a>, Extras::<a href="#type-extras_expr">extras_expr()</a>) -&gt; [<a href="#type-record">record()</a>] | <a href="#type-exit">exit(Err)</a></tt></p>
 <p><p>Find the set of related records in a one-to-many relation.</p>
  
   <p>This function isn't meant to be used directly; ErlyDB uses this function  
@@ -617,8 +617,8 @@ functions to the 'dog' module:</p>
  </p>
 <p><b>See also:</b> <a href="#find-3">find/3</a>, <a href="#find_first-3">find_first/3</a>, <a href="#find_max-4">find_max/4</a>, <a href="#find_range-5">find_range/5</a>.</p>
 
-<h3><a name="find_related_one_to_many-2">find_related_one_to_many/2</a></h3>
-<p><tt>find_related_one_to_many(OtherModule::atom(), Rec::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<h3><a name="find_related_one_to_many-3">find_related_one_to_many/3</a></h3>
+<p><tt>find_related_one_to_many(OtherModule::atom(), PkFkfields::<a href="#type-proplist">proplist()</a>, Rec::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
 <p><p>Find the related record for a record from a module having a  
 many-to-one relation.</p>
  
@@ -835,8 +835,8 @@ value.</p>
 
 <p><b>See also:</b> <a href="#field_from_string-2">field_from_string/2</a>.</p>
 
-<h3><a name="set_related_one_to_many-2">set_related_one_to_many/2</a></h3>
-<p><tt>set_related_one_to_many(Rec::<a href="#type-record">record()</a>, Other::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
+<h3><a name="set_related_one_to_many-3">set_related_one_to_many/3</a></h3>
+<p><tt>set_related_one_to_many(Rec::<a href="#type-record">record()</a>, PkFkFields::<a href="#type-proplist">proplist()</a>, Other::<a href="#type-record">record()</a>) -&gt; <a href="#type-record">record()</a> | <a href="#type-exit">exit(Err)</a></tt></p>
 <p><p>Set the foreign key fields of a record from a module having a  
 many-to-one relation to the primary key values of the Other record.</p>
  

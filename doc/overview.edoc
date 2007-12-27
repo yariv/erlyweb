@@ -231,19 +231,14 @@ http://my-cool-app.com/people/bob
 '''
 
 ErlyWeb by default would try to invoke the function 'bob/1' in
-people_controller. This is probably not what you want. Instead, you
-probably want "bob" to be a parameter to a single generic function in
-people_controller. You can accomplish this by implementing the
-'people' component as follows:
+people_controller. You can tell ErlyWeb to override this behavior and instead
+pass "bob" as a parameter to people_controller:catch_all/2 as follows:
 
 people_controller.erl:
 
 ```
 -module(people_controller).
 -export(index/1, catch_all/2).
-
-index(_A) ->
-  {data, undefined}.
 
 catch_all(A, [Name]) ->
   {data, Name}.
@@ -252,9 +247,6 @@ catch_all(A, [Name]) ->
 people_view.et:
 
 ```
-<%@ index(_) %>
-nothing much here
-
 <%@ catch_all(Name) %>
 <% Name %>'s homepage
 ...
@@ -414,6 +406,7 @@ home_view.et:
 <% index(Album) %>
 Your favorite album is:<br/>
 <% Album %>
+'''
 
 == The App Controller ==
 
@@ -432,7 +425,7 @@ hook(A::arg()) -> hook_result() | [hook_result()]
 
 hook_result = ewc() | yaws_term() | response() |
   {phased, Ewc::ewc() | Response::response(),
-    fun(ExpandedEwc::ewc(), Data::iolist()) ->
+    fun(ExpandedEwc::ewc(), Data::iolist(), PhasedVars::proplist()) ->
       FinalEwc::ewc()}
 
 ewc() = any `ewc' tuple
@@ -461,45 +454,149 @@ top-level components. If you return a different `ewc' tuple (e.g. one
 returned by calling {@link erlyweb:get_initial_ewc/1}), ErlyWeb expects you
 to ensure the safety of your components manually.
 
-In ErlyWeb 0.5, the `phased' return type was introduced to faciliate
-the conditional embedding of any rendered data in containers
-(before ErlyWeb 0.5, a similar, but weaker functionality was provided by
-app views, which ErlyWeb no longer supports). By returning
-`{phased, Ewc, Fun}', you are instructing ErlyWeb to first render the
+=== Phased Rendering ===
+
+In ErlyWeb 0.5, the `phased' return type for hook/1 was introduced to let you
+embed components in containers after those components are rendered
+but before the result of the rendering is sent to the browser
+(before ErlyWeb 0.5, a similar but weaker functionality was provided by
+app views, which ErlyWeb no longer supports). The most common use for this
+feature is to make ErlyWeb render different components
+with the same outer layout (header, footer, and/or sidebars).
+
+The reason this is feature called 'phased rendering' is that it makes
+ErlyWeb render the response in two phases: first,
+the requested component, and second, the container in which the
+component should be embedded.
+
+The benefits of phased rendering are:
+
+<ul>
+<li>The second phase is only executed if the first phase returns a rendered
+iolist. If the controller function from the first phase returns just
+headers (this frequently happens on redirects),
+ErlyWeb doesn't waste resources rendering any headers and footers.</li>
+<li>The components are ignorant of the containers in which they are embedded.
+This introduces fewer dependencies into the components' code and hence
+makes them more reusable and modular.</li>
+<li>The hook/1 function can use arbitrary logic to decide which component to
+render in the second phase based on the request data and the value returned
+by the controller function in PhasedVars (there will be more on that soon).
+This high degree of granularity allows you, for example, to disable headers
+and footers when rendering the response for an AJAX request as opposed to
+a regular page load, or to tell ErlyWeb to different layouts for
+different component requests.</li>
+</ul>
+
+To use phased rendering, you should return a tuple of the form
+`{phased, Ewc, Fun}' from hook/1. This return value instructs
+ErlyWeb to first render the
 requested component, and if the result includes a rendered
-iolist (i.e., the requested component didn't return only headers),
-then nest the resulting iolist in a container before returning it.
+iolist (i.e., the requested component returned a body and not just headers)
+then pass the iolist to the function Fun.
 
-This approach is superior to directly embedding the requested component in a
-container because it allows the requested component to return headers
-(sub-components aren't allowed to return the `{response, Elems}' tuple,
-as discussed above). In addition, this approach lets ErlyWeb skip the
-unnecessary rendering of the container when the requested component
-returns only headers.
+Fun takes 3 parameters: the fully expanded 'ewc' tuple
+that ErlyWeb has rendered  (this is usually the result of calling
+`erlyweb:get_initial_ewc({ewc, A})'), the rendered
+iolist, and an opaque parameter called 'PhasedVars' (PhasedVars was
+introduced in ErlyWeb 0.7). Through its return value, Fun can tell
+ErlyWeb to pass the iolist as a parameter to the container component
+function that will be used in the second rendering phase.
 
-Consider this trivial example: returning
+PhasedVars is a list of values returned from
+the rendered controller function, in a special tuple of the type
+`{phased_vars, Vars}' (an example is shown below). This tuple should be
+included in the Elems list of the `{response, Elems}' tuple that controller
+functions may return (see the section {@section Returning Arbitrary YAWS Tuples} for more info).
+
+The purpose of 'PhasedVars' is to let the controller
+function parameterize the component that is rendered in the second phase.
+It is useful, for example, for letting
+the controller function set the title of a page when the page's header
+is rendered by the container in the second rendering phase.
+
+Fun may return any 'ewc' or 'data' tuple. ErlyWeb takes the result of Fun,
+renders it, and send the result back to the browser.
+
+Consider this example return value from hook/1:
 
 ```
-{phased, {ewc, A}, fun(_Ewc, Data) -> {data, Data} end}
+{phased, {ewc, A}, fun(_Ewc, Data, _PhasedVars) -> {data, Data} end}
 '''
 
-is tantamount to returning
+It is equivalent to returning
 
 ```
 {ewc, A}
 '''
 
-Another example: the return value below
+Both return values tells ErlyWeb to render the component
+that corresponds to the arg's appmoddata field, and then return
+the rendered iolist to the browser verbatim.
+
+Below is a more advanced example.
 
 ```
 {phased, {ewc, A},
-  fun(_Ewc, Data) ->
-    {html_container, index, [A, {data, Data}]}
+  fun(_Ewc, Data, PhasedVars) ->
+    {html_container,
+      [A, {data, Data}, proplists:get_value(title, PhasedVars)]}
   end}
 '''
 
-tells ErlyWeb to embed any rendered data in html_container by passing
-the parameters `[A, {data, Data}]' to its 'index' function.
+This return value tells ErlyWeb to first render the component that corresponds
+to the arg's appmoddata field, and then pass the rendered iolist
+(the 'Data' variable) as the second parameter to
+html_container_controller:index/3. The third parameter is the 'title' property
+that may exist in the PhasedVars property list, or 'undefined' if the 'title'
+property doesn't exist.
+
+How do you set the value of PhasedVars? Below is
+an example controller function for an 'album' component that fetches from
+the database an album and its related songs, passes the song names to the
+view function, and sets the page's title according to the album name.
+
+album_controller.erl:
+
+```
+show(A, Id) ->
+  Album = album:find_id(Id),
+  AlbumName = album:name(Album),
+  Songs = album:songs(Album),
+  {response,
+    [{phased_vars, [{title, [<<"song list for ">>, AlbumName]}]},
+     {body, {data, [{song:name(S) || S <- Songs}]}}]}.
+'''
+
+This code snippet exemplifies how a controller function can tell ErlyWeb
+both what data to pass to the view function as well as the value of the
+PhasedVars parameter that will be passed to Fun in the second rendering phase.
+
+Finally, below is an example html_container component that takes the rendered
+iolist and the 'title' parameter and inserts them into the proper positions
+in the HTML page.
+
+html_container_controller.erl:
+
+```
+index(A, Ewc, Title) ->
+  [Ewc, {data, Title}].
+'''
+
+html_container_view.et:
+
+```
+<%@ index([Data, Title]) %>
+<html>
+<head>
+<title><% Title %></title>
+</head>
+<body>
+<% Data %>
+</body>
+</html>
+'''
+
 
 === error/3 ===
 
