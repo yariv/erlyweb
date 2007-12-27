@@ -363,7 +363,12 @@ ewr2(A, PathElems) ->
     Elems = [if is_atom(Elem) -> atom_to_list(Elem);
 		true -> Elem
 	     end || Elem <- PathElems],
-    AppDir = get_app_root(A),
+    AppDir = case get_app_root(A) of
+		 "/" ->
+		     [];
+		 Other ->
+		     Other
+	     end,
     Path = lists:foldr(
 	     fun(Elem, []) -> [Elem];
 		(Elem, Acc) -> [Elem, $/ | Acc]
@@ -457,7 +462,7 @@ get_app_root(A) ->
 	lists:split(
 	  length(ServerPath) -
 	  length(yaws_arg:appmoddata(A)),
-	  ServerPath),
+	  ServerPath), 
     First.
 
 lookup_app_data_module(A) ->
