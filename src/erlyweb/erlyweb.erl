@@ -187,9 +187,19 @@ out(A) ->
 %% @spec out(A::arg(), AppController::atom()) -> term()
 out(A, AppController) ->
     AppData = proplists:get_value(app_data_module, yaws_arg:opaque(A)),
-    handle_request(A,
-		   AppController, AppController:hook(A),
-		   AppData).
+    %% catch any exits from hook/1
+    Req = case catch AppController:hook(A) of
+	      {'EXIT', Err} ->
+		  case catch AppController:error(A, undefined, Err) of
+		      {'EXIT', _} = Err1 ->
+			  Err1;
+		      Ewc ->
+			  Ewc
+		  end;
+	      Ewc ->
+		  Ewc
+	  end,
+    handle_request(A, AppController, Req, AppData).
 
 %% checks that at least 3 seconds have passed since the last compilation
 %% and that the request doesn't match the optional auto_compile_exclude
@@ -224,7 +234,8 @@ auto_compile1(AppData, Options) ->
 
 handle_request(A,
 	       AppController,
-	       {phased, Ewc, Func}, AppData) ->
+	       {phased, Ewc, Func},
+	       AppData) ->
     {Ewc1, Rest} = get_initial_ewc1(Ewc, AppData),
     handle_request(
       A,
@@ -232,19 +243,21 @@ handle_request(A,
       Ewc1, Rest, AppData,
       fun(Data, PhasedVars) ->
 	      DataEwc = Func(Ewc1, Data, PhasedVars),
-	      render_subcomponent(DataEwc, AppData)
+	      {Body, Rest1} =
+		  get_initial_ewc1(DataEwc, AppData),
+	      {render_subcomponent(Body, AppData), Rest1}
       end);
 handle_request(A,
 	       AppController,
-	       Ewc, AppData) ->
+	       Ewc,
+	       AppData) ->
     {Ewc1, Rest} = get_initial_ewc1(Ewc, AppData),
     handle_request(
       A,
       AppController,
       Ewc1, Rest, AppData,
-      %% ignore the phased vars if the response isn't rendered in 2 phases
-      fun(Data, _PhasedVars) -> 
-	      Data
+      fun(Data, _PhasedVars) ->
+	      {Data, []}
       end).
 
 handle_request(_A, _AppController, undefined, Rest, _AppData,
@@ -258,16 +271,19 @@ handle_request(A, AppController, Ewc, Rest, AppData, PostRenderFun) ->
 	    PhasedVars = lists:append(
 			   proplists:get_all_values(
 			     phased_vars, PhasedVarsElems)),
-	    Rest ++
-		lists:map(
-		  fun({rendered, Data}) -> 
-			  {html, PostRenderFun(Data, PhasedVars)};
-		     ({rendered, MimeType, Data}) -> 
-			  {content, MimeType,
-			   PostRenderFun(Data, PhasedVars)};
-		     (Other) ->
-			  Other
-		  end, OtherElems);
+	    Result =
+		Rest ++
+		lists:foldl(
+		  fun({rendered, Data}, Acc) -> 
+			  {Html, Rest1} = PostRenderFun(Data, PhasedVars),
+			  [{html, Html} | Rest1] ++ Acc;
+		     ({rendered, MimeType, Data}, Acc) -> 
+			  {Html, Rest1} = PostRenderFun(Data, PhasedVars),
+			  [{content, MimeType, Html} | Rest1] ++ Acc;
+		     (Other, Acc) ->
+			  [Other | Acc]
+		  end, [], OtherElems),
+	    Result;
 	{'EXIT', _} = Err ->
 	    case catch AppController:error(A, Ewc, Err) of
 		{'EXIT', _} ->
@@ -524,12 +540,18 @@ get_app_name(A) ->
 %% @spec get_app_root(A::arg()) -> string()
 get_app_root(A) ->
     ServerPath = yaws_arg:server_path(A),
-    {First, _Rest} =
-	lists:split(
-	  length(ServerPath) -
-	  length(yaws_arg:appmoddata(A)),
-	  ServerPath),
-    First.
+    L1 = length(ServerPath),
+    L2 = length(yaws_arg:appmoddata(A)),
+    if L2 > L1 ->
+	    "/";
+       true ->
+	    {First, _Rest} =
+		lists:split(
+		  length(ServerPath) -
+		  length(yaws_arg:appmoddata(A)),
+		  ServerPath),
+	    First
+    end.
 
 lookup_app_data_module(A) ->
     proplists:get_value(app_data_module, yaws_arg:opaque(A)).

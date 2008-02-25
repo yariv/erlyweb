@@ -37,11 +37,11 @@ join([First | Rest], Acc) ->
 <%@ headers(Headers) %>
 <tr><% [header(H) || H <- Headers] %></tr>
 
-<%@ header %>
+<%@ header(Data) %>
 <th><% Data %></th>
-<%@ row %>
+<%@ row(Data) %>
 <tr><% [cell(C) || C <- Data] %></tr>
-<%@ cell %>
+<%@ cell(Data) %>
 <td><% Data %></td>
 
 <%@ form(Action, Function, Fields) %>
@@ -57,6 +57,7 @@ join([First | Rest], Acc) ->
 <%@ field({Name, Type, Modifier, Val} = Field) %>
 <tr><td valign="top"><% Name %></td><td><% input(Name, Type, Modifier, Val) %></td></tr>
 
+<%@ input(Name) %><% input(Name, text_field, undefined, []) %>
 <%@ input(Name, text_area, _Modifier, Val) %>
 <textarea name="<% Name %>" rows="10" cols="40"><% Val %></textarea>
 
@@ -74,3 +75,5 @@ join([First | Rest], Acc) ->
 
 <%@ option(Name, _Val) %>
 <option><% Name %></option>
+
+<%@ img(Src, Width, Height) %><img src="<% Src %>" width="<% Width %>" height="<% Height %>"/>
