@@ -509,12 +509,14 @@ extras([Extra | Extras], QHDesc) ->
 extras([], QHDesc) ->
     QHDesc;
 
-extras({order_by, Field}, #qhdesc{metadata = QLCData} = QHDesc) when is_atom(Field) ->
+extras({order_by, {Field, Order}}, #qhdesc{metadata = QLCData} = QHDesc) when is_atom(Field) ->
     QHDesc#qhdesc{postqh =
 		fun(QH, QHOptions) ->
-            [Table | _Rest] = dict:fetch(tables, QLCData),
-            qlc:keysort(dict:fetch({index,Table,Field}, QLCData), QH, QHOptions)
-        end};
+			[Table | _Rest] = dict:fetch(tables, QLCData),
+			SortOptions = [{order, translate_order(Order)} | QHOptions],
+			qlc:keysort(dict:fetch({index,Table,Field}, QLCData), QH,
+				    SortOptions)
+		end};
 extras({limit, Limit}, QHDesc) ->
     QHDesc#qhdesc{evalfun = 
         fun(QH, QHOptions) ->
@@ -540,6 +542,8 @@ extras(Extras, _QHDesc) ->
     ?L(["Unhandled extras: ", Extras]),
     exit("Unhandled extras").
 
+translate_order(asc) -> ascending;
+translate_order(desc) -> descending.
 
 postqh(QueryHandle, _QHOptions) ->
     QueryHandle.
