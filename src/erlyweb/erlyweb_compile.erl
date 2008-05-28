@@ -436,8 +436,10 @@ should_compile(FileName,BaseName,auto) ->
                 ModuleAtom when is_atom(ModuleAtom) ->
                     %% and try to locate the actual module, then
                     %% extract the last compile time
-                    case catch(lists:keysearch(time,1,
-                                               ModuleAtom:module_info(compile))) of
+                    case catch(
+			   lists:keysearch(
+			     time,1,
+			     ModuleAtom:module_info(compile))) of
                         {value,
                          {time,
                           {Year,Month,Day,Hour,Minute,Second}}} ->
@@ -447,9 +449,11 @@ should_compile(FileName,BaseName,auto) ->
                             
                             %% compile-time is in universal time, but
                             %% mtime is in local time
-                            CompileTime=calendar:universal_time_to_local_time({{Year,Month,Day},
-                                                                               {Hour,Minute,Second}}),
-                            Mtime >= calendar:datetime_to_gregorian_seconds(CompileTime);
+                            CompileTime =
+				     calendar:universal_time_to_local_time(
+				       {{Year,Month,Day},
+					{Hour,Minute,Second}}),
+				 Mtime >= calendar:datetime_to_gregorian_seconds(CompileTime);
                         _ ->
                             %% some part of finding the last
                             %% compile-time failed

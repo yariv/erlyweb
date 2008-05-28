@@ -186,7 +186,7 @@ out(A) ->
 %%
 %% @spec out(A::arg(), AppController::atom()) -> term()
 out(A, AppController) ->
-    AppData = proplists:get_value(app_data_module, yaws_arg:opaque(A)),
+    AppData = get_app_data(A),
     %% catch any exits from hook/1
     Req = case catch AppController:hook(A) of
 	      {'EXIT', Err} ->
@@ -199,7 +199,11 @@ out(A, AppController) ->
 	      Ewc ->
 		  Ewc
 	  end,
-    handle_request(A, AppController, Req, AppData).
+     case is_redirect(A, Req) of
+	 {true, Val} -> Val;
+	 _ ->
+	    handle_request(A, AppController, Req, AppData)
+    end.
 
 %% checks that at least 3 seconds have passed since the last compilation
 %% and that the request doesn't match the optional auto_compile_exclude
@@ -333,7 +337,7 @@ get_initial_ewc(Ewc) ->
     element(1, get_initial_ewc1(Ewc)).
 
 get_initial_ewc1({ewc, A} = Ewc) ->
-    AppData = lookup_app_data_module(A),
+    AppData = get_app_data(A),
     get_initial_ewc1(Ewc, AppData).
 get_initial_ewc1({ewc, A}, AppData) ->
     case get_ewc(A, AppData) of
@@ -488,7 +492,7 @@ render_subcomponent(Ewc, AppData) ->
     end.
 
 get_ewc(A) ->
-    get_ewc(A, lookup_app_data_module(A)).
+    get_ewc(A, get_app_data(A)).
 
 get_ewc(A, AppData) ->
     Prefix = erlyweb_util:get_url_prefix(A),
@@ -553,6 +557,7 @@ get_app_root(A) ->
 	    First
     end.
 
-lookup_app_data_module(A) ->
+get_app_data(A) ->
     proplists:get_value(app_data_module, yaws_arg:opaque(A)).
+
 
