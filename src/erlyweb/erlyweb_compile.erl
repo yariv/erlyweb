@@ -343,33 +343,30 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
 		     when Name == before_return;
 			  Name == before_call;
 			  Name == module_info ->
-					  Acc1;
-					({_, 0}, Acc1) ->
-					  Acc1;
-					({Name, Arity}, Acc1) ->
-					  [{Name, Arity} | Acc1]
-				  end, [], Exports),
-			  {ActionName, _} = lists:split(length(BaseName) - 11, BaseName),
-			  {gb_trees:enter(
-			     ActionName, Exports1, ComponentTree),
-			   Models};
-			  {{ok, _Module}, model} ->
-			  {ComponentTree, [FileName | Models]};
-		     {{ok, _Module}, _} -> Acc;
-		     {ok, _} -> Acc;
-		     {Err, _} -> exit(Err)
-		  end.
+			  Acc1;
+		     ({_, 0}, Acc1) ->
+			  Acc1;
+		     ({Name, Arity}, Acc1) ->
+			  [{Name, Arity} | Acc1]
+		  end, [], Exports),
+	    {ActionName, _} = lists:split(length(BaseName) - 11,
+					  BaseName),
+	    {gb_trees:enter(
+	       ActionName, Exports1, ComponentTree),
+	     Models};
+	{{ok, _Module}, model} ->
+	    {ComponentTree, [FileName | Models]};
+	{{ok, _Module}, _} -> Acc;
+	{ok, _} -> Acc;
+	{Err, _} -> exit(Err)
+    end.
 
-compile_file(_FileName, [$. | _] = BaseName, _Extension, _Type,
+compile_file(_FileName, [$. | _] = BaseName, _Extension, _Type, 
 _LastCompileTimeInSeconds, _Options, _IncludePaths) ->
     ?Debug("Ignoring file ~p", [BaseName]),
     {ok, ignore};
 compile_file(FileName, BaseName, Extension, Type,
 	     LastCompileTimeInSeconds, Options, IncludePaths) ->
-    %% ?Debug("Filename: ~p~nBaseName: ~p~nExtension: ~p~nType: ~p~n" ++
-    %%        "LastCompileTimeInSeconds: ~p~nOptions: ~p~nIncludePaths: ~p~n",
-    %%       [FileName, BaseName, Extension, Type,
-    %%        LastCompileTimeInSeconds, Options, IncludePaths]),
     case should_compile(FileName,BaseName,LastCompileTimeInSeconds) of
         true ->
             case Extension of
