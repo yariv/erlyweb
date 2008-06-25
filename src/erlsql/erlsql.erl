@@ -124,8 +124,7 @@ encode(Val, false) when is_list(Val) ->
 encode(Val, false) when is_integer(Val) ->
     integer_to_list(Val);
 encode(Val, false) when is_float(Val) ->
-    [Res] = io_lib:format("~w", [Val]),
-    Res;
+    mochinum:digits(Val);
 encode({datetime, Val}, AsBinary) ->
     encode(Val, AsBinary);
 encode({{Year,Month,Day}, {Hour,Minute,Second}}, false) ->

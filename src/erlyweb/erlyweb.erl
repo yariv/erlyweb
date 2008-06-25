@@ -199,11 +199,13 @@ out(A, AppController) ->
 	      Ewc ->
 		  Ewc
 	  end,
-     case is_redirect(A, Req) of
-	 {true, Val} -> Val;
-	 _ ->
-	    handle_request(A, AppController, Req, AppData)
-    end.
+    Res = case is_redirect(A, Req) of
+	      {true, Val} ->
+		  Val;
+	      _ ->
+		  handle_request(A, AppController, Req, AppData)
+	  end,
+    Res.
 
 %% checks that at least 3 seconds have passed since the last compilation
 %% and that the request doesn't match the optional auto_compile_exclude
