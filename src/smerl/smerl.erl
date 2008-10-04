@@ -580,7 +580,7 @@ compile(MetaMod, Options) ->
 
     Forms1 = [{attribute, 1, file, {FileName, 1}} | Forms],
     Forms2 = Forms1 ++ lists:reverse(MetaMod#meta_mod.forms),
-
+    
     case compile:forms(Forms2, Options) of
 	{ok, Module, Bin} ->
 	    Res = 

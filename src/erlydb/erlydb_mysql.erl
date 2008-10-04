@@ -98,33 +98,30 @@ start_link(Options) ->
 
 start(Options, Fun, LinkConnections) ->
     [PoolId, Hostname, Port, Username, Password, Database, LogFun,
-     Encoding, PoolSize] =
+     Encoding, PoolSize, Reconnect] =
 	lists:foldl(
 	  fun(Key, Acc) ->
 		  [proplists:get_value(Key, Options) | Acc]
 	  end, [],
 	  lists:reverse([pool_id, hostname, port, username,
-			 password, database, logfun, encoding, poolsize])),
+			 password, database, logfun, encoding, poolsize, reconnect])),
 
     PoolId1 = if PoolId == undefined -> ?Epid; true -> PoolId end,
-    PoolSize1 = if PoolSize == undefined ->
-			1;
-		   true ->
-			PoolSize
-		end,
+    PoolSize1 = if PoolSize == undefined -> 1; true -> PoolSize end,
     Fun(PoolId1, Hostname, Port, Username, Password, Database, LogFun,
 	Encoding),
+    Reconnect1 = if Reconnect == undefined -> true; true -> Reconnect end,
     make_connection(PoolSize1-1, PoolId, Database, Hostname, Port,
-		    Username, Password, Encoding, LinkConnections).
+		    Username, Password, Encoding, Reconnect1, LinkConnections).
 
 %% @doc Create a a number of database connections in the pool.
 make_connection(PoolSize, PoolId, Database, Hostname, Port,
-		  Username, Password, Encoding, LinkConnections) ->
+		  Username, Password, Encoding, Reconnect, LinkConnections) ->
     if PoolSize > 0 ->
 	    connect(PoolId, Hostname, Port, Username, Password, Database,
-		    Encoding, LinkConnections),
+		    Encoding, Reconnect, LinkConnections),
 	    make_connection(PoolSize-1, PoolId, Database, Hostname, Port,
-			    Username, Password, Encoding,
+			    Username, Password, Encoding, Reconnect,
 			    LinkConnections);
        true ->
 	    ok

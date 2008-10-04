@@ -9,6 +9,10 @@ docs:
 	-noshell
 	-run edoc_run application "'ErlyWeb'" '"."' '[no_packages]'
 
+install:
+	
+	cp -r . `erl -noshell -eval 'io:format(code:lib_dir()).' -s erlang halt`/erlyweb-0.7.3
+
 clean:
 	rm ebin/*.beam
 	
