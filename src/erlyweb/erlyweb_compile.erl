@@ -5,7 +5,7 @@
 
 %% For license information see LICENSE.txt
 -module(erlyweb_compile).
--export([compile/2, get_app_data_module/1, compile_file/5]).
+-export([compile/2, get_app_data_module/1, compile_file/5, compile_file/6]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -23,6 +23,13 @@ compile(AppDir, Options) ->
 		  [$/ | _] -> AppDir;
 		  Other -> lists:reverse([$/ | Other])
 	      end,
+
+    Macros = 
+	lists:foldl(
+	  fun({d, M}, Acc) -> [{M, true} | Acc];
+	     ({d, M, V}, Acc) -> [{M, V} | Acc];
+	     (_, Acc) -> Acc
+	  end, [], Options),
 
     IncludePaths =
 	lists:foldl(
@@ -82,7 +89,7 @@ compile(AppDir, Options) ->
     AppControllerFilePath = AppDir1 ++ "src/" ++ AppControllerFile,
     case compile_file(AppControllerFilePath,
 		      AppControllerStr, ".erl", undefined,
-		      LastCompileTimeInSeconds, Options3, IncludePaths) of
+		      LastCompileTimeInSeconds, Options3, IncludePaths, Macros) of
 	{ok, _} -> ok;
 	{ok, _, _, _} -> ok;
 	ok -> ok;
@@ -101,7 +108,7 @@ compile(AppDir, Options) ->
 		  if FileName =/= AppControllerFilePath ->
 			  compile_component_file(
 			    ComponentsDir, http_util:to_lower(FileName),
-			    LastCompileTimeInSeconds, Options3, IncludePaths,
+			    LastCompileTimeInSeconds, Options3, IncludePaths, Macros,
 			    Acc);
 		     true ->
 			  Acc
@@ -119,7 +126,7 @@ compile(AppDir, Options) ->
 		     {value, {erlydb_driver, Drivers}} ->
 			 erlydb:code_gen(lists:reverse(Models),
 					 Drivers,
-					 Options3, IncludePaths);
+					 Options3, IncludePaths, Macros);
 		     false -> {error, missing_erlydb_driver_option}
 		 end
 	end,
@@ -315,7 +322,7 @@ addFinalClauses(Clauses, ComponentStr, Exports) ->
 
 
 compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
-		       Options, IncludePaths, {ComponentTree, Models} = Acc) ->
+		       Options, IncludePaths, Macros, {ComponentTree, Models} = Acc) ->
     BaseName = filename:rootname(filename:basename(FileName)),
     Extension = filename:extension(FileName),
     BaseNameTokens = string:tokens(BaseName, "_"),
@@ -332,7 +339,7 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
 		   other
 	   end,
     case {compile_file(FileName, BaseName, Extension, Type,
-		       LastCompileTimeInSeconds, Options, IncludePaths),
+		       LastCompileTimeInSeconds, Options, IncludePaths, Macros),
 	  Type} of
 	{{ok, Module}, controller} ->
 	    [{exports, Exports} | _] =
@@ -362,11 +369,11 @@ compile_component_file(ComponentsDir, FileName, LastCompileTimeInSeconds,
     end.
 
 compile_file(_FileName, [$. | _] = BaseName, _Extension, _Type, 
-_LastCompileTimeInSeconds, _Options, _IncludePaths) ->
+_LastCompileTimeInSeconds, _Options, _IncludePaths, _Macros) ->
     ?Debug("Ignoring file ~p", [BaseName]),
     {ok, ignore};
 compile_file(FileName, BaseName, Extension, Type,
-	     LastCompileTimeInSeconds, Options, IncludePaths) ->
+	     LastCompileTimeInSeconds, Options, IncludePaths, Macros) ->
     case should_compile(FileName,BaseName,LastCompileTimeInSeconds) of
         true ->
             case Extension of
@@ -378,7 +385,7 @@ compile_file(FileName, BaseName, Extension, Type,
                 ".erl" ->
                     ?Debug("Compiling Erlang file ~p", [BaseName]),
                     compile_file(FileName, BaseName, Type, Options,
-                                 IncludePaths)
+                                 IncludePaths, Macros)
             end;
         false ->
             ok;
@@ -387,7 +394,10 @@ compile_file(FileName, BaseName, Extension, Type,
     end.
 
 compile_file(FileName, BaseName, Type, Options, IncludePaths) ->
-    case smerl:for_file(FileName, IncludePaths) of
+    compile_file(FileName, BaseName, Type, Options, IncludePaths, []).
+
+compile_file(FileName, BaseName, Type, Options, IncludePaths, Macros) ->
+    case smerl:for_file(FileName, IncludePaths, Macros) of
 	{ok, M1} ->
 	    M2 = add_forms(Type, BaseName, M1),
 	    case smerl:compile(M2, Options) of

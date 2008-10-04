@@ -69,8 +69,10 @@
 -export([new/1,
 	 for_module/1,
 	 for_module/2,
+	 for_module/3,
 	 for_file/1,
-	 for_file/2,
+	 for_file/2, 
+	 for_file/3,
          get_module/1,
 	 set_module/2,
          get_forms/1,
@@ -136,6 +138,10 @@ new(ModuleName) when is_atom(ModuleName) ->
 for_module(ModuleName) ->
     for_module(ModuleName, []).
 
+%% @equiv for_module(ModuleName, IncludePaths, [])
+for_module(ModuleName, IncludePaths) ->
+    for_module(ModuleName, IncludePaths, []).
+
 %% @doc Create a meta_mod tuple for an existing module. If ModuleName is a
 %% string, it is interpreted as a file name (this is the same as calling
 %% @{link smerl:for_file}). If ModuleName is an atom, Smerl attempts to
@@ -146,15 +152,16 @@ for_module(ModuleName) ->
 %%
 %% The IncludePaths parameter is used when 'ModuleName' is a file name.
 %%
-%% @spec for_module(ModuleName::atom() | string(), IncludePaths::[string()]) ->
+%% @spec for_module(ModuleName::atom() | string(), IncludePaths::[string()], 
+%%    Macros::[{atom(), term()}]) ->
 %%   {ok, meta_mod()} | {error, Error}
-for_module(ModuleName, IncludePaths) when is_list(ModuleName) ->
-    for_file(ModuleName, IncludePaths);
-for_module(ModuleName, IncludePaths) when is_atom(ModuleName) ->
+for_module(ModuleName, IncludePaths, Macros) when is_list(ModuleName) ->
+    for_file(ModuleName, IncludePaths, Macros);
+for_module(ModuleName, IncludePaths, Macros) when is_atom(ModuleName) ->
     [_Exports, _Imports, _Attributes,
      {compile, [_Options, _Version, _Time, {source, Path}]}] =
 	ModuleName:module_info(),
-    case for_file(Path, IncludePaths) of
+    case for_file(Path, IncludePaths, Macros) of
 	{ok, _Mod} = Res->
 	    Res;
 	_Err ->
@@ -175,13 +182,18 @@ for_module(ModuleName, IncludePaths) when is_atom(ModuleName) ->
 for_file(SrcFilePath) ->
     for_file(SrcFilePath, []).
 
+%% @equiv for_file(SrcFilePath, IncludePaths, [])
+for_file(SrcFilePath, IncludePaths) ->
+    for_file(SrcFilePath, IncludePaths, []).
+
 %% @doc Create a meta_mod for a module from its source file.
 %%
-%% @spec for_file(SrcFilePath::string(), IncludePaths::[string()]) ->
+%% @spec for_file(SrcFilePath::string(), IncludePaths::[string()],
+%%   Macros::[{atom(), term()}]) ->
 %%  {ok, meta_mod()} | {error, invalid_module}
-for_file(SrcFilePath, IncludePaths) ->
+for_file(SrcFilePath, IncludePaths, Macros) ->
     case epp:parse_file(SrcFilePath, [filename:dirname(SrcFilePath) |
-				      IncludePaths], []) of
+				      IncludePaths], Macros) of
 	{ok, Forms} ->
 	    mod_for_forms(Forms);
 	_err ->

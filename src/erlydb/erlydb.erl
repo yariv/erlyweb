@@ -1,7 +1,7 @@
 %% @author Yariv Sadan <yarivsblog@gmail.com> [http://yarivsblog.com]
 %% @copyright Yariv Sadan 2006-2007
 %% @doc ErlyDB: The Erlang Twist on Database Abstraction.
-%%
+%%                                 
 %% == Contents ==
 %%
 %% {@section Introduction}<br/>
@@ -95,7 +95,8 @@
     start/2,
     code_gen/2,
     code_gen/3,
-    code_gen/4]).
+    code_gen/4,
+    code_gen/5]).
 
 -import(erlyweb_util, [log/5]).
 -define(Debug(Msg, Params), log(?MODULE, ?LINE, debug, Msg, Params)).
@@ -148,6 +149,10 @@ code_gen(Modules, Drivers) ->
 %% @equiv code_gen(Modules, Drivers, Options, [])
 code_gen(Modules, Drivers, Options) ->
     code_gen(Modules, Drivers, Options, []).
+
+%% @equiv code_gen(Modules, Drivers, Options, IncludePaths, [])
+code_gen(Modules, Drivers, Options, IncludePaths) ->
+    code_gen(Modules, Drivers, Options, IncludePaths, []).
 
 %% @doc Generate code for the list of modules using the provided drivers.
 %%
@@ -214,6 +219,11 @@ code_gen(Modules, Drivers, Options) ->
 %% Additional include paths that will be used to search for header files
 %% when compiling the modules.
 %%
+%% ==== Macros ====
+%% 
+%% Macro definitions that will be used for conditional compilation.  These are
+%% represented in the same way as 'PredefMacros' in epp:parse_file/2. 
+%%
 %% === Examples ===
 %%
 %% Generate code for "musician.erl" using the MySQL driver. Only the default
@@ -276,17 +286,17 @@ code_gen(Modules, Drivers, Options) ->
 %% a 'driver' option or only a 'pool_id' option.
 %%
 %% @spec code_gen([Module::atom() | string()], [driver()] | driver(),
-%%   Options::[term()], [IncludePath::string()]) -> 
+%%   Options::[term()], [IncludePath::string()], [Macro::{atom(), term()}]) -> 
 %%    ok | {error, Err}
 %% @type driver() = Driver::atom() |
 %%    {Driver::atom(),  DriverOptions::proplist()} |
 %%   {Driver::atom(), DriverOptions::proplist(), [pool()]}
 %% @type pool() = PoolId::atom() | {default, PoolId::atom()}
-code_gen(_Modules, [], _Options, _IncludePaths) ->
+code_gen(_Modules, [], _Options, _IncludePaths, _Macros) ->
     exit(no_drivers_specified);
-code_gen(Modules, Driver, Options, IncludePaths) when not is_list(Driver) ->
-    code_gen(Modules, [Driver], Options, IncludePaths);
-code_gen(Modules, Drivers, Options, IncludePaths) ->
+code_gen(Modules, Driver, Options, IncludePaths, Macros) when not is_list(Driver) ->
+    code_gen(Modules, [Driver], Options, IncludePaths, Macros);
+code_gen(Modules, Drivers, Options, IncludePaths, Macros) ->
 
     %% Normalize the driver tuples.
     DriverTuples =
@@ -360,12 +370,12 @@ code_gen(Modules, Drivers, Options, IncludePaths) ->
       fun(Module) ->
 	      DefaultDriverMod = element(1, hd(DriverTuples)),
 	      gen_module_code(Module, DefaultDriverMod, DriversData,
-				  Options, IncludePaths)
+				  Options, IncludePaths, Macros)
       end, Modules).
 
 gen_module_code(ModulePath, DefaultDriverMod,
-	       DriversData, Options, IncludePaths) ->   
-    case smerl:for_module(ModulePath, IncludePaths) of
+	       DriversData, Options, IncludePaths, Macros) ->   
+    case smerl:for_module(ModulePath, IncludePaths, Macros) of
 	{ok, C1} ->
 	    C2 = preprocess_and_compile(C1),
 	    Module = smerl:get_module(C2),
