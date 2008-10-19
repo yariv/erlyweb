@@ -1,4 +1,5 @@
 #!/bin/bash
+
 ERLIB=$(erl -noshell -eval 'io:format(code:lib_dir()).' -s erlang halt)
 YAWS=$(ls $ERLIB | grep yaws)
 
