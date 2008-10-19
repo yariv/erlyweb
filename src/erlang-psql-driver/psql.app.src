@@ -1,0 +1,13 @@
+%% copyright 2006 Reliance Commnication inc
+%% author  Martin Carlson
+%% version $Rev$
+%% psql spec
+%%-------------------------------------------------------------------
+{application, psql, [{description, "psql $Rev$"},
+  {vsn, "0.0.2"},
+	{modules, [Modules]},
+	{registered, [psql_sup]},
+	{applications, [kernel, stdlib]},
+	{mod, {psql, []}},
+	{env, [{erlydb_psql, {"localhost", 5432, "postgres", "password", "test"}},
+    		 {pools, [{erlydb_psql, 1}]}]}]}.
